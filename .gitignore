@@ -1,0 +1,32 @@
+# IDEs and Editors
+.idea/
+.vscode/
+*.swp
+*.iml
+
+# Java / Maven
+target/
+*.class
+*.jar
+*.war
+*.ear
+.mvn/wrapper/maven-wrapper.properties
+
+# Logs
+*.log
+logs/
+
+# Tools and Local Environment (Heavy binaries and data)
+tools/
+scripts/pgpass.txt
+
+# OS Generated
+.DS_Store
+Thumbs.db
+
+# Frontend (Future)
+node_modules/
+dist/
+build/
+.env
+.env.local
