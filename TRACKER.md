@@ -48,12 +48,12 @@ Based on `docs/SPEC.MD`.
 
 
 ## 6.3 Sales Invoice (Slice A)
-- [ ] **PROMPT C1: SalesInvoice Domain**
-    - [ ] SalesInvoice Header & Lines
-    - [ ] Calculations (Taxable, Taxes, Grand Total)
-- [ ] **PROMPT C2: Posting Engine**
-    - [ ] StockLedgerEntry (OUT)
-    - [ ] GLTransaction & GLLine (Dr AR, Cr Sales, Cr Output Tax)
+- [x] **PROMPT C1: SalesInvoice Domain**
+    - [x] SalesInvoice Header & Lines
+    - [x] Calculations (Taxable, Taxes, Grand Total)
+- [x] **PROMPT C2: Posting Engine**
+    - [x] StockLedgerEntry (OUT)
+    - [x] GLTransaction & GLLine (Dr AR, Cr Sales, Cr Output Tax)
 - [ ] **PROMPT C3: GST Tax Logic**
     - [ ] Inter-state vs Intra-state logic
     - [ ] Unit tests
