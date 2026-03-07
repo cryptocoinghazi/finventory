@@ -2,6 +2,7 @@ package com.finventory.controller;
 
 import com.finventory.dto.TaxSlabDto;
 import com.finventory.service.TaxSlabService;
+import jakarta.validation.Valid;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -22,7 +23,7 @@ public class TaxSlabController {
   private final TaxSlabService taxSlabService;
 
   @PostMapping
-  public ResponseEntity<TaxSlabDto> createTaxSlab(@RequestBody TaxSlabDto taxSlabDto) {
+  public ResponseEntity<TaxSlabDto> createTaxSlab(@Valid @RequestBody TaxSlabDto taxSlabDto) {
     return ResponseEntity.ok(taxSlabService.createTaxSlab(taxSlabDto));
   }
 

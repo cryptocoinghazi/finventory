@@ -98,4 +98,30 @@ class MastersIntegrationTest {
         .andExpect(status().isOk())
         .andExpect(jsonPath("$[0].code").value("TP-001"));
   }
+
+  @Test
+  void testCreateItemValidationFailure() throws Exception {
+    ItemDto invalidItem =
+        ItemDto.builder()
+            .name("") // Invalid: Blank
+            .code("") // Invalid: Blank
+            .taxRate(new BigDecimal("-5.00")) // Invalid: Negative
+            .unitPrice(new BigDecimal("-100.00")) // Invalid: Negative
+            .uom("") // Invalid: Blank
+            .build();
+
+    mockMvc
+        .perform(
+            post("/api/v1/items")
+                .header("Authorization", jwtToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(invalidItem)))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.error").value("Validation Error"))
+        .andExpect(jsonPath("$.details.name").exists())
+        .andExpect(jsonPath("$.details.code").exists())
+        .andExpect(jsonPath("$.details.taxRate").exists())
+        .andExpect(jsonPath("$.details.unitPrice").exists())
+        .andExpect(jsonPath("$.details.uom").exists());
+  }
 }

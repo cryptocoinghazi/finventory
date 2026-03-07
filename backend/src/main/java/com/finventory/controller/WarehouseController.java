@@ -2,6 +2,7 @@ package com.finventory.controller;
 
 import com.finventory.dto.WarehouseDto;
 import com.finventory.service.WarehouseService;
+import jakarta.validation.Valid;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -22,7 +23,7 @@ public class WarehouseController {
   private final WarehouseService warehouseService;
 
   @PostMapping
-  public ResponseEntity<WarehouseDto> createWarehouse(@RequestBody WarehouseDto warehouseDto) {
+  public ResponseEntity<WarehouseDto> createWarehouse(@Valid @RequestBody WarehouseDto warehouseDto) {
     return ResponseEntity.ok(warehouseService.createWarehouse(warehouseDto));
   }
 

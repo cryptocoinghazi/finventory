@@ -39,9 +39,13 @@ Based on `docs/SPEC.MD`.
     - [x] Warehouse API
     - [x] Flyway migrations
     - [x] Integration tests
-- [ ] **PROMPT B2: Constraints & Indexes**
-    - [ ] Add DB constraints (unique GSTIN, Item Code)
-    - [ ] Add Indexes
+- [x] **PROMPT B2: Constraints & Indexes**
+    - [x] Add DB constraints (unique GSTIN, Item Code)
+    - [x] Add Indexes
+- [x] **PROMPT B3: Validations (Bean Validation)**
+    - [x] Add JSR-380 annotations to DTOs
+    - [x] Add Global Exception Handler for validation errors
+
 
 ## 6.3 Sales Invoice (Slice A)
 - [ ] **PROMPT C1: SalesInvoice Domain**

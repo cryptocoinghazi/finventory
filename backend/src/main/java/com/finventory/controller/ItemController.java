@@ -2,6 +2,7 @@ package com.finventory.controller;
 
 import com.finventory.dto.ItemDto;
 import com.finventory.service.ItemService;
+import jakarta.validation.Valid;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -23,7 +24,7 @@ public class ItemController {
   private final ItemService itemService;
 
   @PostMapping
-  public ResponseEntity<ItemDto> createItem(@RequestBody ItemDto itemDto) {
+  public ResponseEntity<ItemDto> createItem(@Valid @RequestBody ItemDto itemDto) {
     return ResponseEntity.ok(itemService.createItem(itemDto));
   }
 
@@ -38,7 +39,7 @@ public class ItemController {
   }
 
   @PutMapping("/{id}")
-  public ResponseEntity<ItemDto> updateItem(@PathVariable UUID id, @RequestBody ItemDto itemDto) {
+  public ResponseEntity<ItemDto> updateItem(@PathVariable UUID id, @Valid @RequestBody ItemDto itemDto) {
     return ResponseEntity.ok(itemService.updateItem(id, itemDto));
   }
 

@@ -2,6 +2,7 @@ package com.finventory.controller;
 
 import com.finventory.dto.PartyDto;
 import com.finventory.service.PartyService;
+import jakarta.validation.Valid;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -23,7 +24,7 @@ public class PartyController {
   private final PartyService partyService;
 
   @PostMapping
-  public ResponseEntity<PartyDto> createParty(@RequestBody PartyDto partyDto) {
+  public ResponseEntity<PartyDto> createParty(@Valid @RequestBody PartyDto partyDto) {
     return ResponseEntity.ok(partyService.createParty(partyDto));
   }
 
@@ -38,7 +39,7 @@ public class PartyController {
   }
 
   @PutMapping("/{id}")
-  public ResponseEntity<PartyDto> updateParty(@PathVariable UUID id, @RequestBody PartyDto partyDto) {
+  public ResponseEntity<PartyDto> updateParty(@PathVariable UUID id, @Valid @RequestBody PartyDto partyDto) {
     return ResponseEntity.ok(partyService.updateParty(id, partyDto));
   }
 
