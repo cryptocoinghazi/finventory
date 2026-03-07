@@ -27,6 +27,8 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class SalesInvoiceService {
 
+  private static final BigDecimal HUNDRED = new BigDecimal("100");
+
   private final SalesInvoiceRepository salesInvoiceRepository;
   private final PartyRepository partyRepository;
   private final ItemRepository itemRepository;
@@ -64,7 +66,7 @@ public class SalesInvoiceService {
       BigDecimal taxRate = lineDto.getTaxRate() != null ? lineDto.getTaxRate() : item.getTaxRate();
 
       BigDecimal lineAmount = quantity.multiply(unitPrice);
-      BigDecimal lineTaxAmount = lineAmount.multiply(taxRate).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+      BigDecimal lineTaxAmount = lineAmount.multiply(taxRate).divide(HUNDRED, 2, RoundingMode.HALF_UP);
       BigDecimal lineTotal = lineAmount.add(lineTaxAmount);
 
       SalesInvoiceLine line = SalesInvoiceLine.builder()
@@ -90,7 +92,7 @@ public class SalesInvoiceService {
     SalesInvoice savedInvoice = salesInvoiceRepository.save(salesInvoice);
 
     // --- POSTING LOGIC ---
-    
+
     // 1. Post to GL
     glPostingService.postSalesInvoice(
         savedInvoice.getInvoiceDate(),

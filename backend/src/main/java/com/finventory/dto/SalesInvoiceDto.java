@@ -29,7 +29,8 @@ public class SalesInvoiceDto {
   @NotNull(message = "Warehouse ID is required")
   private UUID warehouseId;
 
-  // Invoice number might be auto-generated or manual. For now, let's assume manual input is allowed but uniqueness is checked.
+  // Invoice number might be auto-generated or manual.
+  // For now, let's assume manual input is allowed but uniqueness is checked.
   // Actually, usually it's auto-generated. I'll make it optional in input, but required in output.
   private String invoiceNumber;
 

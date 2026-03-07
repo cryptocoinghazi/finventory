@@ -18,7 +18,8 @@ public class StockPostingService {
   private final StockLedgerRepository stockLedgerRepository;
 
   @Transactional
-  public void postStockOut(LocalDate date, Item item, Warehouse warehouse, BigDecimal quantity, StockLedgerEntry.ReferenceType refType, UUID refId) {
+  public void postStockOut(LocalDate date, Item item, Warehouse warehouse, BigDecimal quantity,
+      StockLedgerEntry.ReferenceType refType, UUID refId) {
     StockLedgerEntry entry = StockLedgerEntry.builder()
         .date(date)
         .item(item)
@@ -28,7 +29,7 @@ public class StockPostingService {
         .refType(refType)
         .refId(refId)
         .build();
-    
+
     stockLedgerRepository.save(entry);
   }
 

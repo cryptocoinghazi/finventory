@@ -17,7 +17,8 @@ public class GLPostingService {
   private final GLTransactionRepository glTransactionRepository;
 
   @Transactional
-  public void postSalesInvoice(LocalDate date, UUID invoiceId, BigDecimal totalTaxable, BigDecimal totalTax, BigDecimal grandTotal) {
+  public void postSalesInvoice(LocalDate date, UUID invoiceId, BigDecimal totalTaxable,
+      BigDecimal totalTax, BigDecimal grandTotal) {
     GLTransaction transaction = GLTransaction.builder()
         .date(date)
         .refType(GLTransaction.ReferenceType.SALES_INVOICE)
