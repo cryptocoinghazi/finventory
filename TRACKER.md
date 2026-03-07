@@ -32,13 +32,13 @@ Based on `docs/SPEC.MD`.
     - [x] Configure CI (GitHub Actions)
 
 ## 6.2 Masters Module (Slice A)
-- [ ] **PROMPT B1: Masters APIs**
-    - [ ] Party API (Entity, DTO, Repo, Service, Controller)
-    - [ ] Item API
-    - [ ] TaxSlab API
-    - [ ] Warehouse API
-    - [ ] Flyway migrations
-    - [ ] Integration tests
+- [x] **PROMPT B1: Masters APIs**
+    - [x] Party API (Entity, DTO, Repo, Service, Controller)
+    - [x] Item API
+    - [x] TaxSlab API
+    - [x] Warehouse API
+    - [x] Flyway migrations
+    - [x] Integration tests
 - [ ] **PROMPT B2: Constraints & Indexes**
     - [ ] Add DB constraints (unique GSTIN, Item Code)
     - [ ] Add Indexes
