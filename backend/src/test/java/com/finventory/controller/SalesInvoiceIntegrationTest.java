@@ -114,12 +114,13 @@ class SalesInvoiceIntegrationTest {
     testWarehouse = Warehouse.builder()
             .name("Main Warehouse")
             .location("123 Industrial Area")
+            .stateCode("29") // Karnataka
             .build();
     testWarehouse = warehouseRepository.save(testWarehouse);
   }
 
   @Test
-  void testCreateSalesInvoice() throws Exception {
+  void testCreateSalesInvoice_IntraState() throws Exception {
     SalesInvoiceLineDto lineDto = SalesInvoiceLineDto.builder()
             .itemId(testItem.getId())
             .quantity(new BigDecimal("2"))
@@ -129,8 +130,8 @@ class SalesInvoiceIntegrationTest {
     SalesInvoiceDto invoiceDto = SalesInvoiceDto.builder()
             .invoiceNumber("INV-001")
             .invoiceDate(LocalDate.now())
-            .partyId(testParty.getId())
-            .warehouseId(testWarehouse.getId())
+            .partyId(testParty.getId()) // Party GSTIN starts with 29 (from setup)
+            .warehouseId(testWarehouse.getId()) // Warehouse state is 29
             .lines(List.of(lineDto))
             .build();
 
@@ -142,12 +143,61 @@ class SalesInvoiceIntegrationTest {
             .andExpect(jsonPath("$.invoiceNumber").value("INV-001"))
             .andExpect(jsonPath("$.totalTaxableAmount").value(200.00)) // 2 * 100
             .andExpect(jsonPath("$.totalTaxAmount").value(36.00)) // 200 * 18% = 36
+            .andExpect(jsonPath("$.totalCgstAmount").value(18.00)) // 36 / 2
+            .andExpect(jsonPath("$.totalSgstAmount").value(18.00)) // 36 / 2
+            .andExpect(jsonPath("$.totalIgstAmount").value(0.00))
             .andExpect(jsonPath("$.grandTotal").value(236.00)); // 200 + 36
 
     // Verify Posting
     org.junit.jupiter.api.Assertions.assertEquals(1, stockLedgerRepository.count(), "Should create 1 stock ledger entry");
     org.junit.jupiter.api.Assertions.assertEquals(1, glTransactionRepository.count(), "Should create 1 GL transaction");
-    org.junit.jupiter.api.Assertions.assertEquals(3, glLineRepository.count(), "Should create 3 GL lines");
+    // AR, Sales, CGST, SGST = 4 lines
+    org.junit.jupiter.api.Assertions.assertEquals(4, glLineRepository.count(), "Should create 4 GL lines (AR, Sales, CGST, SGST)");
+  }
+
+  @Test
+  void testCreateSalesInvoice_InterState() throws Exception {
+    // Create Party in different state (e.g., 27 - Maharashtra)
+    Party interStateParty = Party.builder()
+            .name("Inter State Customer")
+            .type(Party.PartyType.CUSTOMER)
+            .gstin("27ABCDE1234F1Z5")
+            .build();
+    interStateParty = partyRepository.save(interStateParty);
+
+    SalesInvoiceLineDto lineDto = SalesInvoiceLineDto.builder()
+            .itemId(testItem.getId())
+            .quantity(new BigDecimal("2"))
+            .unitPrice(new BigDecimal("100.00"))
+            .build();
+
+    SalesInvoiceDto invoiceDto = SalesInvoiceDto.builder()
+            .invoiceNumber("INV-002")
+            .invoiceDate(LocalDate.now())
+            .partyId(interStateParty.getId())
+            .warehouseId(testWarehouse.getId()) // Warehouse state is 29
+            .lines(List.of(lineDto))
+            .build();
+
+    mockMvc.perform(post("/api/v1/sales-invoices")
+            .header("Authorization", jwtToken)
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(objectMapper.writeValueAsString(invoiceDto)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.invoiceNumber").value("INV-002"))
+            .andExpect(jsonPath("$.totalTaxableAmount").value(200.00))
+            .andExpect(jsonPath("$.totalTaxAmount").value(36.00))
+            .andExpect(jsonPath("$.totalCgstAmount").value(0.00))
+            .andExpect(jsonPath("$.totalSgstAmount").value(0.00))
+            .andExpect(jsonPath("$.totalIgstAmount").value(36.00)) // Full tax as IGST
+            .andExpect(jsonPath("$.grandTotal").value(236.00));
+
+    // Verify Posting for Inter-state
+    // AR, Sales, IGST = 3 lines
+    // Note: glLineRepository count will include lines from previous test if not cleared.
+    // But setUp clears repositories. So this count is for this test only.
+    org.junit.jupiter.api.Assertions.assertEquals(1, glTransactionRepository.count(), "Should create 1 GL transaction");
+    org.junit.jupiter.api.Assertions.assertEquals(3, glLineRepository.count(), "Should create 3 GL lines (AR, Sales, IGST)");
   }
 
   @Test

@@ -36,6 +36,9 @@ public class Party {
   @Column(unique = true)
   private String gstin;
 
+  @Column(name = "state_code")
+  private String stateCode;
+
   private String address;
   private String phone;
   private String email;

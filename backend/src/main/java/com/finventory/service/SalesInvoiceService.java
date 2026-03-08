@@ -54,6 +54,21 @@ public class SalesInvoiceService {
 
     BigDecimal totalTaxable = BigDecimal.ZERO;
     BigDecimal totalTax = BigDecimal.ZERO;
+    BigDecimal totalCgst = BigDecimal.ZERO;
+    BigDecimal totalSgst = BigDecimal.ZERO;
+    BigDecimal totalIgst = BigDecimal.ZERO;
+
+    // Determine Tax Type (Inter-state vs Intra-state)
+    String partyState = party.getStateCode();
+    if (partyState == null && party.getGstin() != null && party.getGstin().length() >= 2) {
+      partyState = party.getGstin().substring(0, 2);
+    }
+    String warehouseState = warehouse.getStateCode();
+
+    boolean isInterState = false;
+    if (partyState != null && warehouseState != null) {
+      isInterState = !partyState.equalsIgnoreCase(warehouseState);
+    }
 
     for (SalesInvoiceLineDto lineDto : dto.getLines()) {
       Item item = itemRepository.findById(lineDto.getItemId())
@@ -67,6 +82,18 @@ public class SalesInvoiceService {
 
       BigDecimal lineAmount = quantity.multiply(unitPrice);
       BigDecimal lineTaxAmount = lineAmount.multiply(taxRate).divide(HUNDRED, 2, RoundingMode.HALF_UP);
+
+      BigDecimal cgst = BigDecimal.ZERO;
+      BigDecimal sgst = BigDecimal.ZERO;
+      BigDecimal igst = BigDecimal.ZERO;
+
+      if (isInterState) {
+        igst = lineTaxAmount;
+      } else {
+        cgst = lineTaxAmount.divide(new BigDecimal("2"), 2, RoundingMode.HALF_UP);
+        sgst = lineTaxAmount.subtract(cgst);
+      }
+
       BigDecimal lineTotal = lineAmount.add(lineTaxAmount);
 
       SalesInvoiceLine line = SalesInvoiceLine.builder()
@@ -76,6 +103,9 @@ public class SalesInvoiceService {
           .unitPrice(unitPrice)
           .taxRate(taxRate)
           .taxAmount(lineTaxAmount)
+          .cgstAmount(cgst)
+          .sgstAmount(sgst)
+          .igstAmount(igst)
           .lineTotal(lineTotal)
           .build();
 
@@ -83,10 +113,16 @@ public class SalesInvoiceService {
 
       totalTaxable = totalTaxable.add(lineAmount);
       totalTax = totalTax.add(lineTaxAmount);
+      totalCgst = totalCgst.add(cgst);
+      totalSgst = totalSgst.add(sgst);
+      totalIgst = totalIgst.add(igst);
     }
 
     salesInvoice.setTotalTaxableAmount(totalTaxable);
     salesInvoice.setTotalTaxAmount(totalTax);
+    salesInvoice.setTotalCgstAmount(totalCgst);
+    salesInvoice.setTotalSgstAmount(totalSgst);
+    salesInvoice.setTotalIgstAmount(totalIgst);
     salesInvoice.setGrandTotal(totalTaxable.add(totalTax));
 
     SalesInvoice savedInvoice = salesInvoiceRepository.save(salesInvoice);
@@ -98,7 +134,9 @@ public class SalesInvoiceService {
         savedInvoice.getInvoiceDate(),
         savedInvoice.getId(),
         savedInvoice.getTotalTaxableAmount(),
-        savedInvoice.getTotalTaxAmount(),
+        savedInvoice.getTotalCgstAmount(),
+        savedInvoice.getTotalSgstAmount(),
+        savedInvoice.getTotalIgstAmount(),
         savedInvoice.getGrandTotal()
     );
 
@@ -138,6 +176,9 @@ public class SalesInvoiceService {
             .unitPrice(line.getUnitPrice())
             .taxRate(line.getTaxRate())
             .taxAmount(line.getTaxAmount())
+            .cgstAmount(line.getCgstAmount())
+            .sgstAmount(line.getSgstAmount())
+            .igstAmount(line.getIgstAmount())
             .lineTotal(line.getLineTotal())
             .build())
         .collect(Collectors.toList());
@@ -151,6 +192,9 @@ public class SalesInvoiceService {
         .lines(lineDtos)
         .totalTaxableAmount(invoice.getTotalTaxableAmount())
         .totalTaxAmount(invoice.getTotalTaxAmount())
+        .totalCgstAmount(invoice.getTotalCgstAmount())
+        .totalSgstAmount(invoice.getTotalSgstAmount())
+        .totalIgstAmount(invoice.getTotalIgstAmount())
         .grandTotal(invoice.getGrandTotal())
         .build();
   }

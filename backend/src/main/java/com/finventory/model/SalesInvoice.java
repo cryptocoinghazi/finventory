@@ -52,6 +52,15 @@ public class SalesInvoice {
   @Column(name = "total_tax_amount", nullable = false)
   private BigDecimal totalTaxAmount;
 
+  @Column(name = "total_cgst_amount", nullable = false)
+  private BigDecimal totalCgstAmount;
+
+  @Column(name = "total_sgst_amount", nullable = false)
+  private BigDecimal totalSgstAmount;
+
+  @Column(name = "total_igst_amount", nullable = false)
+  private BigDecimal totalIgstAmount;
+
   @Column(name = "grand_total", nullable = false)
   private BigDecimal grandTotal;
 

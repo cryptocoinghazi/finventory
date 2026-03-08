@@ -18,7 +18,7 @@ public class GLPostingService {
 
   @Transactional
   public void postSalesInvoice(LocalDate date, UUID invoiceId, BigDecimal totalTaxable,
-      BigDecimal totalTax, BigDecimal grandTotal) {
+      BigDecimal totalCgst, BigDecimal totalSgst, BigDecimal totalIgst, BigDecimal grandTotal) {
     GLTransaction transaction = GLTransaction.builder()
         .date(date)
         .refType(GLTransaction.ReferenceType.SALES_INVOICE)
@@ -42,17 +42,41 @@ public class GLPostingService {
         .credit(totalTaxable)
         .build();
 
-    // Credit Output Tax
-    GLLine creditTax = GLLine.builder()
-        .transaction(transaction)
-        .accountHead("OUTPUT_TAX") // In real app, split by CGST/SGST/IGST
-        .debit(BigDecimal.ZERO)
-        .credit(totalTax)
-        .build();
-
     transaction.getLines().add(debitAR);
     transaction.getLines().add(creditSales);
-    transaction.getLines().add(creditTax);
+
+    // Credit Output Tax - CGST
+    if (totalCgst.compareTo(BigDecimal.ZERO) > 0) {
+      GLLine creditCgst = GLLine.builder()
+          .transaction(transaction)
+          .accountHead("OUTPUT_CGST")
+          .debit(BigDecimal.ZERO)
+          .credit(totalCgst)
+          .build();
+      transaction.getLines().add(creditCgst);
+    }
+
+    // Credit Output Tax - SGST
+    if (totalSgst.compareTo(BigDecimal.ZERO) > 0) {
+      GLLine creditSgst = GLLine.builder()
+          .transaction(transaction)
+          .accountHead("OUTPUT_SGST")
+          .debit(BigDecimal.ZERO)
+          .credit(totalSgst)
+          .build();
+      transaction.getLines().add(creditSgst);
+    }
+
+    // Credit Output Tax - IGST
+    if (totalIgst.compareTo(BigDecimal.ZERO) > 0) {
+      GLLine creditIgst = GLLine.builder()
+          .transaction(transaction)
+          .accountHead("OUTPUT_IGST")
+          .debit(BigDecimal.ZERO)
+          .credit(totalIgst)
+          .build();
+      transaction.getLines().add(creditIgst);
+    }
 
     glTransactionRepository.save(transaction);
   }

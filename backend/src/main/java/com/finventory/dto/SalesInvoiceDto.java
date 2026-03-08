@@ -41,5 +41,8 @@ public class SalesInvoiceDto {
   // Calculated fields (read-only for request usually, but good to return in response)
   private BigDecimal totalTaxableAmount;
   private BigDecimal totalTaxAmount;
+  private BigDecimal totalCgstAmount;
+  private BigDecimal totalSgstAmount;
+  private BigDecimal totalIgstAmount;
   private BigDecimal grandTotal;
 }

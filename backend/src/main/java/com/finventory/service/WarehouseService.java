@@ -21,7 +21,11 @@ public class WarehouseService {
     }
 
     Warehouse warehouse =
-        Warehouse.builder().name(dto.getName()).location(dto.getLocation()).build();
+        Warehouse.builder()
+            .name(dto.getName())
+            .stateCode(dto.getStateCode())
+            .location(dto.getLocation())
+            .build();
 
     return mapToDto(warehouseRepository.save(warehouse));
   }
@@ -45,6 +49,7 @@ public class WarehouseService {
     return WarehouseDto.builder()
         .id(warehouse.getId())
         .name(warehouse.getName())
+        .stateCode(warehouse.getStateCode())
         .location(warehouse.getLocation())
         .build();
   }

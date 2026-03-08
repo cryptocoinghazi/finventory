@@ -13,5 +13,7 @@ public class WarehouseDto {
   @NotBlank(message = "Warehouse name is required")
   private String name;
 
+  private String stateCode;
+
   private String location;
 }

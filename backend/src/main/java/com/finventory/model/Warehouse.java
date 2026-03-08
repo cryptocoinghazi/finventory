@@ -27,5 +27,8 @@ public class Warehouse {
   @Column(nullable = false, unique = true)
   private String name;
 
+  @Column(name = "state_code")
+  private String stateCode;
+
   private String location;
 }

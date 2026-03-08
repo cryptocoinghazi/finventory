@@ -25,6 +25,7 @@ public class PartyService {
             .name(dto.getName())
             .type(dto.getType())
             .gstin(dto.getGstin())
+            .stateCode(dto.getStateCode())
             .address(dto.getAddress())
             .phone(dto.getPhone())
             .email(dto.getEmail())
@@ -53,6 +54,7 @@ public class PartyService {
 
     existing.setName(dto.getName());
     existing.setType(dto.getType());
+    existing.setStateCode(dto.getStateCode());
     existing.setAddress(dto.getAddress());
     existing.setPhone(dto.getPhone());
     existing.setEmail(dto.getEmail());
@@ -77,6 +79,7 @@ public class PartyService {
         .name(party.getName())
         .type(party.getType())
         .gstin(party.getGstin())
+        .stateCode(party.getStateCode())
         .address(party.getAddress())
         .phone(party.getPhone())
         .email(party.getEmail())

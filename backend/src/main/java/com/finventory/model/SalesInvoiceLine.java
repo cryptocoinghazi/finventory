@@ -48,6 +48,15 @@ public class SalesInvoiceLine {
   @Column(name = "tax_amount", nullable = false)
   private BigDecimal taxAmount;
 
+  @Column(name = "cgst_amount", nullable = false)
+  private BigDecimal cgstAmount;
+
+  @Column(name = "sgst_amount", nullable = false)
+  private BigDecimal sgstAmount;
+
+  @Column(name = "igst_amount", nullable = false)
+  private BigDecimal igstAmount;
+
   @Column(name = "line_total", nullable = false)
   private BigDecimal lineTotal;
 }

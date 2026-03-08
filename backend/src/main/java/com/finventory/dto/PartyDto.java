@@ -21,6 +21,8 @@ public class PartyDto {
 
   private String gstin;
 
+  private String stateCode;
+
   private String address;
 
   private String phone;

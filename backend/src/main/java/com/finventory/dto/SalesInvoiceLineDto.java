@@ -35,5 +35,8 @@ public class SalesInvoiceLineDto {
 
   // Calculated fields
   private BigDecimal taxAmount;
+  private BigDecimal cgstAmount;
+  private BigDecimal sgstAmount;
+  private BigDecimal igstAmount;
   private BigDecimal lineTotal;
 }
