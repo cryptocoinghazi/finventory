@@ -40,8 +40,18 @@ public class ReportsService {
 
   @Transactional(readOnly = true)
   public com.finventory.dto.Gstr3bDto getGstr3b() {
-    Object[] salesData = salesInvoiceRepository.findTotalTaxValues();
-    Object[] purchaseData = purchaseInvoiceRepository.findTotalItcValues();
+    List<Object[]> salesDataList = salesInvoiceRepository.findTotalTaxValues();
+    List<Object[]> purchaseDataList = purchaseInvoiceRepository.findTotalItcValues();
+
+    Object[] salesData = null;
+    if (salesDataList != null && !salesDataList.isEmpty()) {
+      salesData = salesDataList.get(0);
+    }
+
+    Object[] purchaseData = null;
+    if (purchaseDataList != null && !purchaseDataList.isEmpty()) {
+      purchaseData = purchaseDataList.get(0);
+    }
 
     java.math.BigDecimal outwardTaxable = java.math.BigDecimal.ZERO;
     java.math.BigDecimal outwardIgst = java.math.BigDecimal.ZERO;
@@ -55,16 +65,16 @@ public class ReportsService {
 
     if (salesData != null && salesData.length >= indexSgst + 1) {
       if (salesData[indexTaxable] != null) {
-        outwardTaxable = (java.math.BigDecimal) salesData[indexTaxable];
+        outwardTaxable = new java.math.BigDecimal(salesData[indexTaxable].toString());
       }
       if (salesData[indexIgst] != null) {
-        outwardIgst = (java.math.BigDecimal) salesData[indexIgst];
+        outwardIgst = new java.math.BigDecimal(salesData[indexIgst].toString());
       }
       if (salesData[indexCgst] != null) {
-        outwardCgst = (java.math.BigDecimal) salesData[indexCgst];
+        outwardCgst = new java.math.BigDecimal(salesData[indexCgst].toString());
       }
       if (salesData[indexSgst] != null) {
-        outwardSgst = (java.math.BigDecimal) salesData[indexSgst];
+        outwardSgst = new java.math.BigDecimal(salesData[indexSgst].toString());
       }
     }
 
@@ -78,13 +88,13 @@ public class ReportsService {
 
     if (purchaseData != null && purchaseData.length >= indexItcSgst + 1) {
       if (purchaseData[indexItcIgst] != null) {
-        itcIgst = (java.math.BigDecimal) purchaseData[indexItcIgst];
+        itcIgst = new java.math.BigDecimal(purchaseData[indexItcIgst].toString());
       }
       if (purchaseData[indexItcCgst] != null) {
-        itcCgst = (java.math.BigDecimal) purchaseData[indexItcCgst];
+        itcCgst = new java.math.BigDecimal(purchaseData[indexItcCgst].toString());
       }
       if (purchaseData[indexItcSgst] != null) {
-        itcSgst = (java.math.BigDecimal) purchaseData[indexItcSgst];
+        itcSgst = new java.math.BigDecimal(purchaseData[indexItcSgst].toString());
       }
     }
 

@@ -22,5 +22,5 @@ public interface SalesInvoiceRepository extends JpaRepository<SalesInvoice, UUID
 
   @Query("SELECT SUM(s.totalTaxableAmount), SUM(s.totalIgstAmount), SUM(s.totalCgstAmount), SUM(s.totalSgstAmount) "
       + "FROM SalesInvoice s")
-  Object[] findTotalTaxValues();
+  List<Object[]> findTotalTaxValues();
 }

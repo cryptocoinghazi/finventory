@@ -22,5 +22,5 @@ public interface PurchaseInvoiceRepository extends JpaRepository<PurchaseInvoice
 
   @Query("SELECT SUM(p.totalIgstAmount), SUM(p.totalCgstAmount), SUM(p.totalSgstAmount) "
       + "FROM PurchaseInvoice p")
-  Object[] findTotalItcValues();
+  List<Object[]> findTotalItcValues();
 }
