@@ -14,6 +14,8 @@ import com.finventory.repository.GLLineRepository;
 import com.finventory.repository.GLTransactionRepository;
 import com.finventory.repository.ItemRepository;
 import com.finventory.repository.PartyRepository;
+import com.finventory.repository.PurchaseReturnRepository;
+import com.finventory.repository.SalesReturnRepository;
 import com.finventory.repository.StockLedgerRepository;
 import com.finventory.repository.UserRepository;
 import com.finventory.repository.WarehouseRepository;
@@ -76,6 +78,12 @@ public class ReportsControllerTest {
   @Autowired
   private com.finventory.repository.PurchaseInvoiceRepository purchaseInvoiceRepository;
 
+  @Autowired
+  private PurchaseReturnRepository purchaseReturnRepository;
+
+  @Autowired
+  private SalesReturnRepository salesReturnRepository;
+
   private String jwtToken;
   private Item testItem;
   private Warehouse testWarehouse;
@@ -84,7 +92,9 @@ public class ReportsControllerTest {
   @BeforeEach
   void setUp() {
     salesInvoiceRepository.deleteAll();
+    salesReturnRepository.deleteAll();
     purchaseInvoiceRepository.deleteAll();
+    purchaseReturnRepository.deleteAll();
     stockLedgerRepository.deleteAll();
     glLineRepository.deleteAll();
     glTransactionRepository.deleteAll();
