@@ -33,5 +33,19 @@ public class StockPostingService {
     stockLedgerRepository.save(entry);
   }
 
-  // Future: postStockIn for Purchases/Returns
+  @Transactional
+  public void postStockIn(LocalDate date, Item item, Warehouse warehouse, BigDecimal quantity,
+      StockLedgerEntry.ReferenceType refType, UUID refId) {
+    StockLedgerEntry entry = StockLedgerEntry.builder()
+        .date(date)
+        .item(item)
+        .warehouse(warehouse)
+        .qtyIn(quantity)
+        .qtyOut(BigDecimal.ZERO)
+        .refType(refType)
+        .refId(refId)
+        .build();
+
+    stockLedgerRepository.save(entry);
+  }
 }

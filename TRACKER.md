@@ -46,9 +46,9 @@ This project follows a strict **Sequential Development Workflow**:
 ### 4. Purchase Module (Slice B)
 | Feature | Backend Status | Backend Tests | Frontend Status | Frontend Tests | Notes |
 | :--- | :---: | :---: | :---: | :---: | :--- |
-| **Purchase Invoice Domain**| ⬜ Pending | ⬜ Pending | ⏳ Pending | ⏳ Pending | Vendor Bills |
-| **Stock Posting (IN)** | ⬜ Pending | ⬜ Pending | ⏳ Pending | ⏳ Pending | Increases Inventory |
-| **GL Posting (Purchase)** | ⬜ Pending | ⬜ Pending | ⏳ Pending | ⏳ Pending | Dr Purchase, Dr Input Tax, Cr AP |
+| **Purchase Invoice Domain**| ✅ Completed | ✅ Verified | ⏳ Pending | ⏳ Pending | Vendor Bills |
+| **Stock Posting (IN)** | ✅ Completed | ✅ Verified | ⏳ Pending | ⏳ Pending | Increases Inventory |
+| **GL Posting (Purchase)** | ✅ Completed | ✅ Verified | ⏳ Pending | ⏳ Pending | Dr Purchase, Dr Input Tax, Cr AP |
 
 ### 5. Returns & Credit Notes (Slice C)
 | Feature | Backend Status | Backend Tests | Frontend Status | Frontend Tests | Notes |
@@ -71,10 +71,10 @@ This project follows a strict **Sequential Development Workflow**:
 - [x] **Quality**: Checkstyle, Spotless, JUnit 5, Testcontainers.
 - [x] **Masters**: CRUD for Party, Item, Warehouse, TaxSlab.
 - [x] **Sales**: Invoice Creation, Tax Calculation, Stock Update, GL Posting.
+- [x] **Purchase**: Invoice Creation, Stock IN, GL Debit (Purchase/Input Tax).
 - [x] **GST Logic**: State-based tax splitting (Intra/Inter).
 
 ## 📝 Next Steps
-1.  Implement **Purchase Invoice** Backend (Entity, DTO, Service, Controller).
-2.  Implement **Purchase Posting** (Stock IN, GL Debit).
-3.  Write Integration Tests for Purchase Module.
-4.  Verify Tests & Mark Complete.
+1.  Implement **Sales Return** Backend (Entity, DTO, Service, Controller).
+2.  Implement **Purchase Return** Backend.
+3.  Implement **Reports** Backend.

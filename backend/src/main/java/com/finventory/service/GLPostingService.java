@@ -80,4 +80,68 @@ public class GLPostingService {
 
     glTransactionRepository.save(transaction);
   }
+
+  @Transactional
+  public void postPurchaseInvoice(LocalDate date, UUID invoiceId, BigDecimal totalTaxable,
+      BigDecimal totalCgst, BigDecimal totalSgst, BigDecimal totalIgst, BigDecimal grandTotal) {
+    GLTransaction transaction = GLTransaction.builder()
+        .date(date)
+        .refType(GLTransaction.ReferenceType.PURCHASE_INVOICE)
+        .refId(invoiceId)
+        .description("Purchase Invoice Posting")
+        .build();
+
+    // Credit Accounts Payable (Liability)
+    GLLine creditAP = GLLine.builder()
+        .transaction(transaction)
+        .accountHead("ACCOUNTS_PAYABLE")
+        .debit(BigDecimal.ZERO)
+        .credit(grandTotal)
+        .build();
+    transaction.getLines().add(creditAP);
+
+    // Debit Purchase Account (Expense)
+    GLLine debitPurchase = GLLine.builder()
+        .transaction(transaction)
+        .accountHead("PURCHASE_ACCOUNT")
+        .debit(totalTaxable)
+        .credit(BigDecimal.ZERO)
+        .build();
+    transaction.getLines().add(debitPurchase);
+
+    // Debit Input Tax - CGST
+    if (totalCgst.compareTo(BigDecimal.ZERO) > 0) {
+      GLLine debitCgst = GLLine.builder()
+          .transaction(transaction)
+          .accountHead("INPUT_CGST")
+          .debit(totalCgst)
+          .credit(BigDecimal.ZERO)
+          .build();
+      transaction.getLines().add(debitCgst);
+    }
+
+    // Debit Input Tax - SGST
+    if (totalSgst.compareTo(BigDecimal.ZERO) > 0) {
+      GLLine debitSgst = GLLine.builder()
+          .transaction(transaction)
+          .accountHead("INPUT_SGST")
+          .debit(totalSgst)
+          .credit(BigDecimal.ZERO)
+          .build();
+      transaction.getLines().add(debitSgst);
+    }
+
+    // Debit Input Tax - IGST
+    if (totalIgst.compareTo(BigDecimal.ZERO) > 0) {
+      GLLine debitIgst = GLLine.builder()
+          .transaction(transaction)
+          .accountHead("INPUT_IGST")
+          .debit(totalIgst)
+          .credit(BigDecimal.ZERO)
+          .build();
+      transaction.getLines().add(debitIgst);
+    }
+
+    glTransactionRepository.save(transaction);
+  }
 }
