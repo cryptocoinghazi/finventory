@@ -1,104 +1,80 @@
-# Finventory Development Tracker
+# Finventory Project Tracker
 
-This file tracks the development progress of the Finventory application.
-Based on `docs/SPEC.MD`.
+## 📌 Development Workflow
+This project follows a strict **Sequential Development Workflow**:
+1.  **Backend & Database First**:
+    -   Implement Entity, Repository, Service, Controller.
+    -   Write and execute comprehensive Unit & Integration Tests.
+    -   **Verify** all tests pass.
+    -   Mark Backend task as **Completed**.
+2.  **Frontend Implementation**:
+    -   **Only** starts after Backend task is marked **Completed**.
+    -   Implement UI components (Pages, Forms, Tables).
+    -   Integrate with Backend APIs.
+    -   Write and execute E2E/Component Tests.
+    -   Mark Frontend task as **Completed**.
 
-## Environment Setup
-- [x] Create project directories (backend, web, desktop, docs)
-- [x] Move SPEC.MD to docs/
-- [x] **Local Environment Setup**
-    - [x] Create `tools/` and setup scripts
-    - [x] Document setup in `docs/LOCAL_SETUP.md`
-    - [x] Run `scripts/setup_tools.ps1` (Installed: Java 21, Maven 3.9, Node 20, PostgreSQL 15)
-    - [x] Verify environment activation
-    - [x] Run `scripts/start_db.ps1` (Start Database)
-    - [x] Create `scripts/start_all.ps1` (One-click startup for DB + Backend)
+---
 
-## 6.1 Backend Scaffolding
-- [x] **PROMPT A1: Spring Boot Skeleton**
-    - [x] Create Spring Boot 3 project
-    - [x] Configure PostgreSQL, JPA, Flyway
-    - [x] Add Docker support
-    - [x] Create package structure
-    - [x] Add /health endpoint
-- [x] **PROMPT A2: Security Baseline**
-    - [x] Implement JWT Auth
-    - [x] Add Roles
-    - [x] Seed default admin
-- [x] **PROMPT A3: Quality Gates**
-    - [x] Add Spotless/Checkstyle
-    - [x] Add Unit Tests base
-    - [x] Add Testcontainers base
-    - [x] Configure CI (GitHub Actions)
+## 🚀 Feature Status
 
-## 6.2 Masters Module (Slice A)
-- [x] **PROMPT B1: Masters APIs**
-    - [x] Party API (Entity, DTO, Repo, Service, Controller)
-    - [x] Item API
-    - [x] TaxSlab API
-    - [x] Warehouse API
-    - [x] Flyway migrations
-    - [x] Integration tests
-- [x] **PROMPT B2: Constraints & Indexes**
-    - [x] Add DB constraints (unique GSTIN, Item Code)
-    - [x] Add Indexes
-- [x] **PROMPT B3: Validations (Bean Validation)**
-    - [x] Add JSR-380 annotations to DTOs
-    - [x] Add Global Exception Handler for validation errors
+### 1. Environment & Scaffolding
+| Feature | Backend Status | Backend Tests | Frontend Status | Frontend Tests | Notes |
+| :--- | :---: | :---: | :---: | :---: | :--- |
+| **Project Setup** | ✅ Completed | N/A | ✅ Completed | N/A | Java 21, Spring Boot 3, Next.js 14 |
+| **CI/CD** | ✅ Completed | ✅ Verified | ⏳ Pending | ⏳ Pending | GitHub Actions configured |
+| **Security (JWT)** | ✅ Completed | ✅ Verified | ⏳ Pending | ⏳ Pending | Auth Controller, JWT Filter |
 
+### 2. Master Data Management (Slice A)
+| Feature | Backend Status | Backend Tests | Frontend Status | Frontend Tests | Notes |
+| :--- | :---: | :---: | :---: | :---: | :--- |
+| **Party API** | ✅ Completed | ✅ Verified | ⏳ Pending | ⏳ Pending | Customer/Vendor Management |
+| **Item API** | ✅ Completed | ✅ Verified | ⏳ Pending | ⏳ Pending | Product/Service Management |
+| **Warehouse API** | ✅ Completed | ✅ Verified | ⏳ Pending | ⏳ Pending | Multi-location Inventory |
+| **Tax Slab API** | ✅ Completed | ✅ Verified | ⏳ Pending | ⏳ Pending | GST Rates (0, 5, 12, 18, 28%) |
+| **Validations** | ✅ Completed | ✅ Verified | ⏳ Pending | ⏳ Pending | JSR-380, Global Exception Handler |
 
-## 6.3 Sales Invoice (Slice A)
-- [x] **PROMPT C1: SalesInvoice Domain**
-    - [x] SalesInvoice Header & Lines
-    - [x] Calculations (Taxable, Taxes, Grand Total)
-- [x] **PROMPT C2: Posting Engine**
-    - [x] StockLedgerEntry (OUT)
-    - [x] GLTransaction & GLLine (Dr AR, Cr Sales, Cr Output Tax)
-- [ ] **PROMPT C3: GST Tax Logic**
-    - [ ] Inter-state vs Intra-state logic
-    - [ ] Unit tests
-- [ ] **PROMPT C4: Invoice Numbering**
-    - [ ] Concurrency-safe numbering (FY + Branch + Series)
+### 3. Sales Module (Slice A)
+| Feature | Backend Status | Backend Tests | Frontend Status | Frontend Tests | Notes |
+| :--- | :---: | :---: | :---: | :---: | :--- |
+| **Sales Invoice Domain** | ✅ Completed | ✅ Verified | ⏳ Pending | ⏳ Pending | Header & Lines, Calculations |
+| **GST Tax Logic** | ✅ Completed | ✅ Verified | ⏳ Pending | ⏳ Pending | Intra-state (CGST/SGST) vs Inter-state (IGST) |
+| **Stock Posting (OUT)** | ✅ Completed | ✅ Verified | ⏳ Pending | ⏳ Pending | Reduces Inventory |
+| **GL Posting (Sales)** | ✅ Completed | ✅ Verified | ⏳ Pending | ⏳ Pending | Dr AR, Cr Sales, Cr Output Tax |
+| **Invoice Numbering** | ⬜ Pending | ⬜ Pending | ⏳ Pending | ⏳ Pending | Custom Series (FY/Branch) |
 
-## 6.4 Purchase Invoice (Slice B)
-- [ ] **PROMPT D1: PurchaseInvoice + Posting**
-    - [ ] PurchaseInvoice Domain
-    - [ ] StockLedgerEntry (IN)
-    - [ ] GL Posting (Dr Purchase/Inventory, Dr Input Tax, Cr AP)
+### 4. Purchase Module (Slice B)
+| Feature | Backend Status | Backend Tests | Frontend Status | Frontend Tests | Notes |
+| :--- | :---: | :---: | :---: | :---: | :--- |
+| **Purchase Invoice Domain**| ⬜ Pending | ⬜ Pending | ⏳ Pending | ⏳ Pending | Vendor Bills |
+| **Stock Posting (IN)** | ⬜ Pending | ⬜ Pending | ⏳ Pending | ⏳ Pending | Increases Inventory |
+| **GL Posting (Purchase)** | ⬜ Pending | ⬜ Pending | ⏳ Pending | ⏳ Pending | Dr Purchase, Dr Input Tax, Cr AP |
 
-## 6.5 Returns / Credit Notes (Slice C)
-- [ ] **PROMPT E1: Sales Return**
-    - [ ] SalesReturn Domain
-    - [ ] Reversal Postings
-    - [ ] Audit trail
+### 5. Returns & Credit Notes (Slice C)
+| Feature | Backend Status | Backend Tests | Frontend Status | Frontend Tests | Notes |
+| :--- | :---: | :---: | :---: | :---: | :--- |
+| **Sales Return** | ⬜ Pending | ⬜ Pending | ⏳ Pending | ⏳ Pending | Credit Note |
+| **Purchase Return** | ⬜ Pending | ⬜ Pending | ⏳ Pending | ⏳ Pending | Debit Note |
 
-## 6.6 Reports (Slice D)
-- [ ] **PROMPT F1: Stock Summary**
-    - [ ] API endpoint
-- [ ] **PROMPT F2: Party Outstanding**
-    - [ ] API endpoint
-- [ ] **PROMPT F3: GST Registers**
-    - [ ] Sales Register
-    - [ ] Purchase Register
-    - [ ] HSN Summary
+### 6. Reports (Slice D)
+| Feature | Backend Status | Backend Tests | Frontend Status | Frontend Tests | Notes |
+| :--- | :---: | :---: | :---: | :---: | :--- |
+| **Stock Summary** | ⬜ Pending | ⬜ Pending | ⏳ Pending | ⏳ Pending | Current Stock Levels |
+| **Party Outstanding** | ⬜ Pending | ⬜ Pending | ⏳ Pending | ⏳ Pending | Receivables/Payables |
+| **GST Registers** | ⬜ Pending | ⬜ Pending | ⏳ Pending | ⏳ Pending | GSTR-1, GSTR-3B Data |
 
-## 6.7 Web UI (Slice A/B/C/D/E)
-- [ ] **PROMPT W1: Web UI Skeleton**
-    - [ ] Next.js setup
-    - [ ] Auth & Route Guards
-    - [ ] Basic Pages (Parties, Items, Invoice List)
-- [ ] **PROMPT W2: Invoice Printing**
-    - [ ] Print View (A4)
+---
 
-## 6.8 Desktop (Slice E)
-- [ ] **PROMPT X1: Electron Wrapper**
-    - [ ] Electron setup
-    - [ ] Packaging
+## 📉 Detailed History (Backend)
+- [x] **Scaffolding**: Spring Boot 3, PostgreSQL, Flyway, Docker.
+- [x] **Security**: JWT Authentication, Role-based Access (ADMIN/USER).
+- [x] **Quality**: Checkstyle, Spotless, JUnit 5, Testcontainers.
+- [x] **Masters**: CRUD for Party, Item, Warehouse, TaxSlab.
+- [x] **Sales**: Invoice Creation, Tax Calculation, Stock Update, GL Posting.
+- [x] **GST Logic**: State-based tax splitting (Intra/Inter).
 
-## Definition of Done (Checklist for each feature)
-- [ ] API implemented + OpenAPI updated
-- [ ] Flyway migrations included
-- [ ] Unit tests + integration tests passing
-- [ ] Permissions enforced
-- [ ] Validation + error responses
-- [ ] Audit fields populated
+## 📝 Next Steps
+1.  Implement **Purchase Invoice** Backend (Entity, DTO, Service, Controller).
+2.  Implement **Purchase Posting** (Stock IN, GL Debit).
+3.  Write Integration Tests for Purchase Module.
+4.  Verify Tests & Mark Complete.
