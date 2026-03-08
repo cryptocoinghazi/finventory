@@ -75,6 +75,8 @@ This project follows a strict **Sequential Development Workflow**:
 - [x] **GST Logic**: State-based tax splitting (Intra/Inter).
 
 ## 📝 Next Steps
-1.  Implement **Sales Return** Backend (Entity, DTO, Service, Controller).
-2.  Implement **Purchase Return** Backend.
-3.  Implement **Reports** Backend.
+1.  **Implement Invoice Numbering** (Custom Series for Sales/Purchase) - *Pending Backend Task*.
+2.  **Start Frontend Implementation** (Next.js 14).
+    -   Setup Project Structure.
+    -   Implement Authentication (Login/Register).
+    -   Implement Dashboard.
