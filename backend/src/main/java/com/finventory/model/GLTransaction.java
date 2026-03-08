@@ -8,6 +8,8 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import java.time.LocalDate;
@@ -40,6 +42,10 @@ public class GLTransaction {
 
   @Column(name = "ref_id", nullable = false)
   private UUID refId;
+
+  @ManyToOne
+  @JoinColumn(name = "party_id")
+  private Party party;
 
   private String description;
 

@@ -133,6 +133,7 @@ public class SalesInvoiceService {
     glPostingService.postSalesInvoice(
         savedInvoice.getInvoiceDate(),
         savedInvoice.getId(),
+        savedInvoice.getParty(),
         savedInvoice.getTotalTaxableAmount(),
         savedInvoice.getTotalCgstAmount(),
         savedInvoice.getTotalSgstAmount(),

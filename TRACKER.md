@@ -53,15 +53,15 @@ This project follows a strict **Sequential Development Workflow**:
 ### 5. Returns & Credit Notes (Slice C)
 | Feature | Backend Status | Backend Tests | Frontend Status | Frontend Tests | Notes |
 | :--- | :---: | :---: | :---: | :---: | :--- |
-| **Sales Return** | ⬜ Pending | ⬜ Pending | ⏳ Pending | ⏳ Pending | Credit Note |
-| **Purchase Return** | ⬜ Pending | ⬜ Pending | ⏳ Pending | ⏳ Pending | Debit Note |
+| **Sales Return** | ✅ Completed | ✅ Verified | ⏳ Pending | ⏳ Pending | Credit Note |
+| **Purchase Return** | ✅ Completed | ✅ Verified | ⏳ Pending | ⏳ Pending | Debit Note |
 
-### 6. Reports (Slice D)
+### 6. Reports & Dashboards (Slice D)
 | Feature | Backend Status | Backend Tests | Frontend Status | Frontend Tests | Notes |
 | :--- | :---: | :---: | :---: | :---: | :--- |
-| **Stock Summary** | ⬜ Pending | ⬜ Pending | ⏳ Pending | ⏳ Pending | Current Stock Levels |
-| **Party Outstanding** | ⬜ Pending | ⬜ Pending | ⏳ Pending | ⏳ Pending | Receivables/Payables |
-| **GST Registers** | ⬜ Pending | ⬜ Pending | ⏳ Pending | ⏳ Pending | GSTR-1, GSTR-3B Data |
+| **Stock Summary** | ✅ Completed | ✅ Verified | ⏳ Pending | ⏳ Pending | In/Out/Balance |
+| **Party Outstanding** | ✅ Completed | ✅ Verified | ⏳ Pending | ⏳ Pending | Receivables/Payables |
+| **GST Registers** | ✅ Completed | ✅ Verified | ⏳ Pending | ⏳ Pending | GSTR-1, GSTR-3B |
 
 ---
 
