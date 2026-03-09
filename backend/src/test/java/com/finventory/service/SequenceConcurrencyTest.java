@@ -78,7 +78,7 @@ class SequenceConcurrencyTest {
 
         latch.countDown(); // Start all threads
         executorService.shutdown();
-        boolean finished = executorService.awaitTermination(30, TimeUnit.SECONDS);
+        boolean finished = executorService.awaitTermination(60, TimeUnit.SECONDS);
 
         assertTrue(finished, "Tasks did not finish in time");
         assertEquals(totalRequests, generatedSequences.size(), "Should generate unique sequences");

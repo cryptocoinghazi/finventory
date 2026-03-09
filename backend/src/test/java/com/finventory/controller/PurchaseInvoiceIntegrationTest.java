@@ -161,7 +161,7 @@ class PurchaseInvoiceIntegrationTest {
                                 .header("Authorization", jwtToken)
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isOk())
+                .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.invoiceNumber").isNotEmpty())
                 .andExpect(
                         jsonPath("$.invoiceNumber")
