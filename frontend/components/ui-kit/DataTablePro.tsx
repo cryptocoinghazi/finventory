@@ -1,15 +1,18 @@
 import * as React from "react"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { EmptyState } from "./EmptyState"
 import {
   useReactTable,
   getCoreRowModel,
   getSortedRowModel,
+  getFilteredRowModel,
   flexRender,
   ColumnDef,
   SortingState,
+  ColumnFiltersState,
 } from "@tanstack/react-table"
-import { ArrowDownWideNarrow, ArrowUpWideNarrow } from "lucide-react"
+import { ArrowDownWideNarrow, ArrowUpWideNarrow, Search } from "lucide-react"
 
 type Column<T> = {
   key: keyof T | string
@@ -24,6 +27,7 @@ export function DataTablePro<T>({
   loading,
   filters,
   actions,
+  searchKey,
   empty,
   page,
   pageSize,
@@ -35,6 +39,7 @@ export function DataTablePro<T>({
   loading?: boolean
   filters?: React.ReactNode
   actions?: React.ReactNode
+  searchKey?: string
   empty?: { title: React.ReactNode; description?: React.ReactNode; onAdd?: () => void }
   page?: number
   pageSize?: number
@@ -47,6 +52,7 @@ export function DataTablePro<T>({
       : undefined
 
   const [sorting, setSorting] = React.useState<SortingState>([])
+  const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
 
   const columnDefs = React.useMemo<ColumnDef<T>[]>(() => {
     return columns.map((c) => ({
@@ -65,17 +71,34 @@ export function DataTablePro<T>({
   const table = useReactTable({
     data,
     columns: columnDefs,
-    state: { sorting },
+    state: { sorting, columnFilters },
     onSortingChange: setSorting,
+    onColumnFiltersChange: setColumnFilters,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
   })
 
   return (
     <div className="space-y-4">
-      {filters || actions ? (
+      {filters || actions || searchKey ? (
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          {filters ? <div className="flex-1">{filters}</div> : <div />}
+          <div className="flex flex-1 items-center gap-2">
+            {searchKey && (
+              <div className="relative max-w-sm flex-1">
+                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search..."
+                  value={(table.getColumn(searchKey)?.getFilterValue() as string) ?? ""}
+                  onChange={(event) =>
+                    table.getColumn(searchKey)?.setFilterValue(event.target.value)
+                  }
+                  className="pl-9"
+                />
+              </div>
+            )}
+            {filters ? <div className="flex-1">{filters}</div> : null}
+          </div>
           {actions ? <div className="flex items-center gap-2">{actions}</div> : null}
         </div>
       ) : null}

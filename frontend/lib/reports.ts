@@ -1,6 +1,31 @@
-import { apiFetch } from "@/lib/api"
+import { API_BASE } from "./api"
 
-export type StockSummary = {
+export interface GstRegisterEntry {
+  invoiceNumber: string
+  invoiceDate: string
+  partyName: string
+  partyGstin: string
+  placeOfSupply: string
+  invoiceType: string
+  taxableValue: number
+  cgstAmount: number
+  sgstAmount: number
+  igstAmount: number
+  totalAmount: number
+}
+
+export interface Gstr3b {
+  outwardTaxableValue: number
+  outwardIgst: number
+  outwardCgst: number
+  outwardSgst: number
+  itcIgst: number
+  itcCgst: number
+  itcSgst: number
+  netTaxPayable: number
+}
+
+export interface StockSummary {
   itemId: string
   itemName: string
   itemCode: string
@@ -10,7 +35,7 @@ export type StockSummary = {
   uom: string
 }
 
-export type PartyOutstanding = {
+export interface PartyOutstanding {
   partyId: string
   partyName: string
   partyType: string
@@ -19,29 +44,52 @@ export type PartyOutstanding = {
   netBalance: number
 }
 
+export async function getGstr1(): Promise<GstRegisterEntry[]> {
+  const res = await fetch(`${API_BASE}/api/reports/gstr-1`, {
+    headers: {
+      Authorization: `Bearer ${window.localStorage.getItem("token")}`,
+    },
+  })
+  if (!res.ok) throw new Error("Failed to fetch GSTR-1")
+  return res.json()
+}
+
+export async function getGstr2(): Promise<GstRegisterEntry[]> {
+  const res = await fetch(`${API_BASE}/api/reports/gstr-2`, {
+    headers: {
+      Authorization: `Bearer ${window.localStorage.getItem("token")}`,
+    },
+  })
+  if (!res.ok) throw new Error("Failed to fetch GSTR-2")
+  return res.json()
+}
+
+export async function getGstr3b(): Promise<Gstr3b> {
+  const res = await fetch(`${API_BASE}/api/reports/gstr-3b`, {
+    headers: {
+      Authorization: `Bearer ${window.localStorage.getItem("token")}`,
+    },
+  })
+  if (!res.ok) throw new Error("Failed to fetch GSTR-3B")
+  return res.json()
+}
+
 export async function getStockSummary(): Promise<StockSummary[]> {
-  const res = await apiFetch("/api/reports/stock-summary", { cache: "no-store" })
-  return readJsonOrThrow<StockSummary[]>(res)
+  const res = await fetch(`${API_BASE}/api/reports/stock-summary`, {
+    headers: {
+      Authorization: `Bearer ${window.localStorage.getItem("token")}`,
+    },
+  })
+  if (!res.ok) throw new Error("Failed to fetch stock summary")
+  return res.json()
 }
 
 export async function getPartyOutstanding(): Promise<PartyOutstanding[]> {
-  const res = await apiFetch("/api/reports/party-outstanding", { cache: "no-store" })
-  return readJsonOrThrow<PartyOutstanding[]>(res)
+  const res = await fetch(`${API_BASE}/api/reports/party-outstanding`, {
+    headers: {
+      Authorization: `Bearer ${window.localStorage.getItem("token")}`,
+    },
+  })
+  if (!res.ok) throw new Error("Failed to fetch party outstanding")
+  return res.json()
 }
-
-async function readJsonOrThrow<T>(res: Response): Promise<T> {
-  if (!res.ok) {
-    const msg = await safeReadText(res)
-    throw new Error(msg || `Request failed (${res.status})`)
-  }
-  return (await res.json()) as T
-}
-
-async function safeReadText(res: Response): Promise<string> {
-  try {
-    return await res.text()
-  } catch {
-    return ""
-  }
-}
-
