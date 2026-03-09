@@ -4,7 +4,8 @@ import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { PageHeader } from "@/components/ui/page-header"
 import { DataTablePro } from "@/components/ui-kit/DataTablePro"
-import { listPurchaseReturns, PurchaseReturn } from "@/lib/purchase-returns"
+import Link from "next/link"
+import { getPurchaseReturns, PurchaseReturn } from "@/lib/purchase-returns"
 import { Plus } from "lucide-react"
 import { format } from "date-fns"
 
@@ -20,7 +21,7 @@ export default function PurchaseReturnsPage() {
   async function loadData() {
     try {
       setLoading(true)
-      const res = await listPurchaseReturns()
+      const res = await getPurchaseReturns()
       setData(res)
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load purchase returns")
@@ -61,10 +62,12 @@ export default function PurchaseReturnsPage() {
           title="Purchase Returns"
           description="Manage vendor returns (Debit Notes)"
         />
-        <Button className="gap-2">
-          <Plus className="h-4 w-4" />
-          New Return
-        </Button>
+        <Link href="/purchase/returns/new">
+          <Button className="gap-2">
+            <Plus className="h-4 w-4" />
+            New Return
+          </Button>
+        </Link>
       </div>
 
       {error ? (

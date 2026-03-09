@@ -99,7 +99,7 @@
     - [x] Create Invoice Form (`/purchase/invoices/new`).
     - [x] Invoice List (`/purchase/invoices`).
     - [x] View Invoice (`/purchase/invoices/[id]`).
-- [ ] **Logic**
+- [x] **Logic**
     - [x] Vendor Selection.
     - [x] Vendor Invoice Number.
     - [x] Line Item Editor.
@@ -107,14 +107,17 @@
     - [ ] E2E Test: Create Purchase Invoice.
 
 ### F8. Returns Management
-- [ ] **Screens**
-    - [ ] Sales Return Create.
-    - [ ] Purchase Return Create.
-    - [ ] Return Lists/Views (Coming Soon: backend exposes only POST endpoints).
-- [ ] **Logic**
-    - [ ] Original Invoice Lookup & Selection.
-- [ ] **Testing**
-    - [ ] E2E Test: Create Sales Return.
+- **Status**: [x] Completed
+- **Priority**: High
+- **Description**: Handle Sales Returns (Credit Note) and Purchase Returns (Debit Note).
+- **Sub-tasks**:
+  - [x] Sales Return List (Frontend)
+  - [x] Purchase Return List (Frontend)
+  - [x] Sales Return Creation Form (Frontend + Logic)
+  - [x] Purchase Return Creation Form (Frontend + Logic)
+  - [x] Sales Return Detail View (Frontend + Logic)
+  - [x] Purchase Return Detail View (Frontend + Logic)
+  - [x] Backend Integration (API Client)
 
 ### F9. Reports: Stock Summary
 - [ ] **Screens**

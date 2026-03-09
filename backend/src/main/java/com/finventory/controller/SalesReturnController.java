@@ -29,4 +29,10 @@ public class SalesReturnController {
     public ResponseEntity<java.util.List<SalesReturnDto>> getAllSalesReturns() {
         return ResponseEntity.ok(salesReturnService.getAllSalesReturns());
     }
+
+    @org.springframework.web.bind.annotation.GetMapping("/{id}")
+    public ResponseEntity<SalesReturnDto> getSalesReturn(
+            @org.springframework.web.bind.annotation.PathVariable java.util.UUID id) {
+        return ResponseEntity.ok(salesReturnService.getSalesReturn(id));
+    }
 }

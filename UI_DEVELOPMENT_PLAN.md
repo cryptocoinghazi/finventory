@@ -53,11 +53,11 @@ Masters
 
 Sales
 - Sales Invoices: POST/GET /api/v1/sales-invoices, GET /api/v1/sales-invoices/{id} (no update, no preview endpoint)
-- Sales Returns: POST /api/sales-returns (no list/view endpoints)
+- Sales Returns: POST/GET /api/sales-returns, GET /api/sales-returns/{id} (Completed)
 
 Purchase
-- Purchase Invoices: POST /api/purchase-invoices (no list/view endpoints)
-- Purchase Returns: POST /api/purchase-returns (no list/view endpoints)
+- Purchase Invoices: POST/GET /api/v1/purchase-invoices, GET /api/v1/purchase-invoices/{id}
+- Purchase Returns: POST/GET /api/purchase-returns, GET /api/purchase-returns/{id} (Completed)
 
 Reports
 - GET /api/reports/stock-summary (no filters)
@@ -86,10 +86,11 @@ Sales
 
 Purchase
 - Purchase Invoices:
-  - Add GET /api/purchase-invoices and GET /api/purchase-invoices/{id} for list/view screens
+  - (Completed) Add GET /api/v1/purchase-invoices and GET /api/v1/purchase-invoices/{id}
   - Add optional query support: ?fromDate=&toDate=&partyId=&warehouseId=&status=
 - Purchase Returns:
-  - Add GET /api/purchase-returns and GET /api/purchase-returns/{id} for list/view screens
+  - (Completed) Add GET /api/purchase-returns (List only)
+  - Add GET /api/purchase-returns/{id} for view screen
   - Add optional query support: ?fromDate=&toDate=&partyId=&warehouseId=&status=
 
 Reports (filters + export readiness)

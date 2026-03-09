@@ -18,6 +18,8 @@ public class PurchaseReturnLineDto {
 
     @NotNull(message = "Item ID is required")
     private UUID itemId;
+    private String itemName;
+    private String itemCode;
 
     @NotNull(message = "Quantity is required")
     private BigDecimal quantity;

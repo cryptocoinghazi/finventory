@@ -29,4 +29,10 @@ public class PurchaseReturnController {
     public ResponseEntity<java.util.List<PurchaseReturnDto>> getAllPurchaseReturns() {
         return ResponseEntity.ok(purchaseReturnService.getAllPurchaseReturns());
     }
+
+    @org.springframework.web.bind.annotation.GetMapping("/{id}")
+    public ResponseEntity<PurchaseReturnDto> getPurchaseReturn(
+            @org.springframework.web.bind.annotation.PathVariable java.util.UUID id) {
+        return ResponseEntity.ok(purchaseReturnService.getPurchaseReturn(id));
+    }
 }

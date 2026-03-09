@@ -186,6 +186,14 @@ public class PurchaseReturnService {
         return purchaseReturnRepository.findAll().stream().map(this::mapToDto).toList();
     }
 
+    @Transactional(readOnly = true)
+    public PurchaseReturnDto getPurchaseReturn(java.util.UUID id) {
+        return purchaseReturnRepository
+                .findById(id)
+                .map(this::mapToDto)
+                .orElseThrow(() -> new EntityNotFoundException("Purchase Return not found"));
+    }
+
     private PurchaseReturnDto mapToDto(PurchaseReturn returnObj) {
         return PurchaseReturnDto.builder()
                 .id(returnObj.getId())
@@ -212,6 +220,8 @@ public class PurchaseReturnService {
                                                 PurchaseReturnLineDto.builder()
                                                         .id(line.getId())
                                                         .itemId(line.getItem().getId())
+                                                        .itemName(line.getItem().getName())
+                                                        .itemCode(line.getItem().getCode())
                                                         .quantity(line.getQuantity())
                                                         .unitPrice(line.getUnitPrice())
                                                         .taxRate(line.getTaxRate())

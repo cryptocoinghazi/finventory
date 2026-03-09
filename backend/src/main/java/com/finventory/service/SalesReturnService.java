@@ -179,6 +179,14 @@ public class SalesReturnService {
         return salesReturnRepository.findAll().stream().map(this::mapToDto).toList();
     }
 
+    @Transactional(readOnly = true)
+    public SalesReturnDto getSalesReturn(java.util.UUID id) {
+        return salesReturnRepository
+                .findById(id)
+                .map(this::mapToDto)
+                .orElseThrow(() -> new EntityNotFoundException("Sales Return not found"));
+    }
+
     private SalesReturnDto mapToDto(SalesReturn salesReturn) {
         return SalesReturnDto.builder()
                 .id(salesReturn.getId())
@@ -206,6 +214,8 @@ public class SalesReturnService {
         return SalesReturnLineDto.builder()
                 .id(line.getId())
                 .itemId(line.getItem().getId())
+                .itemName(line.getItem().getName())
+                .itemCode(line.getItem().getCode())
                 .quantity(line.getQuantity())
                 .unitPrice(line.getUnitPrice())
                 .taxRate(line.getTaxRate())

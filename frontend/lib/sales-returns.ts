@@ -1,19 +1,22 @@
-import { API_BASE } from "./api"
+
+import { apiFetch } from "@/lib/api"
 
 export interface SalesReturnLine {
-  id: string
+  id?: string
   itemId: string
   itemName?: string
+  itemCode?: string
   quantity: number
   unitPrice: number
   taxRate?: number
-  taxAmount: number
-  lineTotal: number
+  taxAmount?: number
+  lineTotal?: number
 }
 
 export interface SalesReturn {
   id: string
   returnNumber: string
+  salesInvoiceId?: string
   returnDate: string
   partyId: string
   partyName?: string
@@ -21,16 +24,44 @@ export interface SalesReturn {
   warehouseName?: string
   totalTaxableAmount: number
   totalTaxAmount: number
+  totalCgstAmount: number
+  totalSgstAmount: number
+  totalIgstAmount: number
   grandTotal: number
   lines: SalesReturnLine[]
 }
 
-export async function listSalesReturns(): Promise<SalesReturn[]> {
-  const res = await fetch(`${API_BASE}/api/sales-returns`, {
-    headers: {
-      Authorization: `Bearer ${window.localStorage.getItem("token")}`,
-    },
-  })
+export interface SalesReturnInput {
+  returnNumber: string
+  salesInvoiceId?: string
+  returnDate: string
+  partyId: string
+  warehouseId: string
+  lines: {
+    itemId: string
+    quantity: number
+    unitPrice: number
+  }[]
+}
+
+export async function getSalesReturns(): Promise<SalesReturn[]> {
+  const res = await apiFetch("/api/sales-returns", { cache: "no-store" })
   if (!res.ok) throw new Error("Failed to fetch sales returns")
+  return res.json()
+}
+
+export async function getSalesReturn(id: string): Promise<SalesReturn> {
+  const res = await apiFetch(`/api/sales-returns/${id}`, { cache: "no-store" })
+  if (!res.ok) throw new Error("Failed to fetch sales return")
+  return res.json()
+}
+
+export async function createSalesReturn(data: SalesReturnInput): Promise<SalesReturn> {
+  const res = await apiFetch("/api/sales-returns", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  })
+  if (!res.ok) throw new Error("Failed to create sales return")
   return res.json()
 }

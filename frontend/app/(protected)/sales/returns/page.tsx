@@ -4,7 +4,8 @@ import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { PageHeader } from "@/components/ui/page-header"
 import { DataTablePro } from "@/components/ui-kit/DataTablePro"
-import { listSalesReturns, SalesReturn } from "@/lib/sales-returns"
+import Link from "next/link"
+import { getSalesReturns, SalesReturn } from "@/lib/sales-returns"
 import { Plus } from "lucide-react"
 import { format } from "date-fns"
 
@@ -20,7 +21,7 @@ export default function SalesReturnsPage() {
   async function loadData() {
     try {
       setLoading(true)
-      const res = await listSalesReturns()
+      const res = await getSalesReturns()
       setData(res)
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load sales returns")
@@ -61,10 +62,12 @@ export default function SalesReturnsPage() {
           title="Sales Returns"
           description="Manage customer returns (Credit Notes)"
         />
-        <Button className="gap-2">
-          <Plus className="h-4 w-4" />
-          New Return
-        </Button>
+        <Link href="/sales/returns/new">
+          <Button className="gap-2">
+            <Plus className="h-4 w-4" />
+            New Return
+          </Button>
+        </Link>
       </div>
 
       {error ? (
