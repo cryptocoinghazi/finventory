@@ -50,6 +50,22 @@ export default function ItemsListPage() {
     })
   }, [debouncedQuery, rows])
 
+  const grouped = useMemo(() => {
+    const groups: Record<string, Item[]> = {}
+    filtered.forEach((item) => {
+      const vendorName = item.vendorName || "Unassigned"
+      if (!groups[vendorName]) {
+        groups[vendorName] = []
+      }
+      groups[vendorName].push(item)
+    })
+    return groups
+  }, [filtered])
+
+  const sortedVendorNames = useMemo(() => {
+    return Object.keys(grouped).sort()
+  }, [grouped])
+
   function renderActions(it: Item) {
     return (
       <div className="flex items-center gap-2">
@@ -73,11 +89,31 @@ export default function ItemsListPage() {
     )
   }
 
+  const columns = [
+    { key: "name", header: "Name", sortable: true },
+    { key: "code", header: "Code", sortable: true },
+    { key: "hsnCode", header: "HSN" },
+    { key: "uom", header: "UOM" },
+    { 
+      key: "unitPrice", 
+      header: "Unit Price", 
+      cell: (row: Item) => <MoneyText value={row.unitPrice} />,
+      className: "text-right"
+    },
+    { 
+      key: "taxRate", 
+      header: "Tax %", 
+      cell: (row: Item) => `${row.taxRate}%`,
+      className: "text-right"
+    },
+    { key: "actions", header: "Actions", cell: renderActions, className: "w-[150px]" },
+  ]
+
   return (
     <div className="space-y-6">
       <PageHeader
         title="Items"
-        description="Manage inventory items."
+        description="Manage inventory items grouped by vendor."
         actions={
           <div className="flex gap-2">
             <ItemUploadDialog onUpload={load} />
@@ -90,41 +126,46 @@ export default function ItemsListPage() {
 
       {error ? <div className="text-sm text-destructive">{error}</div> : null}
 
-      <DataTablePro
-        columns={[
-          { key: "name", header: "Name", sortable: true },
-          { key: "code", header: "Code", sortable: true },
-          { key: "hsnCode", header: "HSN" },
-          { key: "uom", header: "UOM" },
-          { 
-            key: "unitPrice", 
-            header: "Unit Price", 
-            cell: (row) => <MoneyText value={row.unitPrice} />,
-            className: "text-right"
-          },
-          { 
-            key: "taxRate", 
-            header: "Tax %", 
-            cell: (row) => `${row.taxRate}%`,
-            className: "text-right"
-          },
-          { key: "actions", header: "Actions", cell: renderActions, className: "w-[150px]" },
-        ]}
-        data={filtered}
-        loading={loading}
-        filters={
-          <div className="relative w-full max-w-sm">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input
-              type="search"
-              placeholder="Search items..."
-              className="pl-8"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
+      <div className="relative w-full max-w-sm">
+        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+        <Input
+          type="search"
+          placeholder="Search items..."
+          className="pl-8"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+        />
+      </div>
+
+      {loading ? (
+        <DataTablePro columns={columns} data={[]} loading={true} />
+      ) : sortedVendorNames.length === 0 ? (
+        <DataTablePro 
+          columns={columns} 
+          data={[]} 
+          empty={{ 
+            title: "No items found", 
+            description: "Get started by adding a new item.",
+            onAdd: () => {} // handled by header button
+          }} 
+        />
+      ) : (
+        sortedVendorNames.map((vendorName) => (
+          <div key={vendorName} className="space-y-4 border rounded-lg p-4 bg-card">
+            <h3 className="text-lg font-semibold flex items-center gap-2">
+              {vendorName}
+              <span className="text-sm font-normal text-muted-foreground">
+                ({grouped[vendorName].length})
+              </span>
+            </h3>
+            <DataTablePro
+              columns={columns}
+              data={grouped[vendorName]}
+              loading={false}
             />
           </div>
-        }
-      />
+        ))
+      )}
     </div>
   )
 }

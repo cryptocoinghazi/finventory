@@ -17,7 +17,12 @@ import com.finventory.repository.WarehouseRepository;
 import jakarta.persistence.EntityNotFoundException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import com.finventory.model.SalesInvoiceLine;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -57,6 +62,41 @@ public class SalesReturnService {
                             .findById(dto.getSalesInvoiceId())
                             .orElseThrow(
                                     () -> new EntityNotFoundException("Sales Invoice not found"));
+
+            // Validate return quantities against original invoice quantities
+            Map<java.util.UUID, BigDecimal> invoiceItemQuantities =
+                    salesInvoice.getLines().stream()
+                            .collect(
+                                    Collectors.toMap(
+                                            line -> line.getItem().getId(),
+                                            SalesInvoiceLine::getQuantity));
+
+            List<SalesReturn> existingReturns =
+                    salesReturnRepository.findBySalesInvoiceId(salesInvoice.getId());
+            Map<java.util.UUID, BigDecimal> returnedItemQuantities = new HashMap<>();
+
+            for (SalesReturn existingReturn : existingReturns) {
+                for (SalesReturnLine line : existingReturn.getLines()) {
+                    returnedItemQuantities.merge(
+                            line.getItem().getId(), line.getQuantity(), BigDecimal::add);
+                }
+            }
+
+            for (SalesReturnLineDto lineDto : dto.getLines()) {
+                BigDecimal originalQuantity =
+                        invoiceItemQuantities.getOrDefault(
+                                lineDto.getItemId(), BigDecimal.ZERO);
+                BigDecimal alreadyReturned =
+                        returnedItemQuantities.getOrDefault(
+                                lineDto.getItemId(), BigDecimal.ZERO);
+                BigDecimal currentReturn = lineDto.getQuantity();
+
+                if (alreadyReturned.add(currentReturn).compareTo(originalQuantity) > 0) {
+                    throw new IllegalArgumentException(
+                            "Return quantity exceeds available quantity for item: "
+                                    + lineDto.getItemId());
+                }
+            }
         }
 
         String returnNumber = dto.getReturnNumber();
@@ -78,12 +118,6 @@ public class SalesReturnService {
                         .lines(new ArrayList<>())
                         .build();
 
-        BigDecimal totalTaxable = BigDecimal.ZERO;
-        BigDecimal totalTax = BigDecimal.ZERO;
-        BigDecimal totalCgst = BigDecimal.ZERO;
-        BigDecimal totalSgst = BigDecimal.ZERO;
-        BigDecimal totalIgst = BigDecimal.ZERO;
-
         // Determine Tax Type (Inter-state vs Intra-state)
         String partyState = party.getStateCode();
         if (partyState == null && party.getGstin() != null && party.getGstin().length() >= 2) {
@@ -95,6 +129,43 @@ public class SalesReturnService {
         if (partyState != null && warehouseState != null) {
             isInterState = !partyState.equalsIgnoreCase(warehouseState);
         }
+
+        calculateReturnTotals(salesReturn, dto, isInterState);
+
+        SalesReturn savedReturn = salesReturnRepository.save(salesReturn);
+
+        // Stock Posting (Stock IN)
+        for (SalesReturnLine line : savedReturn.getLines()) {
+            stockPostingService.postStockIn(
+                    savedReturn.getReturnDate(),
+                    line.getItem(),
+                    savedReturn.getWarehouse(),
+                    line.getQuantity(),
+                    StockLedgerEntry.ReferenceType.SALES_RETURN,
+                    savedReturn.getId());
+        }
+
+        // GL Posting
+        glPostingService.postSalesReturn(
+                savedReturn.getReturnDate(),
+                savedReturn.getId(),
+                savedReturn.getParty(),
+                savedReturn.getTotalTaxableAmount(),
+                savedReturn.getTotalCgstAmount(),
+                savedReturn.getTotalSgstAmount(),
+                savedReturn.getTotalIgstAmount(),
+                savedReturn.getGrandTotal());
+
+        return mapToDto(savedReturn);
+    }
+
+    private void calculateReturnTotals(
+            SalesReturn salesReturn, SalesReturnDto dto, boolean isInterState) {
+        BigDecimal totalTaxable = BigDecimal.ZERO;
+        BigDecimal totalTax = BigDecimal.ZERO;
+        BigDecimal totalCgst = BigDecimal.ZERO;
+        BigDecimal totalSgst = BigDecimal.ZERO;
+        BigDecimal totalIgst = BigDecimal.ZERO;
 
         for (SalesReturnLineDto lineDto : dto.getLines()) {
             Item item =
@@ -156,32 +227,6 @@ public class SalesReturnService {
         salesReturn.setTotalSgstAmount(totalSgst);
         salesReturn.setTotalIgstAmount(totalIgst);
         salesReturn.setGrandTotal(totalTaxable.add(totalTax));
-
-        SalesReturn savedReturn = salesReturnRepository.save(salesReturn);
-
-        // Stock Posting (Stock IN)
-        for (SalesReturnLine line : savedReturn.getLines()) {
-            stockPostingService.postStockIn(
-                    savedReturn.getReturnDate(),
-                    line.getItem(),
-                    savedReturn.getWarehouse(),
-                    line.getQuantity(),
-                    StockLedgerEntry.ReferenceType.SALES_RETURN,
-                    savedReturn.getId());
-        }
-
-        // GL Posting
-        glPostingService.postSalesReturn(
-                savedReturn.getReturnDate(),
-                savedReturn.getId(),
-                savedReturn.getParty(),
-                savedReturn.getTotalTaxableAmount(),
-                savedReturn.getTotalCgstAmount(),
-                savedReturn.getTotalSgstAmount(),
-                savedReturn.getTotalIgstAmount(),
-                savedReturn.getGrandTotal());
-
-        return mapToDto(savedReturn);
     }
 
     @Transactional(readOnly = true)

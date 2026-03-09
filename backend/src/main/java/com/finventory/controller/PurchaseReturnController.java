@@ -12,7 +12,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/api/purchase-returns")
+@RequestMapping("/api/v1/purchase-returns")
 @RequiredArgsConstructor
 public class PurchaseReturnController {
 

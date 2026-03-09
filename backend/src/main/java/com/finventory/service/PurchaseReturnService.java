@@ -17,7 +17,12 @@ import com.finventory.repository.WarehouseRepository;
 import jakarta.persistence.EntityNotFoundException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import com.finventory.model.PurchaseInvoiceLine;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -63,6 +68,41 @@ public class PurchaseReturnService {
                                     () ->
                                             new EntityNotFoundException(
                                                     "Purchase Invoice not found"));
+
+            // Validate return quantities against original invoice quantities
+            Map<java.util.UUID, BigDecimal> invoiceItemQuantities =
+                    purchaseInvoice.getLines().stream()
+                            .collect(
+                                    Collectors.toMap(
+                                            line -> line.getItem().getId(),
+                                            PurchaseInvoiceLine::getQuantity));
+
+            List<PurchaseReturn> existingReturns =
+                    purchaseReturnRepository.findByPurchaseInvoiceId(purchaseInvoice.getId());
+            Map<java.util.UUID, BigDecimal> returnedItemQuantities = new HashMap<>();
+
+            for (PurchaseReturn existingReturn : existingReturns) {
+                for (PurchaseReturnLine line : existingReturn.getLines()) {
+                    returnedItemQuantities.merge(
+                            line.getItem().getId(), line.getQuantity(), BigDecimal::add);
+                }
+            }
+
+            for (PurchaseReturnLineDto lineDto : dto.getLines()) {
+                BigDecimal originalQuantity =
+                        invoiceItemQuantities.getOrDefault(
+                                lineDto.getItemId(), BigDecimal.ZERO);
+                BigDecimal alreadyReturned =
+                        returnedItemQuantities.getOrDefault(
+                                lineDto.getItemId(), BigDecimal.ZERO);
+                BigDecimal currentReturn = lineDto.getQuantity();
+
+                if (alreadyReturned.add(currentReturn).compareTo(originalQuantity) > 0) {
+                    throw new IllegalArgumentException(
+                            "Return quantity exceeds available quantity for item: "
+                                    + lineDto.getItemId());
+                }
+            }
         }
 
         String returnNumber = dto.getReturnNumber();

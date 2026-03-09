@@ -12,7 +12,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/api/sales-returns")
+@RequestMapping("/api/v1/sales-returns")
 @RequiredArgsConstructor
 public class SalesReturnController {
 

@@ -44,6 +44,20 @@ public class ItemService {
             List<ItemCsvDto> csvDtos = csvToBean.parse();
             List<Item> itemsToSave = new ArrayList<>();
 
+            // Find a default vendor to assign to items
+            List<Party> vendors = partyRepository.findByType(Party.PartyType.VENDOR);
+            Party defaultVendor;
+            if (!vendors.isEmpty()) {
+                defaultVendor = vendors.get(0);
+            } else {
+                defaultVendor = Party.builder()
+                        .name("General Vendor")
+                        .type(Party.PartyType.VENDOR)
+                        .address("Default Address")
+                        .build();
+                partyRepository.save(defaultVendor);
+            }
+
             for (ItemCsvDto csvDto : csvDtos) {
                 Optional<Item> existing = itemRepository.findByCode(csvDto.getCode());
                 if (existing.isPresent()) {
@@ -53,10 +67,14 @@ public class ItemService {
                     item.setTaxRate(csvDto.getTaxRate());
                     item.setUnitPrice(csvDto.getUnitPrice());
                     item.setUom(csvDto.getUom());
+                    if (item.getVendor() == null) {
+                        item.setVendor(defaultVendor);
+                    }
                     itemsToSave.add(item);
                 } else {
                     Item item =
                             Item.builder()
+                                    .vendor(defaultVendor)
                                     .name(csvDto.getName())
                                     .code(csvDto.getCode())
                                     .hsnCode(csvDto.getHsnCode())
@@ -82,13 +100,15 @@ public class ItemService {
                     "Item with code " + dto.getCode() + " already exists");
         }
 
-        Party vendor = null;
+        Party vendor;
         if (dto.getVendorId() != null) {
             vendor = partyRepository.findById(dto.getVendorId())
                     .orElseThrow(() -> new IllegalArgumentException("Vendor not found"));
             if (vendor.getType() != Party.PartyType.VENDOR) {
                 throw new IllegalArgumentException("Selected party is not a vendor");
             }
+        } else {
+            vendor = getOrCreateDefaultVendor();
         }
 
         Item item =
@@ -140,7 +160,7 @@ public class ItemService {
             }
             existing.setVendor(vendor);
         } else {
-            existing.setVendor(null);
+            existing.setVendor(getOrCreateDefaultVendor());
         }
 
         if (!existing.getCode().equals(dto.getCode())) {
@@ -156,6 +176,19 @@ public class ItemService {
 
     public void deleteItem(UUID id) {
         itemRepository.deleteById(id);
+    }
+
+    private Party getOrCreateDefaultVendor() {
+        List<Party> vendors = partyRepository.findByType(Party.PartyType.VENDOR);
+        if (!vendors.isEmpty()) {
+            return vendors.get(0);
+        }
+        Party defaultVendor = Party.builder()
+                .name("General Vendor")
+                .type(Party.PartyType.VENDOR)
+                .address("Default Address")
+                .build();
+        return partyRepository.save(defaultVendor);
     }
 
     private ItemDto mapToDto(Item item) {

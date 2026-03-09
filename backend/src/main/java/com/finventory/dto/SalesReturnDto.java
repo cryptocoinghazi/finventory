@@ -18,7 +18,6 @@ public class SalesReturnDto {
 
     private UUID id;
 
-    @NotNull(message = "Return number is required")
     private String returnNumber;
 
     private UUID salesInvoiceId;
