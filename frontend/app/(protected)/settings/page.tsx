@@ -8,10 +8,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
-import { getCurrentUser, updatePassword, User } from "@/lib/users"
+import { getCurrentUser, updatePassword, User, PasswordUpdateData } from "@/lib/users"
 import { getOrganizationProfile, updateOrganizationProfile, OrganizationProfile } from "@/lib/settings"
 import { InlineErrorCallout } from "@/components/ui-kit/InlineErrorCallout"
-import { useToast } from "@/components/ui/use-toast"
 import { Loader2 } from "lucide-react"
 
 export default function SettingsPage() {
@@ -52,7 +51,7 @@ function ProfileTab() {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
 
-  const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm({
+  const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<PasswordUpdateData>({
     defaultValues: {
       currentPassword: "",
       newPassword: "",
@@ -63,11 +62,11 @@ function ProfileTab() {
   useEffect(() => {
     getCurrentUser()
       .then(setUser)
-      .catch((err) => setError("Failed to load profile"))
+      .catch(() => setError("Failed to load profile"))
       .finally(() => setLoading(false))
   }, [])
 
-  const onSubmit = async (data: any) => {
+  const onSubmit = async (data: PasswordUpdateData) => {
     setError(null)
     setSuccess(null)
     
@@ -84,8 +83,8 @@ function ProfileTab() {
       })
       setSuccess("Password updated successfully")
       reset()
-    } catch (err: any) {
-      setError(err.message)
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "An error occurred")
     }
   }
 
@@ -178,7 +177,7 @@ function OrganizationTab() {
         reset(data)
         setLoading(false)
       })
-      .catch((err) => {
+      .catch(() => {
         setError("Failed to load organization profile")
         setLoading(false)
       })
@@ -190,8 +189,8 @@ function OrganizationTab() {
     try {
       await updateOrganizationProfile(data)
       setSuccess("Organization profile updated successfully")
-    } catch (err: any) {
-      setError(err.message)
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "An error occurred")
     }
   }
 

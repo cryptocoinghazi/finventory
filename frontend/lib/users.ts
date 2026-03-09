@@ -39,7 +39,13 @@ export async function getCurrentUser(): Promise<User> {
   return res.json()
 }
 
-export async function updatePassword(data: any): Promise<void> {
+export interface PasswordUpdateData {
+  currentPassword?: string
+  newPassword?: string
+  confirmPassword?: string
+}
+
+export async function updatePassword(data: PasswordUpdateData): Promise<void> {
   const res = await apiFetch("/api/v1/users/me/password", {
     method: "PUT",
     headers: { "Content-Type": "application/json" },

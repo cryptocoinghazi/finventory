@@ -1,154 +1,202 @@
- "use client"
- 
- import { Button } from "@/components/ui/button"
- import { FormLayout } from "@/components/ui-kit/FormLayout"
- import { FormSectionCard } from "@/components/ui-kit/FormSectionCard"
- import { ItemInput } from "@/lib/items"
- import { useMemo, useState } from "react"
- 
- export function ItemForm({
-   initialValue,
-   onSubmit,
-   submitLabel,
- }: {
-   initialValue?: ItemInput
-   submitLabel: string
-   onSubmit: (input: ItemInput) => Promise<void>
- }) {
-   const [name, setName] = useState(initialValue?.name ?? "")
-   const [code, setCode] = useState(initialValue?.code ?? "")
-   const [hsnCode, setHsnCode] = useState(initialValue?.hsnCode ?? "")
-   const [taxRate, setTaxRate] = useState<string>(
-     initialValue ? String(initialValue.taxRate) : ""
-   )
-   const [unitPrice, setUnitPrice] = useState<string>(
-     initialValue ? String(initialValue.unitPrice) : ""
-   )
-   const [uom, setUom] = useState(initialValue?.uom ?? "")
-   const [submitting, setSubmitting] = useState(false)
-   const [error, setError] = useState<string | null>(null)
- 
-   const normalizedInput = useMemo<ItemInput>(() => {
-     const rate = Number.parseFloat(taxRate)
-     const price = Number.parseFloat(unitPrice)
-     return {
-       name: name.trim(),
-       code: code.trim(),
-       hsnCode: hsnCode.trim() ? hsnCode.trim() : null,
-       taxRate: Number.isFinite(rate) ? rate : 0,
-       unitPrice: Number.isFinite(price) ? price : 0,
-       uom: uom.trim(),
-     }
-   }, [name, code, hsnCode, taxRate, unitPrice, uom])
- 
-   const validationError = useMemo(() => {
-     if (!normalizedInput.name) return "Name is required"
-     if (!normalizedInput.code) return "Code is required"
-     if (!normalizedInput.uom) return "UOM is required"
-     if (normalizedInput.taxRate < 0) return "Tax rate must be >= 0"
-     if (normalizedInput.unitPrice < 0) return "Unit price must be >= 0"
-     return null
-   }, [normalizedInput])
- 
-   async function handleSubmit(e: React.FormEvent) {
-     e.preventDefault()
-     setError(null)
-     if (validationError) {
-       setError(validationError)
-       return
-     }
-     setSubmitting(true)
-     try {
-      await onSubmit(normalizedInput)
+"use client"
+
+import { useForm } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
+import { z } from "zod"
+import { useRouter } from "next/navigation"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
+import { FormLayout } from "@/components/ui-kit/FormLayout"
+import { FormSectionCard } from "@/components/ui-kit/FormSectionCard"
+import { SmartSelect } from "@/components/ui-kit/SmartSelect"
+import { ItemInput } from "@/lib/items"
+import { TaxSlab } from "@/lib/tax-slabs"
+import { useState } from "react"
+
+const itemSchema = z.object({
+  name: z.string().min(1, "Name is required"),
+  code: z.string().min(1, "Code is required"),
+  hsnCode: z.string().optional(),
+  uom: z.string().min(1, "UOM is required"),
+  unitPrice: z.coerce.number().min(0, "Price must be >= 0"),
+  taxRate: z.coerce.number().min(0, "Tax rate must be >= 0"),
+})
+
+type FormValues = z.infer<typeof itemSchema>
+
+export function ItemForm({
+  initialValue,
+  onSubmit,
+  submitLabel,
+}: {
+  initialValue?: ItemInput
+  submitLabel: string
+  onSubmit: (input: ItemInput) => Promise<void>
+}) {
+  const router = useRouter()
+  const [serverError, setServerError] = useState<string | null>(null)
+  // We'll track the selected slab ID just for the UI of SmartSelect, if possible.
+  // Since we don't have slab ID in initialValue, we start undefined.
+  const [selectedSlabId, setSelectedSlabId] = useState<string | undefined>(undefined)
+
+  const form = useForm<FormValues>({
+    resolver: zodResolver(itemSchema),
+    defaultValues: {
+      name: initialValue?.name ?? "",
+      code: initialValue?.code ?? "",
+      hsnCode: initialValue?.hsnCode ?? "",
+      uom: initialValue?.uom ?? "",
+      unitPrice: initialValue?.unitPrice ?? 0,
+      taxRate: initialValue?.taxRate ?? 0,
+    },
+  })
+
+  async function handleSubmit(data: FormValues) {
+    setServerError(null)
+    try {
+      await onSubmit({
+        ...data,
+        hsnCode: data.hsnCode || null,
+      })
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Save failed")
-    } finally {
-      setSubmitting(false)
-     }
-   }
- 
-   return (
-     <form onSubmit={handleSubmit} className="space-y-6">
-       <FormLayout>
-         <FormSectionCard title="Item Details">
-           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-             <Field label="Name">
-               <input
-                 className="w-full px-3 py-2 rounded-md border border-input bg-background"
-                 value={name}
-                 onChange={(e) => setName(e.target.value)}
-                 placeholder="Steel Rod"
-                 autoFocus
-               />
-             </Field>
-             <Field label="Code">
-               <input
-                 className="w-full px-3 py-2 rounded-md border border-input bg-background"
-                 value={code}
-                 onChange={(e) => setCode(e.target.value)}
-                 placeholder="STL-ROD-10MM"
-               />
-             </Field>
-             <Field label="HSN Code">
-               <input
-                 className="w-full px-3 py-2 rounded-md border border-input bg-background"
-                 value={hsnCode ?? ""}
-                 onChange={(e) => setHsnCode(e.target.value)}
-                 placeholder="7301"
-               />
-             </Field>
-             <Field label="Tax Rate (%)">
-               <input
-                 className="w-full px-3 py-2 rounded-md border border-input bg-background"
-                 value={taxRate}
-                 inputMode="decimal"
-                 onChange={(e) => setTaxRate(e.target.value)}
-                 placeholder="18"
-               />
-             </Field>
-             <Field label="Unit Price">
-               <input
-                 className="w-full px-3 py-2 rounded-md border border-input bg-background"
-                 value={unitPrice}
-                 inputMode="decimal"
-                 onChange={(e) => setUnitPrice(e.target.value)}
-                 placeholder="100.00"
-               />
-             </Field>
-             <Field label="UOM">
-               <input
-                 className="w-full px-3 py-2 rounded-md border border-input bg-background"
-                 value={uom}
-                 onChange={(e) => setUom(e.target.value)}
-                 placeholder="KG"
-               />
-             </Field>
-           </div>
-           {error ? <div className="text-sm text-destructive">{error}</div> : null}
-         </FormSectionCard>
-       </FormLayout>
- 
-       <div className="flex items-center gap-2 sticky bottom-0 bg-background/80 backdrop-blur p-3 border-t border-border">
-         <Button disabled={submitting || Boolean(validationError)}>
-           {submitting ? "Saving..." : submitLabel}
-         </Button>
-       </div>
-     </form>
-   )
- }
- 
- function Field({
-   label,
-   children,
- }: {
-   label: string
-   children: React.ReactNode
- }) {
-   return (
-     <div className="space-y-2">
-       <div className="text-sm">{label}</div>
-       {children}
-     </div>
-   )
- }
- 
+      setServerError(err instanceof Error ? err.message : "An error occurred")
+    }
+  }
+
+  return (
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(handleSubmit)}>
+        <FormLayout
+          stickyFooter={
+            <>
+              <Button type="button" variant="outline" onClick={() => router.back()}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={form.formState.isSubmitting}>
+                {form.formState.isSubmitting ? "Saving..." : submitLabel}
+              </Button>
+            </>
+          }
+        >
+          {serverError && (
+            <div className="bg-destructive/15 text-destructive px-4 py-2 rounded-md">
+              {serverError}
+            </div>
+          )}
+
+          <FormSectionCard title="Basic Details">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Name</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Item Name" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="code"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Code</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Item Code" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="hsnCode"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>HSN Code</FormLabel>
+                    <FormControl>
+                      <Input placeholder="HSN Code" {...field} value={field.value || ""} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="uom"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>UOM</FormLabel>
+                    <FormControl>
+                      <Input placeholder="e.g. PCS, KG" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+          </FormSectionCard>
+
+          <FormSectionCard title="Pricing & Tax">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="unitPrice"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Unit Price (₹)</FormLabel>
+                    <FormControl>
+                      <Input type="number" step="0.01" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <div className="flex flex-col gap-2">
+                 <FormField
+                  control={form.control}
+                  name="taxRate"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Tax Rate (%)</FormLabel>
+                      <div className="flex gap-2">
+                        <FormControl>
+                          <Input type="number" step="0.01" {...field} className="w-24" />
+                        </FormControl>
+                        <div className="flex-1">
+                            <SmartSelect<TaxSlab>
+                                endpoint="/api/v1/tax-slabs"
+                                labelKey="description"
+                                valueKey="id"
+                                value={selectedSlabId}
+                                placeholder="Select Tax Slab..."
+                                onSelect={(id, slab) => {
+                                    setSelectedSlabId(id)
+                                    if (slab) {
+                                        form.setValue("taxRate", slab.rate)
+                                    }
+                                }}
+                                renderOption={(slab) => {
+                                    return <span>{slab.description} ({slab.rate}%)</span>
+                                }}
+                            />
+                        </div>
+                      </div>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+            </div>
+          </FormSectionCard>
+        </FormLayout>
+      </form>
+    </Form>
+  )
+}

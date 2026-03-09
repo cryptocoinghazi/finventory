@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useForm } from "react-hook-form"
 import { Plus } from "lucide-react"
 
@@ -15,7 +15,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
-import { createTaxSlab } from "@/lib/tax-slabs"
+import { createTaxSlab, updateTaxSlab, TaxSlab } from "@/lib/tax-slabs"
 
 interface TaxSlabFormValues {
   rate: string
@@ -24,17 +24,32 @@ interface TaxSlabFormValues {
 
 interface TaxSlabDialogProps {
   onSuccess: () => void
+  initialData?: TaxSlab | null
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
+  trigger?: React.ReactNode
 }
 
-export function TaxSlabDialog({ onSuccess }: TaxSlabDialogProps) {
-  const [open, setOpen] = useState(false)
+export function TaxSlabDialog({ 
+  onSuccess, 
+  initialData, 
+  open: controlledOpen, 
+  onOpenChange: setControlledOpen,
+  trigger 
+}: TaxSlabDialogProps) {
+  const [internalOpen, setInternalOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  const isControlled = controlledOpen !== undefined
+  const open = isControlled ? controlledOpen : internalOpen
+  const setOpen = isControlled ? setControlledOpen! : setInternalOpen
 
   const {
     register,
     handleSubmit,
     reset,
+    setValue,
     formState: { errors },
   } = useForm<TaxSlabFormValues>({
     defaultValues: {
@@ -43,19 +58,39 @@ export function TaxSlabDialog({ onSuccess }: TaxSlabDialogProps) {
     },
   })
 
+  useEffect(() => {
+    if (open) {
+      if (initialData) {
+        setValue("rate", String(initialData.rate))
+        setValue("description", initialData.description)
+      } else {
+        reset({ rate: "", description: "" })
+      }
+      setError(null)
+    }
+  }, [open, initialData, setValue, reset])
+
   async function onSubmit(values: TaxSlabFormValues) {
     try {
       setLoading(true)
       setError(null)
-      await createTaxSlab({
+      
+      const payload = {
         rate: Number(values.rate),
         description: values.description,
-      })
+      }
+
+      if (initialData) {
+        await updateTaxSlab(initialData.id, payload)
+      } else {
+        await createTaxSlab(payload)
+      }
+      
       setOpen(false)
       reset()
       onSuccess()
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create tax slab")
+      setError(err instanceof Error ? err.message : "Failed to save tax slab")
     } finally {
       setLoading(false)
     }
@@ -63,17 +98,20 @@ export function TaxSlabDialog({ onSuccess }: TaxSlabDialogProps) {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button className="gap-2">
-          <Plus className="h-4 w-4" />
-          New Tax Slab
-        </Button>
-      </DialogTrigger>
+      {trigger && <DialogTrigger asChild>{trigger}</DialogTrigger>}
+      {!trigger && !isControlled && (
+         <DialogTrigger asChild>
+          <Button className="gap-2">
+            <Plus className="h-4 w-4" />
+            New Tax Slab
+          </Button>
+        </DialogTrigger>
+      )}
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>New Tax Slab</DialogTitle>
+          <DialogTitle>{initialData ? "Edit Tax Slab" : "New Tax Slab"}</DialogTitle>
           <DialogDescription>
-            Create a new tax slab for GST calculation.
+            {initialData ? "Update tax slab details." : "Create a new tax slab for GST calculation."}
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">

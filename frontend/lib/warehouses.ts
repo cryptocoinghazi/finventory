@@ -30,6 +30,15 @@ export async function createWarehouse(input: WarehouseInput): Promise<Warehouse>
   return readJsonOrThrow<Warehouse>(res)
 }
 
+export async function updateWarehouse(id: string, input: WarehouseInput): Promise<Warehouse> {
+  const res = await apiFetch(`/api/v1/warehouses/${encodeURIComponent(id)}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  })
+  return readJsonOrThrow<Warehouse>(res)
+}
+
 export async function deleteWarehouse(id: string): Promise<void> {
   const res = await apiFetch(`/api/v1/warehouses/${encodeURIComponent(id)}`, {
     method: "DELETE",

@@ -6,13 +6,16 @@ import { DataTablePro } from "@/components/ui-kit/DataTablePro"
 import { listTaxSlabs, deleteTaxSlab, TaxSlab } from "@/lib/tax-slabs"
 import { TaxSlabDialog } from "./TaxSlabDialog"
 import { ConfirmDialog } from "@/components/ui-kit/ConfirmDialog"
-import { Trash2 } from "lucide-react"
+import { Trash2, Plus } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
 export default function TaxSlabsPage() {
   const [data, setData] = useState<TaxSlab[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+
+  const [editingSlab, setEditingSlab] = useState<TaxSlab | null>(null)
+  const [dialogOpen, setDialogOpen] = useState(false)
 
   useEffect(() => {
     loadData()
@@ -30,25 +33,44 @@ export default function TaxSlabsPage() {
     }
   }
 
+  function handleEdit(slab: TaxSlab) {
+    setEditingSlab(slab)
+    setDialogOpen(true)
+  }
+
+  function handleCreate() {
+    setEditingSlab(null)
+    setDialogOpen(true)
+  }
+
   function renderActions(row: TaxSlab) {
     return (
-      <ConfirmDialog
-        title={`Delete ${row.description}?`}
-        description="This action cannot be undone."
-        confirmText="Delete"
-        onConfirm={async () => {
-          try {
-            await deleteTaxSlab(row.id)
-            setData((prev) => prev.filter((item) => item.id !== row.id))
-          } catch (err) {
-            setError(err instanceof Error ? err.message : "Failed to delete tax slab")
-          }
-        }}
-      >
-        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive">
-          <Trash2 className="h-4 w-4" />
+      <div className="flex items-center gap-2">
+        <Button 
+          variant="ghost" 
+          size="sm"
+          onClick={() => handleEdit(row)}
+        >
+          Edit
         </Button>
-      </ConfirmDialog>
+        <ConfirmDialog
+          title={`Delete ${row.description}?`}
+          description="This action cannot be undone."
+          confirmText="Delete"
+          onConfirm={async () => {
+            try {
+              await deleteTaxSlab(row.id)
+              setData((prev) => prev.filter((item) => item.id !== row.id))
+            } catch (err) {
+              setError(err instanceof Error ? err.message : "Failed to delete tax slab")
+            }
+          }}
+        >
+          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive">
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </ConfirmDialog>
+      </div>
     )
   }
 
@@ -74,8 +96,18 @@ export default function TaxSlabsPage() {
         <PageHeader
           title="Tax Slabs"
           description="Manage GST tax slabs and rates"
+          actions={
+            <Button onClick={handleCreate}>
+              <Plus className="mr-2 h-4 w-4" /> Add Tax Slab
+            </Button>
+          }
         />
-        <TaxSlabDialog onSuccess={loadData} />
+        <TaxSlabDialog 
+          open={dialogOpen}
+          onOpenChange={setDialogOpen}
+          initialData={editingSlab}
+          onSuccess={loadData} 
+        />
       </div>
 
       {error ? (

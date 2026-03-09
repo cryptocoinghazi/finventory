@@ -12,13 +12,14 @@ import {
   SortingState,
   ColumnFiltersState,
 } from "@tanstack/react-table"
-import { ArrowDownWideNarrow, ArrowUpWideNarrow, Search } from "lucide-react"
+import { ArrowDownWideNarrow, ArrowUpWideNarrow, Search, ArrowUpDown } from "lucide-react"
 
 type Column<T> = {
   key: keyof T | string
   header: React.ReactNode
   cell?: (row: T) => React.ReactNode
   className?: string
+  sortable?: boolean
 }
 
 export function DataTablePro<T>({
@@ -58,13 +59,32 @@ export function DataTablePro<T>({
     return columns.map((c) => ({
       id: String(c.key),
       accessorKey: typeof c.key === "string" ? c.key : String(c.key),
-      header: () => c.header,
+      header: ({ column }) => {
+        if (!c.sortable) return c.header
+
+        return (
+          <Button
+            variant="ghost"
+            onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+            className="-ml-4 h-8 data-[state=open]:bg-accent"
+          >
+            {c.header}
+            {column.getIsSorted() === "desc" ? (
+              <ArrowDownWideNarrow className="ml-2 h-4 w-4" />
+            ) : column.getIsSorted() === "asc" ? (
+              <ArrowUpWideNarrow className="ml-2 h-4 w-4" />
+            ) : (
+              <ArrowUpDown className="ml-2 h-4 w-4" />
+            )}
+          </Button>
+        )
+      },
       cell: ({ row }) =>
         c.cell
           ? c.cell(row.original)
           : (row.original as Record<string, unknown>)[c.key as string],
       meta: { className: c.className },
-      enableSorting: true,
+      enableSorting: c.sortable ?? false,
     }))
   }, [columns])
 

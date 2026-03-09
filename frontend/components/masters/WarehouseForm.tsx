@@ -1,116 +1,142 @@
- "use client"
- 
- import { Button } from "@/components/ui/button"
- import { FormLayout } from "@/components/ui-kit/FormLayout"
- import { FormSectionCard } from "@/components/ui-kit/FormSectionCard"
- import { WarehouseInput } from "@/lib/warehouses"
- import { useMemo, useState } from "react"
- 
- export function WarehouseForm({
-   initialValue,
-   onSubmit,
-   submitLabel,
- }: {
-   initialValue?: WarehouseInput
-   submitLabel: string
-   onSubmit: (input: WarehouseInput) => Promise<void>
- }) {
-   const [name, setName] = useState(initialValue?.name ?? "")
-   const [stateCode, setStateCode] = useState(initialValue?.stateCode ?? "")
-   const [location, setLocation] = useState(initialValue?.location ?? "")
-   const [submitting, setSubmitting] = useState(false)
-   const [error, setError] = useState<string | null>(null)
- 
-   const normalizedInput = useMemo<WarehouseInput>(() => {
-     return {
-       name: name.trim(),
-       stateCode: stateCode.trim() ? stateCode.trim() : null,
-       location: location.trim() ? location.trim() : null,
-     }
-   }, [name, stateCode, location])
- 
-   const validationError = useMemo(() => {
-     if (!normalizedInput.name) return "Name is required"
-     if (normalizedInput.stateCode && !/^\d{2}$/.test(normalizedInput.stateCode)) {
-       return "State code must be 2 digits"
-     }
-     return null
-   }, [normalizedInput])
- 
-   async function handleSubmit(e: React.FormEvent) {
-     e.preventDefault()
-     setError(null)
-     if (validationError) {
-       setError(validationError)
-       return
-     }
-     setSubmitting(true)
-     try {
-      await onSubmit(normalizedInput)
+"use client"
+
+import { useForm } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
+import { z } from "zod"
+import { useRouter } from "next/navigation"
+import { useState } from "react"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form"
+import { FormLayout } from "@/components/ui-kit/FormLayout"
+import { FormSectionCard } from "@/components/ui-kit/FormSectionCard"
+import { WarehouseInput } from "@/lib/warehouses"
+
+const warehouseSchema = z.object({
+  name: z.string().min(1, "Name is required"),
+  stateCode: z
+    .string()
+    .regex(/^\d{2}$/, "State code must be 2 digits")
+    .optional()
+    .or(z.literal("")),
+  location: z.string().optional(),
+})
+
+type FormValues = z.infer<typeof warehouseSchema>
+
+export function WarehouseForm({
+  initialValue,
+  onSubmit,
+  submitLabel,
+}: {
+  initialValue?: WarehouseInput
+  submitLabel: string
+  onSubmit: (input: WarehouseInput) => Promise<void>
+}) {
+  const router = useRouter()
+  const [serverError, setServerError] = useState<string | null>(null)
+
+  const form = useForm<FormValues>({
+    resolver: zodResolver(warehouseSchema),
+    defaultValues: {
+      name: initialValue?.name ?? "",
+      stateCode: initialValue?.stateCode ?? "",
+      location: initialValue?.location ?? "",
+    },
+  })
+
+  async function handleSubmit(data: FormValues) {
+    setServerError(null)
+    try {
+      await onSubmit({
+        name: data.name,
+        stateCode: data.stateCode || null,
+        location: data.location || null,
+      })
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Save failed")
-    } finally {
-      setSubmitting(false)
-     }
-   }
- 
-   return (
-     <form onSubmit={handleSubmit} className="space-y-6">
-       <FormLayout>
-         <FormSectionCard title="Warehouse Details">
-           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-             <Field label="Name">
-               <input
-                 className="w-full px-3 py-2 rounded-md border border-input bg-background"
-                 value={name}
-                 onChange={(e) => setName(e.target.value)}
-                 placeholder="Main Warehouse"
-                 autoFocus
-               />
-             </Field>
-             <Field label="State Code">
-               <input
-                 className="w-full px-3 py-2 rounded-md border border-input bg-background"
-                 value={stateCode ?? ""}
-                 onChange={(e) => setStateCode(e.target.value)}
-                 placeholder="22"
-                 inputMode="numeric"
-               />
-             </Field>
-             <Field label="Location">
-               <input
-                 className="w-full px-3 py-2 rounded-md border border-input bg-background"
-                 value={location ?? ""}
-                 onChange={(e) => setLocation(e.target.value)}
-                 placeholder="City/Address"
-               />
-             </Field>
-           </div>
-           {error ? <div className="text-sm text-destructive">{error}</div> : null}
-         </FormSectionCard>
-       </FormLayout>
- 
-       <div className="flex items-center gap-2 sticky bottom-0 bg-background/80 backdrop-blur p-3 border-t border-border">
-         <Button disabled={submitting || Boolean(validationError)}>
-           {submitting ? "Saving..." : submitLabel}
-         </Button>
-       </div>
-     </form>
-   )
- }
- 
- function Field({
-   label,
-   children,
- }: {
-   label: string
-   children: React.ReactNode
- }) {
-   return (
-     <div className="space-y-2">
-       <div className="text-sm">{label}</div>
-       {children}
-     </div>
-   )
- }
- 
+      setServerError(err instanceof Error ? err.message : "An error occurred")
+    }
+  }
+
+  return (
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(handleSubmit)}>
+        <FormLayout
+          stickyFooter={
+            <>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => router.back()}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={form.formState.isSubmitting}>
+                {form.formState.isSubmitting ? "Saving..." : submitLabel}
+              </Button>
+            </>
+          }
+        >
+          {serverError && (
+            <div className="bg-destructive/15 text-destructive px-4 py-2 rounded-md">
+              {serverError}
+            </div>
+          )}
+
+          <FormSectionCard title="Warehouse Details">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Name</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Main Warehouse" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="stateCode"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>State Code</FormLabel>
+                    <FormControl>
+                      <Input placeholder="22" maxLength={2} {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="location"
+                render={({ field }) => (
+                  <FormItem className="md:col-span-2">
+                    <FormLabel>Location</FormLabel>
+                    <FormControl>
+                      <Input placeholder="City/Address" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+          </FormSectionCard>
+        </FormLayout>
+      </form>
+    </Form>
+  )
+}

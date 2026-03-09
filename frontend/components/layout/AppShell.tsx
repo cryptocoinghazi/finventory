@@ -19,7 +19,6 @@ import {
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import {
   CommandDialog,
   CommandEmpty,
@@ -31,10 +30,7 @@ import {
 } from "@/components/ui/command"
 import { Kbd } from "@/components/ui/kbd"
 import {
-  Tooltip,
-  TooltipContent,
   TooltipProvider,
-  TooltipTrigger,
 } from "@/components/ui/tooltip"
 import { ThemeToggle } from "@/components/ui/theme-toggle"
 import { QuickCreateMenu } from "@/components/ui-kit/QuickCreateMenu"
@@ -313,43 +309,6 @@ export function AppShell({ children }: { children: ReactNode }) {
         </CommandDialog>
       </div>
     </TooltipProvider>
-  )
-}
-
-function NavButton({
-  item,
-  active,
-  collapsed,
-}: {
-  item: NavItem
-  active: boolean
-  collapsed: boolean
-}) {
-  const router = useRouter()
-  const label = (
-    <button
-      type="button"
-      onClick={() => router.push(item.href)}
-      className={cn(
-        "w-full flex items-center gap-3 rounded-xl px-3 py-2 text-sm transition-colors",
-        active
-          ? "bg-sidebar-accent text-sidebar-accent-foreground shadow-soft"
-          : "text-muted-foreground hover:text-foreground hover:bg-sidebar-accent/60",
-        collapsed ? "justify-center px-3" : ""
-      )}
-    >
-      <item.icon className={cn("h-4 w-4", active ? "" : "text-muted-foreground")} />
-      {collapsed ? null : <span className="truncate">{item.title}</span>}
-    </button>
-  )
-
-  if (!collapsed) return label
-
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>{label}</TooltipTrigger>
-      <TooltipContent side="right">{item.title}</TooltipContent>
-    </Tooltip>
   )
 }
 
