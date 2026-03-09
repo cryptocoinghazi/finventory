@@ -11,7 +11,6 @@ import java.time.LocalDate;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
-import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -26,14 +25,11 @@ import org.springframework.test.context.ActiveProfiles;
 @ActiveProfiles("test")
 class SequenceConcurrencyTest {
 
-    @Autowired
-    private SequenceGeneratorService sequenceGeneratorService;
+    @Autowired private SequenceGeneratorService sequenceGeneratorService;
 
-    @Autowired
-    private WarehouseRepository warehouseRepository;
+    @Autowired private WarehouseRepository warehouseRepository;
 
-    @Autowired
-    private DocumentSequenceRepository documentSequenceRepository;
+    @Autowired private DocumentSequenceRepository documentSequenceRepository;
 
     private Warehouse warehouse;
 
@@ -42,12 +38,13 @@ class SequenceConcurrencyTest {
         documentSequenceRepository.deleteAll();
         warehouseRepository.deleteAll();
 
-        warehouse = Warehouse.builder()
-                .name("Branch 1")
-                .code("B1")
-                .location("Test Location")
-                .stateCode("MH")
-                .build();
+        warehouse =
+                Warehouse.builder()
+                        .name("Branch 1")
+                        .code("B1")
+                        .location("Test Location")
+                        .stateCode("MH")
+                        .build();
         warehouseRepository.save(warehouse);
     }
 
@@ -62,18 +59,20 @@ class SequenceConcurrencyTest {
         Set<String> generatedSequences = Collections.synchronizedSet(new HashSet<>());
 
         for (int i = 0; i < totalRequests; i++) {
-            executorService.submit(() -> {
-                try {
-                    latch.await(); // Wait for signal
-                    String sequence = sequenceGeneratorService.generateSequence(
-                            SequenceType.SALES_INVOICE, warehouse, LocalDate.now());
-                    generatedSequences.add(sequence);
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
-            });
+            executorService.submit(
+                    () -> {
+                        try {
+                            latch.await(); // Wait for signal
+                            String sequence =
+                                    sequenceGeneratorService.generateSequence(
+                                            SequenceType.SALES_INVOICE, warehouse, LocalDate.now());
+                            generatedSequences.add(sequence);
+                        } catch (InterruptedException e) {
+                            Thread.currentThread().interrupt();
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                        }
+                    });
         }
 
         latch.countDown(); // Start all threads

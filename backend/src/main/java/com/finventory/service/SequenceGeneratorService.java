@@ -109,9 +109,6 @@ public class SequenceGeneratorService {
 
         return String.format(
                 "%s-%s-%s-%s",
-                sequence.getFinancialYear(),
-                branchCode,
-                sequence.getPrefix(),
-                sequenceNumber);
+                sequence.getFinancialYear(), branchCode, sequence.getPrefix(), sequenceNumber);
     }
 }
