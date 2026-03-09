@@ -48,8 +48,8 @@ Auth
 Masters
 - Parties: POST/GET /api/v1/parties, GET/PUT/DELETE /api/v1/parties/{id}
 - Items: POST/GET /api/v1/items, GET/PUT/DELETE /api/v1/items/{id}
-- Warehouses: POST/GET /api/v1/warehouses, GET/DELETE /api/v1/warehouses/{id} (no update endpoint)
-- Tax Slabs: POST/GET /api/v1/tax-slabs, DELETE /api/v1/tax-slabs/{id} (no get-by-id, no update endpoint)
+- Warehouses: POST/GET /api/v1/warehouses, GET/DELETE /api/v1/warehouses/{id} (needs update endpoint)
+- Tax Slabs: POST/GET /api/v1/tax-slabs, DELETE /api/v1/tax-slabs/{id} (needs get-by-id, update endpoint)
 
 Sales
 - Sales Invoices: POST/GET /api/v1/sales-invoices, GET /api/v1/sales-invoices/{id} (no update, no preview endpoint)
@@ -103,6 +103,10 @@ Admin (only if we want the Admin screens in navigation)
 - Users:
   - Add GET /api/v1/users, GET /api/v1/users/{id}, PUT /api/v1/users/{id}
   - Add role/permission assignment endpoints if needed
+- Organization Profile:
+  - GET /api/v1/organization-profile, PUT /api/v1/organization-profile
+- User Profile:
+  - GET /api/v1/users/me, PUT /api/v1/users/me/password
 
 UI building blocks (must exist early and reused everywhere)
 

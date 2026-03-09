@@ -45,6 +45,29 @@ public class WarehouseService {
                         () -> new IllegalArgumentException("Warehouse not found with id: " + id));
     }
 
+    public WarehouseDto updateWarehouse(UUID id, WarehouseDto dto) {
+        Warehouse warehouse =
+                warehouseRepository
+                        .findById(id)
+                        .orElseThrow(
+                                () ->
+                                        new IllegalArgumentException(
+                                                "Warehouse not found with id: " + id));
+
+        // Check name uniqueness if changed
+        if (!warehouse.getName().equals(dto.getName())
+                && warehouseRepository.existsByName(dto.getName())) {
+            throw new IllegalArgumentException(
+                    "Warehouse with name " + dto.getName() + " already exists");
+        }
+
+        warehouse.setName(dto.getName());
+        warehouse.setStateCode(dto.getStateCode());
+        warehouse.setLocation(dto.getLocation());
+
+        return mapToDto(warehouseRepository.save(warehouse));
+    }
+
     public void deleteWarehouse(UUID id) {
         warehouseRepository.deleteById(id);
     }

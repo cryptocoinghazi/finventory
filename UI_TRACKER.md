@@ -19,11 +19,11 @@
     - [x] `AppShell` (Sidebar + Topbar + Content).
     - [x] `PageHeader` (Title, Subtitle, Actions).
     - [x] `DataTablePro` (skeleton, empty state, basic paging UI).
-    - [ ] `FormLayout` + `FormSectionCard` (Sticky footer actions).
-    - [ ] `SmartSelect` (Async search).
+    - [x] `FormLayout` + `FormSectionCard` (Sticky footer actions).
+    - [x] `SmartSelect` (Async search).
     - [x] `ConfirmDialog`, `InlineErrorCallout`, `EmptyState`.
-    - [ ] `Toast`
-    - [ ] `MoneyText`, `StatusPill`, `CommandPalette`, `Kbd`, `PrintLayout`.
+    - [x] `Toast`, `Label`
+    - [x] `MoneyText`, `StatusPill`, `CommandPalette`, `Kbd`, `PrintLayout`.
 - [ ] **API Client**
     - [x] `fetch` wrapper with Base URL & Auth Header injection.
     - [ ] Global Error Handling (401 -> Redirect to Login).
@@ -32,6 +32,9 @@
     - [x] Route Guards (Middleware for protected routes).
     - [x] Sidebar Navigation & App Shell Layout.
     - [x] Dashboard (`/dashboard`) shows real data or Coming Soon.
+- [ ] **Settings & Profile**
+    - [x] User Profile (View Details, Change Password).
+    - [x] Organization Profile (Admin Only: View/Edit).
 - [ ] **Testing**
     - [ ] Component Test: `PageHeader`, `DataTablePro`.
     - [ ] E2E Test: Login Flow -> Dashboard Load.
@@ -49,29 +52,29 @@
     - [ ] E2E Test: Create Party -> Verify in List.
 
 ### F3. Masters: Item Management
-- [ ] **Screens**
-    - [ ] Item List (`/masters/items`).
-    - [ ] Create Item Form (`/masters/items/new`).
-    - [ ] Edit Item Form (`/masters/items/[id]/edit`).
-- [ ] **Logic**
-    - [ ] Tax Slab Selection Lookup.
-    - [ ] Unit Selection Lookup.
+- [x] **Screens**
+    - [x] Item List (`/masters/items`).
+    - [x] Create Item Form (`/masters/items/new`).
+    - [x] Edit Item Form (`/masters/items/[id]/edit`).
+- [x] **Logic**
+    - [x] Tax Slab Selection Lookup (SmartSelect).
+    - [x] Unit Selection Lookup (Text input for now).
 - [ ] **Testing**
     - [ ] Component Test: Form Validation.
     - [ ] E2E Test: Create Item -> Verify in List.
 
 ### F4. Masters: Warehouse Management
 - [ ] **Screens**
-    - [ ] Warehouse List (`/masters/warehouses`).
-    - [ ] Create Warehouse Form.
+    - [x] Warehouse List (`/masters/warehouses`).
+    - [x] Create Warehouse Form.
     - [ ] Edit Warehouse (Coming Soon: requires PUT /api/v1/warehouses/{id}).
 - [ ] **Testing**
     - [ ] E2E Test: Create Warehouse.
 
 ### F5. Masters: Tax Slab Management
 - [ ] **Screens**
-    - [ ] Tax Slab List (`/masters/taxes`).
-    - [ ] Create Tax Slab Form.
+    - [x] Tax Slab List (`/masters/taxes`).
+    - [x] Create Tax Slab Form (Dialog).
     - [ ] Edit Tax Slab (Coming Soon: requires GET/PUT /api/v1/tax-slabs/{id}).
 - [ ] **Logic**
     - [ ] Rate Percent Selection (0, 5, 12, 18, 28).
@@ -151,3 +154,7 @@
 | UI-001 | Browser CORS blocked /api/v1/auth/login from http://localhost:3000 | Fixed (CORS enabled + proxy route) | |
 | UI-002 | Checkstyle MagicNumber failure on CORS maxAge | Fixed (constant introduced) | |
 | UI-003 | Server-side filters/pagination missing for Parties endpoints | Tracked (client-side filters used) | |
+| UI-004 | Authorization missing for /api/v1/users/me (non-admin) | Fixed (SecurityConfig updated) | |
+| UI-005 | Missing UI components (Label, Toast) in Settings | Fixed (Components created) | |
+| UI-006 | SmartSelect filtering not working for Tax Slabs | Fixed (Added server-side search to TaxSlabController) | |
+| UI-007 | WarehouseForm manual validation inconsistent | Fixed (Refactored to Zod + React Hook Form) | |
