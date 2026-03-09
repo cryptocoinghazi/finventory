@@ -20,6 +20,8 @@ import lombok.NoArgsConstructor;
 @Table(name = "warehouses")
 public class Warehouse {
 
+    private static final int CODE_LENGTH = 10;
+
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
@@ -31,4 +33,7 @@ public class Warehouse {
     private String stateCode;
 
     private String location;
+
+    @Column(length = CODE_LENGTH)
+    private String code;
 }

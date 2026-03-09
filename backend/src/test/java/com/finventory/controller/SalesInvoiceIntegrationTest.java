@@ -163,7 +163,7 @@ class SalesInvoiceIntegrationTest {
                 .andExpect(jsonPath("$.invoiceNumber").isNotEmpty())
                 .andExpect(
                         jsonPath("$.invoiceNumber")
-                                .value(org.hamcrest.Matchers.startsWith("INV/")));
+                                .value(org.hamcrest.Matchers.startsWith("FY")));
     }
 
     @Test

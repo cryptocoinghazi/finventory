@@ -32,6 +32,7 @@ public class PurchaseInvoiceService {
     private final PartyRepository partyRepository;
     private final ItemRepository itemRepository;
     private final WarehouseRepository warehouseRepository;
+    private final SequenceGeneratorService sequenceGeneratorService;
     private final StockPostingService stockPostingService;
     private final GLPostingService glPostingService;
 

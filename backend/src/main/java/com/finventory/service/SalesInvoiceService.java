@@ -6,6 +6,7 @@ import com.finventory.model.Item;
 import com.finventory.model.Party;
 import com.finventory.model.SalesInvoice;
 import com.finventory.model.SalesInvoiceLine;
+import com.finventory.model.SequenceType;
 import com.finventory.model.StockLedgerEntry;
 import com.finventory.model.Warehouse;
 import com.finventory.repository.ItemRepository;
@@ -33,6 +34,7 @@ public class SalesInvoiceService {
     private final PartyRepository partyRepository;
     private final ItemRepository itemRepository;
     private final WarehouseRepository warehouseRepository;
+    private final SequenceGeneratorService sequenceGeneratorService;
     private final StockPostingService stockPostingService;
     private final GLPostingService glPostingService;
 

@@ -14,6 +14,7 @@ import com.finventory.model.Party;
 import com.finventory.model.Role;
 import com.finventory.model.User;
 import com.finventory.model.Warehouse;
+import com.finventory.repository.DocumentSequenceRepository;
 import com.finventory.repository.GLLineRepository;
 import com.finventory.repository.GLTransactionRepository;
 import com.finventory.repository.ItemRepository;
@@ -58,6 +59,7 @@ class PurchaseInvoiceIntegrationTest {
     @Autowired private StockLedgerRepository stockLedgerRepository;
     @Autowired private GLTransactionRepository glTransactionRepository;
     @Autowired private GLLineRepository glLineRepository;
+    @Autowired private DocumentSequenceRepository documentSequenceRepository;
 
     private String jwtToken;
     private Party testParty;
@@ -163,7 +165,7 @@ class PurchaseInvoiceIntegrationTest {
                 .andExpect(jsonPath("$.invoiceNumber").isNotEmpty())
                 .andExpect(
                         jsonPath("$.invoiceNumber")
-                                .value(org.hamcrest.Matchers.startsWith("PINV/")));
+                                .value(org.hamcrest.Matchers.startsWith("FY")));
     }
 
     @Test

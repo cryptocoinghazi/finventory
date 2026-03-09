@@ -1,0 +1,3 @@
+ALTER TABLE warehouses ADD COLUMN code VARCHAR(10);
+UPDATE warehouses SET code = 'B1' WHERE code IS NULL;
+ALTER TABLE warehouses ALTER COLUMN code SET NOT NULL;
