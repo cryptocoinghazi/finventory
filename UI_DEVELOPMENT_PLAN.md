@@ -1,6 +1,12 @@
 Finventory UI Development Plan & Prompt Sheet (Pro UI Edition)
 🎛 Global UI Quality Bar (must apply to every step)
 
+🛑 Operational Protocol: Command Logging & Verification (Flexible)
+1. Logging command output to files is recommended for long or noisy runs.
+2. Analyze output (console or log) to verify success/failure before proceeding.
+3. Log files should be ignored by git when used (`*.log` in .gitignore).
+4. Prioritize speed during routine tasks; use logs when helpful.
+
 The UI must look and feel like a premium SaaS product:
 
 Clean grid, consistent spacing scale, strong typography hierarchy

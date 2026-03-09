@@ -11,12 +11,12 @@
 ## 🚀 Feature Implementation Status
 
 ### F1. UI Foundation (App Shell + Auth)
-- [ ] **Project Setup**
-    - [ ] Initialize Next.js 14 (App Router) with TypeScript.
-    - [ ] Setup Tailwind CSS & shadcn/ui.
-    - [ ] Define Theme Tokens (Radius=16px, Typography, Shadows).
+- [x] **Project Setup**
+    - [x] Initialize Next.js 14 (App Router) with TypeScript.
+    - [x] Setup Tailwind CSS (v3) & shadcn/ui (Manual Init).
+    - [x] Define Theme Tokens (Radius=16px, Typography, Shadows).
 - [ ] **Core Components**
-    - [ ] `AppShell` (Sidebar + Topbar + Content).
+    - [x] `AppShell` (Sidebar + Topbar + Content).
     - [ ] `PageHeader` (Title, Subtitle, Actions).
     - [ ] `DataTablePro` (Server paging, skeleton, empty state).
     - [ ] `FormLayout` + `FormSectionCard` (Sticky footer actions).
@@ -24,13 +24,13 @@
     - [ ] `ConfirmDialog`, `Toast`, `InlineErrorCallout`, `EmptyState`.
     - [ ] `MoneyText`, `StatusPill`, `CommandPalette`, `Kbd`, `PrintLayout`.
 - [ ] **API Client**
-    - [ ] `fetch` wrapper with Base URL & Auth Header injection.
+    - [x] `fetch` wrapper with Base URL & Auth Header injection.
     - [ ] Global Error Handling (401 -> Redirect to Login).
 - [ ] **Authentication**
-    - [ ] Login Page (`/login`) with JWT handling.
-    - [ ] Route Guards (Middleware for protected routes).
-    - [ ] Sidebar Navigation & App Shell Layout.
-    - [ ] Dashboard (`/dashboard`) shows real data or Coming Soon.
+    - [x] Login Page (`/login`) with JWT handling.
+    - [x] Route Guards (Middleware for protected routes).
+    - [x] Sidebar Navigation & App Shell Layout.
+    - [x] Dashboard (`/dashboard`) shows real data or Coming Soon.
 - [ ] **Testing**
     - [ ] Component Test: `PageHeader`, `DataTablePro`.
     - [ ] E2E Test: Login Flow -> Dashboard Load.
