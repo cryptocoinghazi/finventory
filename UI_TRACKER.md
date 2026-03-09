@@ -17,11 +17,12 @@
     - [x] Define Theme Tokens (Radius=16px, Typography, Shadows).
 - [ ] **Core Components**
     - [x] `AppShell` (Sidebar + Topbar + Content).
-    - [ ] `PageHeader` (Title, Subtitle, Actions).
-    - [ ] `DataTablePro` (Server paging, skeleton, empty state).
+    - [x] `PageHeader` (Title, Subtitle, Actions).
+    - [x] `DataTablePro` (skeleton, empty state, basic paging UI).
     - [ ] `FormLayout` + `FormSectionCard` (Sticky footer actions).
     - [ ] `SmartSelect` (Async search).
-    - [ ] `ConfirmDialog`, `Toast`, `InlineErrorCallout`, `EmptyState`.
+    - [x] `ConfirmDialog`, `InlineErrorCallout`, `EmptyState`.
+    - [ ] `Toast`
     - [ ] `MoneyText`, `StatusPill`, `CommandPalette`, `Kbd`, `PrintLayout`.
 - [ ] **API Client**
     - [x] `fetch` wrapper with Base URL & Auth Header injection.
@@ -37,11 +38,11 @@
 
 ### F2. Masters: Party Management
 - [ ] **Screens**
-    - [ ] Party List (`/masters/parties`) with Search/Filter.
-    - [ ] Create Party Form (`/masters/parties/new`).
-    - [ ] Edit Party Form (`/masters/parties/[id]/edit`).
+    - [x] Party List (`/masters/parties`) with Search/Filters (client-side).
+    - [x] Create Party Form (`/masters/parties/new`).
+    - [x] Edit Party Form (`/masters/parties/[id]/edit`).
 - [ ] **Logic**
-    - [ ] GSTIN Validation Regex.
+    - [x] GSTIN Validation Regex.
     - [ ] State Code Lookup.
 - [ ] **Testing**
     - [ ] Component Test: Form Validation.
@@ -147,4 +148,6 @@
 ## 🐛 Issue Log
 | ID | Description | Status | Fix Commit |
 | :--- | :--- | :--- | :--- |
-| | | | |
+| UI-001 | Browser CORS blocked /api/v1/auth/login from http://localhost:3000 | Fixed (CORS enabled + proxy route) | |
+| UI-002 | Checkstyle MagicNumber failure on CORS maxAge | Fixed (constant introduced) | |
+| UI-003 | Server-side filters/pagination missing for Parties endpoints | Tracked (client-side filters used) | |

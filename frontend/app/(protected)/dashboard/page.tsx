@@ -1,6 +1,10 @@
 import { Button } from "@/components/ui/button"
 import { PageHeader } from "@/components/ui/page-header"
 import Link from "next/link"
+import { SectionCard } from "@/components/ui-kit/SectionCard"
+import { StatCard } from "@/components/ui-kit/StatCard"
+import { SkeletonCard } from "@/components/ui-kit/SkeletonCard"
+import { ClipboardList, FileText, Store, Users, Warehouse } from "lucide-react"
 
 export default function DashboardPage() {
   return (
@@ -9,60 +13,65 @@ export default function DashboardPage() {
         title="Dashboard"
         description="Quick links and system status. Real data where possible; else Coming Soon."
       />
-      <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        <Card title="Masters">
-          <div className="flex gap-2">
+      <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard title="Sales Today" />
+        <StatCard title="Purchase Today" />
+        <StatCard title="Stock Value" />
+        <StatCard title="Outstanding" />
+      </section>
+      <section className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <SectionCard title="Masters" description="Jump to key setup screens">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
             <Link href="/masters/parties">
-              <Button variant="secondary">Parties</Button>
+              <Button variant="secondary" className="w-full gap-2">
+                <Users className="h-4 w-4" />
+                Parties
+              </Button>
             </Link>
             <Link href="/masters/items">
-              <Button variant="secondary">Items</Button>
+              <Button variant="secondary" className="w-full gap-2">
+                <Store className="h-4 w-4" />
+                Items
+              </Button>
             </Link>
             <Link href="/masters/warehouses">
-              <Button variant="secondary">Warehouses</Button>
+              <Button variant="secondary" className="w-full gap-2">
+                <Warehouse className="h-4 w-4" />
+                Warehouses
+              </Button>
+            </Link>
+            <Link href="/masters/taxes">
+              <Button variant="secondary" className="w-full gap-2">
+                <ClipboardList className="h-4 w-4" />
+                Tax Slabs
+              </Button>
             </Link>
           </div>
-        </Card>
-        <Card title="Sales">
-          <div className="flex gap-2">
-            <Link href="/sales/invoices">
-              <Button variant="secondary">Invoices</Button>
-            </Link>
-          </div>
-        </Card>
-        <Card title="Purchase">
-          <div className="flex gap-2">
-            <Link href="/purchase/invoices">
-              <Button variant="secondary">Invoices</Button>
-            </Link>
-          </div>
-        </Card>
-        <Card title="Reports">
-          <div className="flex gap-2">
+        </SectionCard>
+        <SectionCard
+          title="Reports"
+          description="Frequently used summaries"
+        >
+          <div className="grid grid-cols-2 gap-2">
             <Link href="/reports/stock-summary">
-              <Button variant="secondary">Stock Summary</Button>
+              <Button variant="secondary" className="w-full gap-2">
+                <ClipboardList className="h-4 w-4" />
+                Stock Summary
+              </Button>
             </Link>
             <Link href="/reports/outstanding">
-              <Button variant="secondary">Party Outstanding</Button>
+              <Button variant="secondary" className="w-full gap-2">
+                <Users className="h-4 w-4" />
+                Party Outstanding
+              </Button>
             </Link>
           </div>
-        </Card>
+        </SectionCard>
       </section>
-      <section className="rounded-lg border border-border p-4">
-        <div className="text-sm text-muted-foreground">
-          Status panel: Backend endpoints lacking filters will show Coming Soon
-          in corresponding screens until available.
-        </div>
+      <section className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <SkeletonCard title="Activity" lines={6} />
+        <SkeletonCard title="System Status" lines={6} />
       </section>
-    </div>
-  )
-}
-
-function Card({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div className="rounded-lg border border-border p-4 space-y-2">
-      <div className="text-sm font-medium">{title}</div>
-      {children}
     </div>
   )
 }
