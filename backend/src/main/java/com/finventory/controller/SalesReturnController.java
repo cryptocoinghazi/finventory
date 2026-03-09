@@ -24,4 +24,9 @@ public class SalesReturnController {
         SalesReturnDto created = salesReturnService.createSalesReturn(dto);
         return new ResponseEntity<>(created, HttpStatus.CREATED);
     }
+
+    @org.springframework.web.bind.annotation.GetMapping
+    public ResponseEntity<java.util.List<SalesReturnDto>> getAllSalesReturns() {
+        return ResponseEntity.ok(salesReturnService.getAllSalesReturns());
+    }
 }

@@ -24,4 +24,9 @@ public class PurchaseReturnController {
         PurchaseReturnDto created = purchaseReturnService.createPurchaseReturn(dto);
         return new ResponseEntity<>(created, HttpStatus.CREATED);
     }
+
+    @org.springframework.web.bind.annotation.GetMapping
+    public ResponseEntity<java.util.List<PurchaseReturnDto>> getAllPurchaseReturns() {
+        return ResponseEntity.ok(purchaseReturnService.getAllPurchaseReturns());
+    }
 }

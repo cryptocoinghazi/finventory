@@ -17,6 +17,9 @@ import jakarta.persistence.EntityNotFoundException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -173,6 +176,20 @@ public class PurchaseInvoiceService {
                 savedInvoice.getGrandTotal());
 
         return mapToDto(savedInvoice);
+    }
+
+    public PurchaseInvoiceDto getPurchaseInvoice(UUID id) {
+        PurchaseInvoice invoice =
+                purchaseInvoiceRepository
+                        .findById(id)
+                        .orElseThrow(() -> new EntityNotFoundException("Invoice not found"));
+        return mapToDto(invoice);
+    }
+
+    public List<PurchaseInvoiceDto> getAllPurchaseInvoices() {
+        return purchaseInvoiceRepository.findAll().stream()
+                .map(this::mapToDto)
+                .collect(Collectors.toList());
     }
 
     private PurchaseInvoiceDto mapToDto(PurchaseInvoice invoice) {

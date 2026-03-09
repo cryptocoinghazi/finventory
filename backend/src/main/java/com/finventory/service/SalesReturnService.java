@@ -174,6 +174,11 @@ public class SalesReturnService {
         return mapToDto(savedReturn);
     }
 
+    @Transactional(readOnly = true)
+    public java.util.List<SalesReturnDto> getAllSalesReturns() {
+        return salesReturnRepository.findAll().stream().map(this::mapToDto).toList();
+    }
+
     private SalesReturnDto mapToDto(SalesReturn salesReturn) {
         return SalesReturnDto.builder()
                 .id(salesReturn.getId())
@@ -184,7 +189,9 @@ public class SalesReturnService {
                                 : null)
                 .returnDate(salesReturn.getReturnDate())
                 .partyId(salesReturn.getParty().getId())
+                .partyName(salesReturn.getParty().getName())
                 .warehouseId(salesReturn.getWarehouse().getId())
+                .warehouseName(salesReturn.getWarehouse().getName())
                 .totalTaxableAmount(salesReturn.getTotalTaxableAmount())
                 .totalTaxAmount(salesReturn.getTotalTaxAmount())
                 .totalCgstAmount(salesReturn.getTotalCgstAmount())

@@ -181,6 +181,11 @@ public class PurchaseReturnService {
         return mapToDto(savedReturn);
     }
 
+    @Transactional(readOnly = true)
+    public java.util.List<PurchaseReturnDto> getAllPurchaseReturns() {
+        return purchaseReturnRepository.findAll().stream().map(this::mapToDto).toList();
+    }
+
     private PurchaseReturnDto mapToDto(PurchaseReturn returnObj) {
         return PurchaseReturnDto.builder()
                 .id(returnObj.getId())
@@ -191,7 +196,9 @@ public class PurchaseReturnService {
                                 : null)
                 .returnDate(returnObj.getReturnDate())
                 .partyId(returnObj.getParty().getId())
+                .partyName(returnObj.getParty().getName())
                 .warehouseId(returnObj.getWarehouse().getId())
+                .warehouseName(returnObj.getWarehouse().getName())
                 .totalTaxableAmount(returnObj.getTotalTaxableAmount())
                 .totalTaxAmount(returnObj.getTotalTaxAmount())
                 .totalCgstAmount(returnObj.getTotalCgstAmount())
