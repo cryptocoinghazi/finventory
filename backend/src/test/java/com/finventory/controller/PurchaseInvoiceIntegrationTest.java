@@ -157,7 +157,7 @@ class PurchaseInvoiceIntegrationTest {
                         .build();
 
         mockMvc.perform(
-                        post("/api/v1/purchase-invoices")
+                        post("/api/purchase-invoices")
                                 .header("Authorization", jwtToken)
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(objectMapper.writeValueAsString(request)))
