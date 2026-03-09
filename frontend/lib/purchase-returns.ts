@@ -45,19 +45,19 @@ export interface PurchaseReturnInput {
 }
 
 export async function getPurchaseReturns(): Promise<PurchaseReturn[]> {
-  const res = await apiFetch("/api/purchase-returns", { cache: "no-store" })
+  const res = await apiFetch("/api/v1/purchase-returns", { cache: "no-store" })
   if (!res.ok) throw new Error("Failed to fetch purchase returns")
   return res.json()
 }
 
 export async function getPurchaseReturn(id: string): Promise<PurchaseReturn> {
-  const res = await apiFetch(`/api/purchase-returns/${id}`, { cache: "no-store" })
+  const res = await apiFetch(`/api/v1/purchase-returns/${id}`, { cache: "no-store" })
   if (!res.ok) throw new Error("Failed to fetch purchase return")
   return res.json()
 }
 
 export async function createPurchaseReturn(data: PurchaseReturnInput): Promise<PurchaseReturn> {
-  const res = await apiFetch("/api/purchase-returns", {
+  const res = await apiFetch("/api/v1/purchase-returns", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),

@@ -45,19 +45,19 @@ export interface SalesReturnInput {
 }
 
 export async function getSalesReturns(): Promise<SalesReturn[]> {
-  const res = await apiFetch("/api/sales-returns", { cache: "no-store" })
+  const res = await apiFetch("/api/v1/sales-returns", { cache: "no-store" })
   if (!res.ok) throw new Error("Failed to fetch sales returns")
   return res.json()
 }
 
 export async function getSalesReturn(id: string): Promise<SalesReturn> {
-  const res = await apiFetch(`/api/sales-returns/${id}`, { cache: "no-store" })
+  const res = await apiFetch(`/api/v1/sales-returns/${id}`, { cache: "no-store" })
   if (!res.ok) throw new Error("Failed to fetch sales return")
   return res.json()
 }
 
 export async function createSalesReturn(data: SalesReturnInput): Promise<SalesReturn> {
-  const res = await apiFetch("/api/sales-returns", {
+  const res = await apiFetch("/api/v1/sales-returns", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
