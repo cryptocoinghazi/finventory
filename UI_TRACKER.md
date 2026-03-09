@@ -82,22 +82,27 @@
     - [ ] E2E Test: Create Tax Slab.
 
 ### F6. Sales: Invoice Management
-- [ ] **Screens**
-    - [ ] Invoice List (`/sales/invoices`).
-    - [ ] Create Invoice Form (`/sales/invoices/new`).
-    - [ ] View Invoice (`/sales/invoices/[id]`).
-- [ ] **Logic**
-    - [ ] Line Item Editor (Add/Remove Items).
-    - [ ] Auto-calculate Totals (via Backend Preview if avail, or local approx).
-    - [ ] Print Preview (PDF Generation/Layout).
+- [x] **Screens**
+    - [x] Invoice List (`/sales/invoices`).
+    - [x] Create Invoice Form (`/sales/invoices/new`).
+    - [x] View Invoice (`/sales/invoices/[id]`).
+- [x] **Logic**
+    - [x] Line Item Editor (Add/Remove Items).
+    - [x] Auto-calculate Totals (via Backend Preview if avail, or local approx).
+    - [x] Print Preview (PDF Generation/Layout).
 - [ ] **Testing**
     - [ ] Component Test: Line Item Editor.
     - [ ] E2E Test: Create Invoice -> View -> Print.
 
 ### F7. Purchase: Invoice Management
-- [ ] **Screens**
-    - [ ] Create Invoice Form (`/purchase/invoices/new`).
-    - [ ] Invoice List/View (Coming Soon: backend exposes only POST /api/purchase-invoices).
+- [x] **Screens**
+    - [x] Create Invoice Form (`/purchase/invoices/new`).
+    - [x] Invoice List (`/purchase/invoices`).
+    - [x] View Invoice (`/purchase/invoices/[id]`).
+- [ ] **Logic**
+    - [x] Vendor Selection.
+    - [x] Vendor Invoice Number.
+    - [x] Line Item Editor.
 - [ ] **Testing**
     - [ ] E2E Test: Create Purchase Invoice.
 

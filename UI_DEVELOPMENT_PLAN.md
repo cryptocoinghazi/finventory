@@ -73,6 +73,7 @@ Backend API TODO (for UI parity / unlock Coming Soon UI)
 Masters
 - (Completed) Warehouses: PUT /api/v1/warehouses/{id}
 - (Completed) Tax Slabs: GET /api/v1/tax-slabs/{id} and PUT /api/v1/tax-slabs/{id}
+- (Completed) Items: PUT /api/v1/items/{id}
 
 Sales
 - Sales Invoices:

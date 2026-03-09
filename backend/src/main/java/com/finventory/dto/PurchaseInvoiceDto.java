@@ -29,6 +29,9 @@ public class PurchaseInvoiceDto {
     @NotNull(message = "Warehouse ID is required")
     private UUID warehouseId;
 
+    private String partyName;
+    private String warehouseName;
+
     private String invoiceNumber;
 
     private String vendorInvoiceNumber;

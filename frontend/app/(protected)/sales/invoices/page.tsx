@@ -55,11 +55,17 @@
        {error ? <div className="text-sm text-destructive">{error}</div> : null}
  
        <DataTablePro
-         columns={[
-           { key: "invoiceDate", header: "Date" },
-           { key: "invoiceNumber", header: "Number" },
-           { key: "grandTotal", header: "Total" },
-         ]}
+        columns={[
+          { key: "invoiceDate", header: "Date" },
+          { key: "invoiceNumber", header: "Number", cell: (row) => (
+            <Link href={`/sales/invoices/${row.id}`} className="text-primary hover:underline">
+              {row.invoiceNumber || "Draft"}
+            </Link>
+          )},
+          { key: "partyName", header: "Customer", cell: (row) => row.partyName || "N/A" },
+          { key: "warehouseName", header: "Warehouse", cell: (row) => row.warehouseName || "N/A" },
+          { key: "grandTotal", header: "Total", cell: (row) => row.grandTotal?.toFixed(2) || "0.00" },
+        ]}
          data={filtered}
          loading={loading}
          filters={

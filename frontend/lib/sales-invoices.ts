@@ -3,6 +3,8 @@ import { apiFetch } from "@/lib/api"
 export type SalesInvoiceLine = {
   id?: string
   itemId: string
+  itemName?: string
+  itemCode?: string
   quantity: number
   unitPrice: number
   taxRate?: number
@@ -17,7 +19,9 @@ export type SalesInvoice = {
   id: string
   invoiceDate: string
   partyId: string
+  partyName?: string
   warehouseId: string
+  warehouseName?: string
   invoiceNumber?: string | null
   lines: SalesInvoiceLine[]
   totalTaxableAmount?: number

@@ -159,7 +159,9 @@ export function TaxSlabDialog({
           </div>
           <DialogFooter>
             <Button type="submit" disabled={loading}>
-              {loading ? "Creating..." : "Create"}
+              {loading 
+                ? (initialData ? "Updating..." : "Creating...") 
+                : (initialData ? "Update" : "Create")}
             </Button>
           </DialogFooter>
         </form>

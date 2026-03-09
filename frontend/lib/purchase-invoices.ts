@@ -3,6 +3,8 @@ import { apiFetch } from "@/lib/api"
 export type PurchaseInvoiceLine = {
   id?: string
   itemId: string
+  itemName?: string
+  itemCode?: string
   quantity: number
   unitPrice: number
   taxRate?: number
@@ -17,7 +19,9 @@ export type PurchaseInvoice = {
   id: string
   invoiceDate: string
   partyId: string
+  partyName?: string
   warehouseId: string
+  warehouseName?: string
   invoiceNumber?: string | null
   vendorInvoiceNumber?: string | null
   lines: PurchaseInvoiceLine[]
@@ -43,9 +47,7 @@ export async function getPurchaseInvoice(id: string): Promise<PurchaseInvoice> {
   return readJsonOrThrow<PurchaseInvoice>(res)
 }
 
-export async function createPurchaseInvoice(
-  input: PurchaseInvoiceInput,
-): Promise<PurchaseInvoice> {
+export async function createPurchaseInvoice(input: PurchaseInvoiceInput): Promise<PurchaseInvoice> {
   const res = await apiFetch("/api/v1/purchase-invoices", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
