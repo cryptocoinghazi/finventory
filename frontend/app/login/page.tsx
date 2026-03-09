@@ -32,6 +32,7 @@ export default function LoginPage() {
       const data = await res.json()
       try {
         window.localStorage.setItem("token", data.token)
+        window.localStorage.setItem("role", data.role)
       } catch {}
       document.cookie = `token=${data.token}; path=/; max-age=86400; samesite=lax`
       window.location.href = "/dashboard"

@@ -106,8 +106,11 @@ export function AppShell({ children }: { children: ReactNode }) {
   const router = useRouter()
   const [collapsed, setCollapsed] = useState(false)
   const [commandOpen, setCommandOpen] = useState(false)
+  const [role, setRole] = useState<string | null>(null)
 
   useEffect(() => {
+    setRole(window.localStorage.getItem("role"))
+
     function onKeyDown(e: KeyboardEvent) {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
         e.preventDefault()
@@ -192,44 +195,33 @@ export function AppShell({ children }: { children: ReactNode }) {
             </div>
 
             <nav className="px-2 pb-6 space-y-1">
-              {NAV.map((section) => (
+              {NAV.filter((section) => section.title !== "Admin" || role === "ADMIN").map((section) => (
                 <div key={section.title} className="pt-2">
                   {collapsed ? null : (
                     <div className="px-2 pb-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
                       {section.title}
                     </div>
                   )}
-                  <div className="space-y-1">
-                    {section.items.map((item) => (
-                      <NavButton
+                  {section.items.map((item) => {
+                    const isActive = pathname.startsWith(item.href)
+                    return (
+                      <Link
                         key={item.href}
-                        item={item}
-                        active={
-                          item.href === "/dashboard"
-                            ? pathname === "/dashboard"
-                            : pathname?.startsWith(item.href)
-                        }
-                        collapsed={collapsed}
-                      />
-                    ))}
-                  </div>
+                        href={item.href}
+                        className={cn(
+                          "group flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+                          isActive ? "bg-sidebar-accent text-sidebar-accent-foreground" : "text-sidebar-foreground/70",
+                          collapsed ? "justify-center" : ""
+                        )}
+                      >
+                        <item.icon className="h-4 w-4" />
+                        {collapsed ? null : <span>{item.title}</span>}
+                      </Link>
+                    )
+                  })}
                 </div>
               ))}
             </nav>
-
-            <div className={cn("px-4 py-4 border-t border-sidebar-border", collapsed ? "px-3" : "")}>
-              <div className={cn("flex items-center gap-3", collapsed ? "justify-center" : "")}>
-                <Avatar className="h-9 w-9">
-                  <AvatarFallback>DM</AvatarFallback>
-                </Avatar>
-                {collapsed ? null : (
-                  <div className="min-w-0">
-                    <div className="text-sm font-medium truncate">Demo</div>
-                    <div className="text-xs text-muted-foreground truncate">demo@local</div>
-                  </div>
-                )}
-              </div>
-            </div>
           </motion.aside>
 
           <div className="min-w-0 flex-1">
@@ -293,7 +285,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               ))}
             </CommandGroup>
             <CommandSeparator />
-            {NAV.map((section) => (
+            {NAV.filter((section) => section.title !== "Admin" || role === "ADMIN").map((section) => (
               <CommandGroup key={section.title} heading={section.title}>
                 {section.items.map((item) => (
                   <CommandItem
