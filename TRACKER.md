@@ -75,6 +75,7 @@ This project follows a strict **Sequential Development Workflow**:
 - [x] **GST Logic**: State-based tax splitting (Intra/Inter).
 - [x] **Verification**: Full Integration Test Suite Passed (12/12 Tests) across all modules (Sales, Purchase, Returns, Reports).
 - [x] **CI/CD**: Addressed GitHub Checkstyle build errors (WhitespaceAround).
+- [x] **CI/CD**: Addressed Spotless build errors (empty interface formatting).
 
 ## 📝 Next Steps
 1.  **Implement Invoice Numbering** (Custom Series for Sales/Purchase) - *Pending Backend Task*.
