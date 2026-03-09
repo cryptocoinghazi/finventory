@@ -8,9 +8,11 @@ export type Item = {
   taxRate: number
   unitPrice: number
   uom: string
+  vendorId?: string | null
+  vendorName?: string | null
 }
 
-export type ItemInput = Omit<Item, "id">
+export type ItemInput = Omit<Item, "id" | "vendorName">
 
 export async function listItems(): Promise<Item[]> {
   const res = await apiFetch("/api/v1/items", { cache: "no-store" })
@@ -22,6 +24,14 @@ export async function getItem(id: string): Promise<Item> {
     cache: "no-store",
   })
   return readJsonOrThrow<Item>(res)
+}
+
+export async function uploadItems(formData: FormData): Promise<Item[]> {
+  const res = await apiFetch("/api/v1/items/upload", {
+    method: "POST",
+    body: formData,
+  })
+  return readJsonOrThrow<Item[]>(res)
 }
 
 export async function createItem(input: ItemInput): Promise<Item> {

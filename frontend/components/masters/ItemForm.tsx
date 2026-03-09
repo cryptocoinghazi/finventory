@@ -12,6 +12,7 @@ import { FormSectionCard } from "@/components/ui-kit/FormSectionCard"
 import { SmartSelect } from "@/components/ui-kit/SmartSelect"
 import { ItemInput } from "@/lib/items"
 import { TaxSlab } from "@/lib/tax-slabs"
+import { Party } from "@/lib/parties"
 import { useState } from "react"
 
 const itemSchema = z.object({
@@ -21,6 +22,7 @@ const itemSchema = z.object({
   uom: z.string().min(1, "UOM is required"),
   unitPrice: z.coerce.number().min(0, "Price must be >= 0"),
   taxRate: z.coerce.number().min(0, "Tax rate must be >= 0"),
+  vendorId: z.string().optional(),
 })
 
 type FormValues = z.infer<typeof itemSchema>
@@ -30,7 +32,7 @@ export function ItemForm({
   onSubmit,
   submitLabel,
 }: {
-  initialValue?: ItemInput
+  initialValue?: ItemInput & { vendorName?: string | null }
   submitLabel: string
   onSubmit: (input: ItemInput) => Promise<void>
 }) {
@@ -39,6 +41,12 @@ export function ItemForm({
   // We'll track the selected slab ID just for the UI of SmartSelect, if possible.
   // Since we don't have slab ID in initialValue, we start undefined.
   const [selectedSlabId, setSelectedSlabId] = useState<string | undefined>(undefined)
+  const [selectedVendorId, setSelectedVendorId] = useState<string | undefined>(
+    initialValue?.vendorId || undefined
+  )
+  const [initialVendorName] = useState<string | undefined>(
+    initialValue?.vendorName || undefined
+  )
 
   const form = useForm<FormValues>({
     resolver: zodResolver(itemSchema),
@@ -49,6 +57,7 @@ export function ItemForm({
       uom: initialValue?.uom ?? "",
       unitPrice: initialValue?.unitPrice ?? 0,
       taxRate: initialValue?.taxRate ?? 0,
+      vendorId: initialValue?.vendorId ?? undefined,
     },
   })
 
@@ -134,6 +143,30 @@ export function ItemForm({
                     <FormLabel>UOM</FormLabel>
                     <FormControl>
                       <Input placeholder="e.g. PCS, KG" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="vendorId"
+                render={() => (
+                  <FormItem>
+                    <FormLabel>Preferred Vendor</FormLabel>
+                    <FormControl>
+                      <SmartSelect<Party>
+                        endpoint="/api/v1/parties?type=VENDOR"
+                        labelKey="name"
+                        valueKey="id"
+                        value={selectedVendorId}
+                        placeholder="Select Vendor..."
+                        initialLabel={initialVendorName ?? undefined}
+                        onSelect={(id) => {
+                          setSelectedVendorId(id)
+                          form.setValue("vendorId", id)
+                        }}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

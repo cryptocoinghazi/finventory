@@ -4,7 +4,8 @@ public enum SequenceType {
     SALES_INVOICE("S"),
     PURCHASE_INVOICE("P"),
     SALES_RETURN("SR"),
-    PURCHASE_RETURN("PR");
+    PURCHASE_RETURN("PR"),
+    STOCK_ADJUSTMENT("SA");
 
     private final String code;
 

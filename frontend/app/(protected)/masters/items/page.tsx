@@ -8,6 +8,7 @@ import { deleteItem, listItems, Item } from "@/lib/items"
 import { DataTablePro } from "@/components/ui-kit/DataTablePro"
 import { ConfirmDialog } from "@/components/ui-kit/ConfirmDialog"
 import { MoneyText } from "@/components/ui-kit/MoneyText"
+import { ItemUploadDialog } from "@/components/items/ItemUploadDialog"
 import { Input } from "@/components/ui/input"
 import { Search } from "lucide-react"
 import { useDebounce } from "@/hooks/use-debounce"
@@ -78,9 +79,12 @@ export default function ItemsListPage() {
         title="Items"
         description="Manage inventory items."
         actions={
-          <Link href="/masters/items/new">
-            <Button>Add Item</Button>
-          </Link>
+          <div className="flex gap-2">
+            <ItemUploadDialog onUpload={load} />
+            <Link href="/masters/items/new">
+              <Button>Add Item</Button>
+            </Link>
+          </div>
         }
       />
 

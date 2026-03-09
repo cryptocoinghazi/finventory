@@ -1,24 +1,94 @@
 package com.finventory.service;
 
+import com.finventory.dto.ItemCsvDto;
 import com.finventory.dto.ItemDto;
 import com.finventory.model.Item;
+import com.finventory.model.Party;
 import com.finventory.repository.ItemRepository;
+import com.finventory.repository.PartyRepository;
+import com.opencsv.bean.CsvToBean;
+import com.opencsv.bean.CsvToBeanBuilder;
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.io.Reader;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 @Service
 @RequiredArgsConstructor
 public class ItemService {
 
     private final ItemRepository itemRepository;
+    private final PartyRepository partyRepository;
+
+    @Transactional
+    public List<ItemDto> uploadItems(MultipartFile file) {
+        if (file.isEmpty()) {
+            throw new IllegalArgumentException("File is empty");
+        }
+
+        try (Reader reader = new BufferedReader(new InputStreamReader(file.getInputStream()))) {
+            CsvToBean<ItemCsvDto> csvToBean =
+                    new CsvToBeanBuilder<ItemCsvDto>(reader)
+                            .withType(ItemCsvDto.class)
+                            .withIgnoreLeadingWhiteSpace(true)
+                            .build();
+
+            List<ItemCsvDto> csvDtos = csvToBean.parse();
+            List<Item> itemsToSave = new ArrayList<>();
+
+            for (ItemCsvDto csvDto : csvDtos) {
+                Optional<Item> existing = itemRepository.findByCode(csvDto.getCode());
+                if (existing.isPresent()) {
+                    Item item = existing.get();
+                    item.setName(csvDto.getName());
+                    item.setHsnCode(csvDto.getHsnCode());
+                    item.setTaxRate(csvDto.getTaxRate());
+                    item.setUnitPrice(csvDto.getUnitPrice());
+                    item.setUom(csvDto.getUom());
+                    itemsToSave.add(item);
+                } else {
+                    Item item =
+                            Item.builder()
+                                    .name(csvDto.getName())
+                                    .code(csvDto.getCode())
+                                    .hsnCode(csvDto.getHsnCode())
+                                    .taxRate(csvDto.getTaxRate())
+                                    .unitPrice(csvDto.getUnitPrice())
+                                    .uom(csvDto.getUom())
+                                    .build();
+                    itemsToSave.add(item);
+                }
+            }
+
+            List<Item> savedItems = itemRepository.saveAll(itemsToSave);
+            return savedItems.stream().map(this::mapToDto).collect(Collectors.toList());
+
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to parse CSV file: " + e.getMessage(), e);
+        }
+    }
 
     public ItemDto createItem(ItemDto dto) {
         if (itemRepository.existsByCode(dto.getCode())) {
             throw new IllegalArgumentException(
                     "Item with code " + dto.getCode() + " already exists");
+        }
+
+        Party vendor = null;
+        if (dto.getVendorId() != null) {
+            vendor = partyRepository.findById(dto.getVendorId())
+                    .orElseThrow(() -> new IllegalArgumentException("Vendor not found"));
+            if (vendor.getType() != Party.PartyType.VENDOR) {
+                throw new IllegalArgumentException("Selected party is not a vendor");
+            }
         }
 
         Item item =
@@ -29,6 +99,7 @@ public class ItemService {
                         .taxRate(dto.getTaxRate())
                         .unitPrice(dto.getUnitPrice())
                         .uom(dto.getUom())
+                        .vendor(vendor)
                         .build();
 
         Item saved = itemRepository.save(item);
@@ -61,6 +132,17 @@ public class ItemService {
         existing.setUnitPrice(dto.getUnitPrice());
         existing.setUom(dto.getUom());
 
+        if (dto.getVendorId() != null) {
+            Party vendor = partyRepository.findById(dto.getVendorId())
+                    .orElseThrow(() -> new IllegalArgumentException("Vendor not found"));
+            if (vendor.getType() != Party.PartyType.VENDOR) {
+                throw new IllegalArgumentException("Selected party is not a vendor");
+            }
+            existing.setVendor(vendor);
+        } else {
+            existing.setVendor(null);
+        }
+
         if (!existing.getCode().equals(dto.getCode())) {
             if (itemRepository.existsByCode(dto.getCode())) {
                 throw new IllegalArgumentException(
@@ -85,6 +167,8 @@ public class ItemService {
                 .taxRate(item.getTaxRate())
                 .unitPrice(item.getUnitPrice())
                 .uom(item.getUom())
+                .vendorId(item.getVendor() != null ? item.getVendor().getId() : null)
+                .vendorName(item.getVendor() != null ? item.getVendor().getName() : null)
                 .build();
     }
 }

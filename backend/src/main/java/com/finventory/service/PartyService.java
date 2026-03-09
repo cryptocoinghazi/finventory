@@ -36,8 +36,14 @@ public class PartyService {
         return mapToDto(saved);
     }
 
-    public List<PartyDto> getAllParties() {
-        return partyRepository.findAll().stream().map(this::mapToDto).collect(Collectors.toList());
+    public List<PartyDto> getAllParties(Party.PartyType type) {
+        List<Party> parties;
+        if (type != null) {
+            parties = partyRepository.findByType(type);
+        } else {
+            parties = partyRepository.findAll();
+        }
+        return parties.stream().map(this::mapToDto).collect(Collectors.toList());
     }
 
     public PartyDto getPartyById(UUID id) {

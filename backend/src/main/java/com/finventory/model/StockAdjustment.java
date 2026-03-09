@@ -5,8 +5,11 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.UUID;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -18,32 +21,29 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 @Entity
-@Table(name = "items")
-public class Item {
+@Table(name = "stock_adjustments")
+public class StockAdjustment {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    @Column(nullable = false)
-    private String name;
-
     @Column(nullable = false, unique = true)
-    private String code;
-
-    @Column(name = "hsn_code")
-    private String hsnCode;
-
-    @Column(name = "tax_rate", nullable = false)
-    private BigDecimal taxRate;
-
-    @Column(name = "unit_price", nullable = false)
-    private BigDecimal unitPrice;
+    private String adjustmentNumber;
 
     @Column(nullable = false)
-    private String uom; // Unit of Measurement (e.g., PCS, KGS)
+    private LocalDate adjustmentDate;
 
-    @jakarta.persistence.ManyToOne
-    @jakarta.persistence.JoinColumn(name = "vendor_id")
-    private Party vendor;
+    @ManyToOne(optional = false)
+    @JoinColumn(name = "warehouse_id")
+    private Warehouse warehouse;
+
+    @ManyToOne(optional = false)
+    @JoinColumn(name = "item_id")
+    private Item item;
+
+    @Column(nullable = false)
+    private BigDecimal quantity; // Positive to add, negative to reduce
+
+    private String reason;
 }

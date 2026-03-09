@@ -30,6 +30,7 @@ interface SmartSelectProps<T> {
   renderOption?: (item: T) => React.ReactNode
   disabled?: boolean
   className?: string
+  initialLabel?: string
 }
 
 export function SmartSelect<T>({
@@ -43,6 +44,7 @@ export function SmartSelect<T>({
   renderOption,
   disabled = false,
   className,
+  initialLabel,
 }: SmartSelectProps<T>) {
   const [open, setOpen] = React.useState(false)
   const [query, setQuery] = React.useState("")
@@ -109,7 +111,7 @@ export function SmartSelect<T>({
           {value
             ? selectedOption
               ? (String((selectedOption as Record<string, unknown>)[String(labelKey)]))
-              : "Selected" // Fallback if we can't find label
+              : initialLabel || "Selected" // Fallback if we can't find label
             : placeholder}
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>

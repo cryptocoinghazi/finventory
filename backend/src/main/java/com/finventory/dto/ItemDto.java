@@ -31,4 +31,7 @@ public class ItemDto {
 
     @NotBlank(message = "Unit of measurement (UOM) is required")
     private String uom;
+
+    private UUID vendorId;
+    private String vendorName;
 }
