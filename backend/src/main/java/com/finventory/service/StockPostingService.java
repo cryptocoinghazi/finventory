@@ -15,37 +15,49 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class StockPostingService {
 
-  private final StockLedgerRepository stockLedgerRepository;
+    private final StockLedgerRepository stockLedgerRepository;
 
-  @Transactional
-  public void postStockOut(LocalDate date, Item item, Warehouse warehouse, BigDecimal quantity,
-      StockLedgerEntry.ReferenceType refType, UUID refId) {
-    StockLedgerEntry entry = StockLedgerEntry.builder()
-        .date(date)
-        .item(item)
-        .warehouse(warehouse)
-        .qtyIn(BigDecimal.ZERO)
-        .qtyOut(quantity)
-        .refType(refType)
-        .refId(refId)
-        .build();
+    @Transactional
+    public void postStockOut(
+            LocalDate date,
+            Item item,
+            Warehouse warehouse,
+            BigDecimal quantity,
+            StockLedgerEntry.ReferenceType refType,
+            UUID refId) {
+        StockLedgerEntry entry =
+                StockLedgerEntry.builder()
+                        .date(date)
+                        .item(item)
+                        .warehouse(warehouse)
+                        .qtyIn(BigDecimal.ZERO)
+                        .qtyOut(quantity)
+                        .refType(refType)
+                        .refId(refId)
+                        .build();
 
-    stockLedgerRepository.save(entry);
-  }
+        stockLedgerRepository.save(entry);
+    }
 
-  @Transactional
-  public void postStockIn(LocalDate date, Item item, Warehouse warehouse, BigDecimal quantity,
-      StockLedgerEntry.ReferenceType refType, UUID refId) {
-    StockLedgerEntry entry = StockLedgerEntry.builder()
-        .date(date)
-        .item(item)
-        .warehouse(warehouse)
-        .qtyIn(quantity)
-        .qtyOut(BigDecimal.ZERO)
-        .refType(refType)
-        .refId(refId)
-        .build();
+    @Transactional
+    public void postStockIn(
+            LocalDate date,
+            Item item,
+            Warehouse warehouse,
+            BigDecimal quantity,
+            StockLedgerEntry.ReferenceType refType,
+            UUID refId) {
+        StockLedgerEntry entry =
+                StockLedgerEntry.builder()
+                        .date(date)
+                        .item(item)
+                        .warehouse(warehouse)
+                        .qtyIn(quantity)
+                        .qtyOut(BigDecimal.ZERO)
+                        .refType(refType)
+                        .refId(refId)
+                        .build();
 
-    stockLedgerRepository.save(entry);
-  }
+        stockLedgerRepository.save(entry);
+    }
 }

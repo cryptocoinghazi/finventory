@@ -11,22 +11,22 @@ import lombok.Data;
 @Data
 @Builder
 public class PartyDto {
-  private UUID id;
+    private UUID id;
 
-  @NotBlank(message = "Party name is required")
-  private String name;
+    @NotBlank(message = "Party name is required")
+    private String name;
 
-  @NotNull(message = "Party type is required")
-  private PartyType type;
+    @NotNull(message = "Party type is required")
+    private PartyType type;
 
-  private String gstin;
+    private String gstin;
 
-  private String stateCode;
+    private String stateCode;
 
-  private String address;
+    private String address;
 
-  private String phone;
+    private String phone;
 
-  @Email(message = "Invalid email format")
-  private String email;
+    @Email(message = "Invalid email format")
+    private String email;
 }

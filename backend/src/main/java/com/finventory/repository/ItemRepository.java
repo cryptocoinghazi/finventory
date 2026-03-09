@@ -7,5 +7,5 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public interface ItemRepository extends JpaRepository<Item, UUID> {
-  boolean existsByCode(String code);
+    boolean existsByCode(String code);
 }

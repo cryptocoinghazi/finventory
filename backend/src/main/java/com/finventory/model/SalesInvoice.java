@@ -28,43 +28,43 @@ import lombok.NoArgsConstructor;
 @Table(name = "sales_invoices")
 public class SalesInvoice {
 
-  @Id
-  @GeneratedValue(strategy = GenerationType.UUID)
-  private UUID id;
+    @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private UUID id;
 
-  @Column(name = "invoice_number", nullable = false, unique = true)
-  private String invoiceNumber;
+    @Column(name = "invoice_number", nullable = false, unique = true)
+    private String invoiceNumber;
 
-  @Column(name = "invoice_date", nullable = false)
-  private LocalDate invoiceDate;
+    @Column(name = "invoice_date", nullable = false)
+    private LocalDate invoiceDate;
 
-  @ManyToOne
-  @JoinColumn(name = "party_id", nullable = false)
-  private Party party;
+    @ManyToOne
+    @JoinColumn(name = "party_id", nullable = false)
+    private Party party;
 
-  @ManyToOne
-  @JoinColumn(name = "warehouse_id", nullable = false)
-  private Warehouse warehouse;
+    @ManyToOne
+    @JoinColumn(name = "warehouse_id", nullable = false)
+    private Warehouse warehouse;
 
-  @Column(name = "total_taxable_amount", nullable = false)
-  private BigDecimal totalTaxableAmount;
+    @Column(name = "total_taxable_amount", nullable = false)
+    private BigDecimal totalTaxableAmount;
 
-  @Column(name = "total_tax_amount", nullable = false)
-  private BigDecimal totalTaxAmount;
+    @Column(name = "total_tax_amount", nullable = false)
+    private BigDecimal totalTaxAmount;
 
-  @Column(name = "total_cgst_amount", nullable = false)
-  private BigDecimal totalCgstAmount;
+    @Column(name = "total_cgst_amount", nullable = false)
+    private BigDecimal totalCgstAmount;
 
-  @Column(name = "total_sgst_amount", nullable = false)
-  private BigDecimal totalSgstAmount;
+    @Column(name = "total_sgst_amount", nullable = false)
+    private BigDecimal totalSgstAmount;
 
-  @Column(name = "total_igst_amount", nullable = false)
-  private BigDecimal totalIgstAmount;
+    @Column(name = "total_igst_amount", nullable = false)
+    private BigDecimal totalIgstAmount;
 
-  @Column(name = "grand_total", nullable = false)
-  private BigDecimal grandTotal;
+    @Column(name = "grand_total", nullable = false)
+    private BigDecimal grandTotal;
 
-  @Builder.Default
-  @OneToMany(mappedBy = "salesInvoice", cascade = CascadeType.ALL, orphanRemoval = true)
-  private List<SalesInvoiceLine> lines = new ArrayList<>();
+    @Builder.Default
+    @OneToMany(mappedBy = "salesInvoice", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<SalesInvoiceLine> lines = new ArrayList<>();
 }

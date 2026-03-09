@@ -21,31 +21,32 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 public class PartyController {
 
-  private final PartyService partyService;
+    private final PartyService partyService;
 
-  @PostMapping
-  public ResponseEntity<PartyDto> createParty(@Valid @RequestBody PartyDto partyDto) {
-    return ResponseEntity.ok(partyService.createParty(partyDto));
-  }
+    @PostMapping
+    public ResponseEntity<PartyDto> createParty(@Valid @RequestBody PartyDto partyDto) {
+        return ResponseEntity.ok(partyService.createParty(partyDto));
+    }
 
-  @GetMapping
-  public ResponseEntity<List<PartyDto>> getAllParties() {
-    return ResponseEntity.ok(partyService.getAllParties());
-  }
+    @GetMapping
+    public ResponseEntity<List<PartyDto>> getAllParties() {
+        return ResponseEntity.ok(partyService.getAllParties());
+    }
 
-  @GetMapping("/{id}")
-  public ResponseEntity<PartyDto> getPartyById(@PathVariable UUID id) {
-    return ResponseEntity.ok(partyService.getPartyById(id));
-  }
+    @GetMapping("/{id}")
+    public ResponseEntity<PartyDto> getPartyById(@PathVariable UUID id) {
+        return ResponseEntity.ok(partyService.getPartyById(id));
+    }
 
-  @PutMapping("/{id}")
-  public ResponseEntity<PartyDto> updateParty(@PathVariable UUID id, @Valid @RequestBody PartyDto partyDto) {
-    return ResponseEntity.ok(partyService.updateParty(id, partyDto));
-  }
+    @PutMapping("/{id}")
+    public ResponseEntity<PartyDto> updateParty(
+            @PathVariable UUID id, @Valid @RequestBody PartyDto partyDto) {
+        return ResponseEntity.ok(partyService.updateParty(id, partyDto));
+    }
 
-  @DeleteMapping("/{id}")
-  public ResponseEntity<Void> deleteParty(@PathVariable UUID id) {
-    partyService.deleteParty(id);
-    return ResponseEntity.noContent().build();
-  }
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteParty(@PathVariable UUID id) {
+        partyService.deleteParty(id);
+        return ResponseEntity.noContent().build();
+    }
 }

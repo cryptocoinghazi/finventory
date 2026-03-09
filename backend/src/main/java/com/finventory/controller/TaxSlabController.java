@@ -20,21 +20,21 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 public class TaxSlabController {
 
-  private final TaxSlabService taxSlabService;
+    private final TaxSlabService taxSlabService;
 
-  @PostMapping
-  public ResponseEntity<TaxSlabDto> createTaxSlab(@Valid @RequestBody TaxSlabDto taxSlabDto) {
-    return ResponseEntity.ok(taxSlabService.createTaxSlab(taxSlabDto));
-  }
+    @PostMapping
+    public ResponseEntity<TaxSlabDto> createTaxSlab(@Valid @RequestBody TaxSlabDto taxSlabDto) {
+        return ResponseEntity.ok(taxSlabService.createTaxSlab(taxSlabDto));
+    }
 
-  @GetMapping
-  public ResponseEntity<List<TaxSlabDto>> getAllTaxSlabs() {
-    return ResponseEntity.ok(taxSlabService.getAllTaxSlabs());
-  }
+    @GetMapping
+    public ResponseEntity<List<TaxSlabDto>> getAllTaxSlabs() {
+        return ResponseEntity.ok(taxSlabService.getAllTaxSlabs());
+    }
 
-  @DeleteMapping("/{id}")
-  public ResponseEntity<Void> deleteTaxSlab(@PathVariable UUID id) {
-    taxSlabService.deleteTaxSlab(id);
-    return ResponseEntity.noContent().build();
-  }
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteTaxSlab(@PathVariable UUID id) {
+        taxSlabService.deleteTaxSlab(id);
+        return ResponseEntity.noContent().build();
+    }
 }

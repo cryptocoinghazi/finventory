@@ -11,24 +11,24 @@ import lombok.Data;
 @Data
 @Builder
 public class ItemDto {
-  private UUID id;
+    private UUID id;
 
-  @NotBlank(message = "Item name is required")
-  private String name;
+    @NotBlank(message = "Item name is required")
+    private String name;
 
-  @NotBlank(message = "Item code is required")
-  private String code;
+    @NotBlank(message = "Item code is required")
+    private String code;
 
-  private String hsnCode;
+    private String hsnCode;
 
-  @NotNull(message = "Tax rate is required")
-  @DecimalMin(value = "0.0", inclusive = true, message = "Tax rate must be positive or zero")
-  private BigDecimal taxRate;
+    @NotNull(message = "Tax rate is required")
+    @DecimalMin(value = "0.0", inclusive = true, message = "Tax rate must be positive or zero")
+    private BigDecimal taxRate;
 
-  @NotNull(message = "Unit price is required")
-  @DecimalMin(value = "0.0", inclusive = true, message = "Unit price must be positive or zero")
-  private BigDecimal unitPrice;
+    @NotNull(message = "Unit price is required")
+    @DecimalMin(value = "0.0", inclusive = true, message = "Unit price must be positive or zero")
+    private BigDecimal unitPrice;
 
-  @NotBlank(message = "Unit of measurement (UOM) is required")
-  private String uom;
+    @NotBlank(message = "Unit of measurement (UOM) is required")
+    private String uom;
 }

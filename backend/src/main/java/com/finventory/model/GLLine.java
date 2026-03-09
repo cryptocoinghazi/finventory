@@ -24,20 +24,20 @@ import lombok.NoArgsConstructor;
 @Table(name = "gl_lines")
 public class GLLine {
 
-  @Id
-  @GeneratedValue(strategy = GenerationType.UUID)
-  private UUID id;
+    @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private UUID id;
 
-  @ManyToOne(fetch = FetchType.LAZY)
-  @JoinColumn(name = "transaction_id", nullable = false)
-  private GLTransaction transaction;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "transaction_id", nullable = false)
+    private GLTransaction transaction;
 
-  @Column(name = "account_head", nullable = false)
-  private String accountHead; // E.g., "SALES", "OUTPUT_CGST", "CUSTOMER_AR"
+    @Column(name = "account_head", nullable = false)
+    private String accountHead; // E.g., "SALES", "OUTPUT_CGST", "CUSTOMER_AR"
 
-  @Column(nullable = false)
-  private BigDecimal debit;
+    @Column(nullable = false)
+    private BigDecimal debit;
 
-  @Column(nullable = false)
-  private BigDecimal credit;
+    @Column(nullable = false)
+    private BigDecimal credit;
 }

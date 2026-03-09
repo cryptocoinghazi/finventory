@@ -15,30 +15,30 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 public class ReportsController {
 
-  private final ReportsService reportsService;
+    private final ReportsService reportsService;
 
-  @GetMapping("/stock-summary")
-  public ResponseEntity<List<StockSummaryDto>> getStockSummary() {
-    return ResponseEntity.ok(reportsService.getStockSummary());
-  }
+    @GetMapping("/stock-summary")
+    public ResponseEntity<List<StockSummaryDto>> getStockSummary() {
+        return ResponseEntity.ok(reportsService.getStockSummary());
+    }
 
-  @GetMapping("/party-outstanding")
-  public ResponseEntity<List<PartyOutstandingDto>> getPartyOutstanding() {
-    return ResponseEntity.ok(reportsService.getPartyOutstanding());
-  }
+    @GetMapping("/party-outstanding")
+    public ResponseEntity<List<PartyOutstandingDto>> getPartyOutstanding() {
+        return ResponseEntity.ok(reportsService.getPartyOutstanding());
+    }
 
-  @GetMapping("/gstr-1")
-  public ResponseEntity<List<com.finventory.dto.GstRegisterEntryDto>> getGstr1() {
-    return ResponseEntity.ok(reportsService.getGstr1());
-  }
+    @GetMapping("/gstr-1")
+    public ResponseEntity<List<com.finventory.dto.GstRegisterEntryDto>> getGstr1() {
+        return ResponseEntity.ok(reportsService.getGstr1());
+    }
 
-  @GetMapping("/gstr-2")
-  public ResponseEntity<List<com.finventory.dto.GstRegisterEntryDto>> getGstr2() {
-    return ResponseEntity.ok(reportsService.getGstr2());
-  }
+    @GetMapping("/gstr-2")
+    public ResponseEntity<List<com.finventory.dto.GstRegisterEntryDto>> getGstr2() {
+        return ResponseEntity.ok(reportsService.getGstr2());
+    }
 
-  @GetMapping("/gstr-3b")
-  public ResponseEntity<com.finventory.dto.Gstr3bDto> getGstr3b() {
-    return ResponseEntity.ok(reportsService.getGstr3b());
-  }
+    @GetMapping("/gstr-3b")
+    public ResponseEntity<com.finventory.dto.Gstr3bDto> getGstr3b() {
+        return ResponseEntity.ok(reportsService.getGstr3b());
+    }
 }

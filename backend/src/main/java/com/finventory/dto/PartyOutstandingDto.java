@@ -12,10 +12,10 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class PartyOutstandingDto {
-  private UUID partyId;
-  private String partyName;
-  private String partyType; // CUSTOMER, VENDOR
-  private BigDecimal totalReceivable; // Debit sum for Customers
-  private BigDecimal totalPayable;    // Credit sum for Vendors
-  private BigDecimal netBalance;      // Debit - Credit
+    private UUID partyId;
+    private String partyName;
+    private String partyType; // CUSTOMER, VENDOR
+    private BigDecimal totalReceivable; // Debit sum for Customers
+    private BigDecimal totalPayable; // Credit sum for Vendors
+    private BigDecimal netBalance; // Debit - Credit
 }

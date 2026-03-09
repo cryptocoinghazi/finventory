@@ -20,15 +20,15 @@ import lombok.NoArgsConstructor;
 @Table(name = "warehouses")
 public class Warehouse {
 
-  @Id
-  @GeneratedValue(strategy = GenerationType.UUID)
-  private UUID id;
+    @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private UUID id;
 
-  @Column(nullable = false, unique = true)
-  private String name;
+    @Column(nullable = false, unique = true)
+    private String name;
 
-  @Column(name = "state_code")
-  private String stateCode;
+    @Column(name = "state_code")
+    private String stateCode;
 
-  private String location;
+    private String location;
 }

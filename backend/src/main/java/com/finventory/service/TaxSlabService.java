@@ -13,31 +13,35 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class TaxSlabService {
 
-  private final TaxSlabRepository taxSlabRepository;
+    private final TaxSlabRepository taxSlabRepository;
 
-  public TaxSlabDto createTaxSlab(TaxSlabDto dto) {
-    if (taxSlabRepository.existsByRate(dto.getRate())) {
-      throw new IllegalArgumentException("Tax slab with rate " + dto.getRate() + " already exists");
+    public TaxSlabDto createTaxSlab(TaxSlabDto dto) {
+        if (taxSlabRepository.existsByRate(dto.getRate())) {
+            throw new IllegalArgumentException(
+                    "Tax slab with rate " + dto.getRate() + " already exists");
+        }
+
+        TaxSlab taxSlab =
+                TaxSlab.builder().rate(dto.getRate()).description(dto.getDescription()).build();
+
+        return mapToDto(taxSlabRepository.save(taxSlab));
     }
 
-    TaxSlab taxSlab = TaxSlab.builder().rate(dto.getRate()).description(dto.getDescription()).build();
+    public List<TaxSlabDto> getAllTaxSlabs() {
+        return taxSlabRepository.findAll().stream()
+                .map(this::mapToDto)
+                .collect(Collectors.toList());
+    }
 
-    return mapToDto(taxSlabRepository.save(taxSlab));
-  }
+    public void deleteTaxSlab(UUID id) {
+        taxSlabRepository.deleteById(id);
+    }
 
-  public List<TaxSlabDto> getAllTaxSlabs() {
-    return taxSlabRepository.findAll().stream().map(this::mapToDto).collect(Collectors.toList());
-  }
-
-  public void deleteTaxSlab(UUID id) {
-    taxSlabRepository.deleteById(id);
-  }
-
-  private TaxSlabDto mapToDto(TaxSlab taxSlab) {
-    return TaxSlabDto.builder()
-        .id(taxSlab.getId())
-        .rate(taxSlab.getRate())
-        .description(taxSlab.getDescription())
-        .build();
-  }
+    private TaxSlabDto mapToDto(TaxSlab taxSlab) {
+        return TaxSlabDto.builder()
+                .id(taxSlab.getId())
+                .rate(taxSlab.getRate())
+                .description(taxSlab.getDescription())
+                .build();
+    }
 }

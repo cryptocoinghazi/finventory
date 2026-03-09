@@ -8,12 +8,12 @@ import lombok.Data;
 @Data
 @Builder
 public class WarehouseDto {
-  private UUID id;
+    private UUID id;
 
-  @NotBlank(message = "Warehouse name is required")
-  private String name;
+    @NotBlank(message = "Warehouse name is required")
+    private String name;
 
-  private String stateCode;
+    private String stateCode;
 
-  private String location;
+    private String location;
 }

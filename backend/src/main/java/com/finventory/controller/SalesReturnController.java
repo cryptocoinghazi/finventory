@@ -16,12 +16,12 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 public class SalesReturnController {
 
-  private final SalesReturnService salesReturnService;
+    private final SalesReturnService salesReturnService;
 
-  @PostMapping
-  public ResponseEntity<SalesReturnDto> createSalesReturn(
-      @Valid @RequestBody SalesReturnDto dto) {
-    SalesReturnDto created = salesReturnService.createSalesReturn(dto);
-    return new ResponseEntity<>(created, HttpStatus.CREATED);
-  }
+    @PostMapping
+    public ResponseEntity<SalesReturnDto> createSalesReturn(
+            @Valid @RequestBody SalesReturnDto dto) {
+        SalesReturnDto created = salesReturnService.createSalesReturn(dto);
+        return new ResponseEntity<>(created, HttpStatus.CREATED);
+    }
 }

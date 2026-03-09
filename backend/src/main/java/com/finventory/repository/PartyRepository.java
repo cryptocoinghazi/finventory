@@ -7,5 +7,5 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public interface PartyRepository extends JpaRepository<Party, UUID> {
-  boolean existsByGstin(String gstin);
+    boolean existsByGstin(String gstin);
 }

@@ -12,15 +12,15 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class GstRegisterEntryDto {
-  private String invoiceNumber;
-  private LocalDate invoiceDate;
-  private String partyName;
-  private String partyGstin;
-  private String placeOfSupply; // State Code
-  private String invoiceType; // B2B, B2C, etc.
-  private BigDecimal taxableValue;
-  private BigDecimal cgstAmount;
-  private BigDecimal sgstAmount;
-  private BigDecimal igstAmount;
-  private BigDecimal totalAmount;
+    private String invoiceNumber;
+    private LocalDate invoiceDate;
+    private String partyName;
+    private String partyGstin;
+    private String placeOfSupply; // State Code
+    private String invoiceType; // B2B, B2C, etc.
+    private BigDecimal taxableValue;
+    private BigDecimal cgstAmount;
+    private BigDecimal sgstAmount;
+    private BigDecimal igstAmount;
+    private BigDecimal totalAmount;
 }

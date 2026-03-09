@@ -16,12 +16,12 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 public class PurchaseReturnController {
 
-  private final PurchaseReturnService purchaseReturnService;
+    private final PurchaseReturnService purchaseReturnService;
 
-  @PostMapping
-  public ResponseEntity<PurchaseReturnDto> createPurchaseReturn(
-      @Valid @RequestBody PurchaseReturnDto dto) {
-    PurchaseReturnDto created = purchaseReturnService.createPurchaseReturn(dto);
-    return new ResponseEntity<>(created, HttpStatus.CREATED);
-  }
+    @PostMapping
+    public ResponseEntity<PurchaseReturnDto> createPurchaseReturn(
+            @Valid @RequestBody PurchaseReturnDto dto) {
+        PurchaseReturnDto created = purchaseReturnService.createPurchaseReturn(dto);
+        return new ResponseEntity<>(created, HttpStatus.CREATED);
+    }
 }

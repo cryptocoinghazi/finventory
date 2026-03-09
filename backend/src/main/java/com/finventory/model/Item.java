@@ -21,25 +21,25 @@ import lombok.NoArgsConstructor;
 @Table(name = "items")
 public class Item {
 
-  @Id
-  @GeneratedValue(strategy = GenerationType.UUID)
-  private UUID id;
+    @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private UUID id;
 
-  @Column(nullable = false)
-  private String name;
+    @Column(nullable = false)
+    private String name;
 
-  @Column(nullable = false, unique = true)
-  private String code;
+    @Column(nullable = false, unique = true)
+    private String code;
 
-  @Column(name = "hsn_code")
-  private String hsnCode;
+    @Column(name = "hsn_code")
+    private String hsnCode;
 
-  @Column(name = "tax_rate", nullable = false)
-  private BigDecimal taxRate;
+    @Column(name = "tax_rate", nullable = false)
+    private BigDecimal taxRate;
 
-  @Column(name = "unit_price", nullable = false)
-  private BigDecimal unitPrice;
+    @Column(name = "unit_price", nullable = false)
+    private BigDecimal unitPrice;
 
-  @Column(nullable = false)
-  private String uom; // Unit of Measurement (e.g., PCS, KGS)
+    @Column(nullable = false)
+    private String uom; // Unit of Measurement (e.g., PCS, KGS)
 }

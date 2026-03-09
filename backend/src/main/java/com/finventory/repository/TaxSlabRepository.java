@@ -8,5 +8,5 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public interface TaxSlabRepository extends JpaRepository<TaxSlab, UUID> {
-  boolean existsByRate(BigDecimal rate);
+    boolean existsByRate(BigDecimal rate);
 }

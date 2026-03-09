@@ -18,30 +18,30 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class PurchaseInvoiceDto {
 
-  private UUID id;
+    private UUID id;
 
-  @NotNull(message = "Invoice date is required")
-  private LocalDate invoiceDate;
+    @NotNull(message = "Invoice date is required")
+    private LocalDate invoiceDate;
 
-  @NotNull(message = "Party ID is required")
-  private UUID partyId;
+    @NotNull(message = "Party ID is required")
+    private UUID partyId;
 
-  @NotNull(message = "Warehouse ID is required")
-  private UUID warehouseId;
+    @NotNull(message = "Warehouse ID is required")
+    private UUID warehouseId;
 
-  private String invoiceNumber;
+    private String invoiceNumber;
 
-  private String vendorInvoiceNumber;
+    private String vendorInvoiceNumber;
 
-  @NotEmpty(message = "Invoice must have at least one line item")
-  @Valid
-  private List<PurchaseInvoiceLineDto> lines;
+    @NotEmpty(message = "Invoice must have at least one line item")
+    @Valid
+    private List<PurchaseInvoiceLineDto> lines;
 
-  // Calculated fields
-  private BigDecimal totalTaxableAmount;
-  private BigDecimal totalTaxAmount;
-  private BigDecimal totalCgstAmount;
-  private BigDecimal totalSgstAmount;
-  private BigDecimal totalIgstAmount;
-  private BigDecimal grandTotal;
+    // Calculated fields
+    private BigDecimal totalTaxableAmount;
+    private BigDecimal totalTaxAmount;
+    private BigDecimal totalCgstAmount;
+    private BigDecimal totalSgstAmount;
+    private BigDecimal totalIgstAmount;
+    private BigDecimal grandTotal;
 }

@@ -20,26 +20,27 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 public class WarehouseController {
 
-  private final WarehouseService warehouseService;
+    private final WarehouseService warehouseService;
 
-  @PostMapping
-  public ResponseEntity<WarehouseDto> createWarehouse(@Valid @RequestBody WarehouseDto warehouseDto) {
-    return ResponseEntity.ok(warehouseService.createWarehouse(warehouseDto));
-  }
+    @PostMapping
+    public ResponseEntity<WarehouseDto> createWarehouse(
+            @Valid @RequestBody WarehouseDto warehouseDto) {
+        return ResponseEntity.ok(warehouseService.createWarehouse(warehouseDto));
+    }
 
-  @GetMapping
-  public ResponseEntity<List<WarehouseDto>> getAllWarehouses() {
-    return ResponseEntity.ok(warehouseService.getAllWarehouses());
-  }
+    @GetMapping
+    public ResponseEntity<List<WarehouseDto>> getAllWarehouses() {
+        return ResponseEntity.ok(warehouseService.getAllWarehouses());
+    }
 
-  @GetMapping("/{id}")
-  public ResponseEntity<WarehouseDto> getWarehouseById(@PathVariable UUID id) {
-    return ResponseEntity.ok(warehouseService.getWarehouseById(id));
-  }
+    @GetMapping("/{id}")
+    public ResponseEntity<WarehouseDto> getWarehouseById(@PathVariable UUID id) {
+        return ResponseEntity.ok(warehouseService.getWarehouseById(id));
+    }
 
-  @DeleteMapping("/{id}")
-  public ResponseEntity<Void> deleteWarehouse(@PathVariable UUID id) {
-    warehouseService.deleteWarehouse(id);
-    return ResponseEntity.noContent().build();
-  }
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteWarehouse(@PathVariable UUID id) {
+        warehouseService.deleteWarehouse(id);
+        return ResponseEntity.noContent().build();
+    }
 }

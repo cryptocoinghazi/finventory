@@ -10,11 +10,11 @@ import lombok.Data;
 @Data
 @Builder
 public class TaxSlabDto {
-  private UUID id;
+    private UUID id;
 
-  @NotNull(message = "Rate is required")
-  @DecimalMin(value = "0.0", inclusive = true, message = "Rate must be positive or zero")
-  private BigDecimal rate;
+    @NotNull(message = "Rate is required")
+    @DecimalMin(value = "0.0", inclusive = true, message = "Rate must be positive or zero")
+    private BigDecimal rate;
 
-  private String description;
+    private String description;
 }

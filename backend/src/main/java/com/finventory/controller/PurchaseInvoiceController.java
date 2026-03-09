@@ -16,12 +16,12 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 public class PurchaseInvoiceController {
 
-  private final PurchaseInvoiceService purchaseInvoiceService;
+    private final PurchaseInvoiceService purchaseInvoiceService;
 
-  @PostMapping
-  public ResponseEntity<PurchaseInvoiceDto> createPurchaseInvoice(
-      @Valid @RequestBody PurchaseInvoiceDto dto) {
-    PurchaseInvoiceDto created = purchaseInvoiceService.createPurchaseInvoice(dto);
-    return new ResponseEntity<>(created, HttpStatus.CREATED);
-  }
+    @PostMapping
+    public ResponseEntity<PurchaseInvoiceDto> createPurchaseInvoice(
+            @Valid @RequestBody PurchaseInvoiceDto dto) {
+        PurchaseInvoiceDto created = purchaseInvoiceService.createPurchaseInvoice(dto);
+        return new ResponseEntity<>(created, HttpStatus.CREATED);
+    }
 }

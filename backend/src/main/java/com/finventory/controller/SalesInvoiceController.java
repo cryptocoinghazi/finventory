@@ -19,20 +19,21 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 public class SalesInvoiceController {
 
-  private final SalesInvoiceService salesInvoiceService;
+    private final SalesInvoiceService salesInvoiceService;
 
-  @PostMapping
-  public ResponseEntity<SalesInvoiceDto> createSalesInvoice(@Valid @RequestBody SalesInvoiceDto dto) {
-    return ResponseEntity.ok(salesInvoiceService.createSalesInvoice(dto));
-  }
+    @PostMapping
+    public ResponseEntity<SalesInvoiceDto> createSalesInvoice(
+            @Valid @RequestBody SalesInvoiceDto dto) {
+        return ResponseEntity.ok(salesInvoiceService.createSalesInvoice(dto));
+    }
 
-  @GetMapping
-  public ResponseEntity<List<SalesInvoiceDto>> getAllSalesInvoices() {
-    return ResponseEntity.ok(salesInvoiceService.getAllSalesInvoices());
-  }
+    @GetMapping
+    public ResponseEntity<List<SalesInvoiceDto>> getAllSalesInvoices() {
+        return ResponseEntity.ok(salesInvoiceService.getAllSalesInvoices());
+    }
 
-  @GetMapping("/{id}")
-  public ResponseEntity<SalesInvoiceDto> getSalesInvoice(@PathVariable UUID id) {
-    return ResponseEntity.ok(salesInvoiceService.getSalesInvoice(id));
-  }
+    @GetMapping("/{id}")
+    public ResponseEntity<SalesInvoiceDto> getSalesInvoice(@PathVariable UUID id) {
+        return ResponseEntity.ok(salesInvoiceService.getSalesInvoice(id));
+    }
 }

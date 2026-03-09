@@ -15,28 +15,29 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class SalesInvoiceLineDto {
 
-  private UUID id;
+    private UUID id;
 
-  @NotNull(message = "Item ID is required")
-  private UUID itemId;
+    @NotNull(message = "Item ID is required")
+    private UUID itemId;
 
-  @NotNull(message = "Quantity is required")
-  @DecimalMin(value = "0.0", inclusive = false, message = "Quantity must be greater than zero")
-  private BigDecimal quantity;
+    @NotNull(message = "Quantity is required")
+    @DecimalMin(value = "0.0", inclusive = false, message = "Quantity must be greater than zero")
+    private BigDecimal quantity;
 
-  // Optional: User can override price? Yes, usually.
-  @NotNull(message = "Unit price is required")
-  @DecimalMin(value = "0.0", inclusive = true, message = "Unit price cannot be negative")
-  private BigDecimal unitPrice;
+    // Optional: User can override price? Yes, usually.
+    @NotNull(message = "Unit price is required")
+    @DecimalMin(value = "0.0", inclusive = true, message = "Unit price cannot be negative")
+    private BigDecimal unitPrice;
 
-  // Tax rate might be fetched from item, but user might override or it might be stored for history.
-  // For now, I'll make it optional in input (fetched from item if null), but mandatory in output.
-  private BigDecimal taxRate;
+    // Tax rate might be fetched from item, but user might override or it might be stored for
+    // history.
+    // For now, I'll make it optional in input (fetched from item if null), but mandatory in output.
+    private BigDecimal taxRate;
 
-  // Calculated fields
-  private BigDecimal taxAmount;
-  private BigDecimal cgstAmount;
-  private BigDecimal sgstAmount;
-  private BigDecimal igstAmount;
-  private BigDecimal lineTotal;
+    // Calculated fields
+    private BigDecimal taxAmount;
+    private BigDecimal cgstAmount;
+    private BigDecimal sgstAmount;
+    private BigDecimal igstAmount;
+    private BigDecimal lineTotal;
 }

@@ -21,13 +21,13 @@ import lombok.NoArgsConstructor;
 @Table(name = "tax_slabs")
 public class TaxSlab {
 
-  @Id
-  @GeneratedValue(strategy = GenerationType.UUID)
-  private UUID id;
+    @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private UUID id;
 
-  @Column(nullable = false, unique = true)
-  private BigDecimal rate; // e.g., 0.00, 5.00, 12.00, 18.00, 28.00
+    @Column(nullable = false, unique = true)
+    private BigDecimal rate; // e.g., 0.00, 5.00, 12.00, 18.00, 28.00
 
-  @Column(nullable = false)
-  private String description;
+    @Column(nullable = false)
+    private String description;
 }

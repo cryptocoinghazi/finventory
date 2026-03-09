@@ -12,11 +12,11 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class StockSummaryDto {
-  private UUID itemId;
-  private String itemName;
-  private String itemCode;
-  private UUID warehouseId;
-  private String warehouseName;
-  private BigDecimal currentStock;
-  private String uom;
+    private UUID itemId;
+    private String itemName;
+    private String itemCode;
+    private UUID warehouseId;
+    private String warehouseName;
+    private BigDecimal currentStock;
+    private String uom;
 }

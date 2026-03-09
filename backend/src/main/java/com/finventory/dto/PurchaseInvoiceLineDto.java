@@ -15,25 +15,25 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class PurchaseInvoiceLineDto {
 
-  private UUID id;
+    private UUID id;
 
-  @NotNull(message = "Item ID is required")
-  private UUID itemId;
+    @NotNull(message = "Item ID is required")
+    private UUID itemId;
 
-  @NotNull(message = "Quantity is required")
-  @DecimalMin(value = "0.01", message = "Quantity must be greater than 0")
-  private BigDecimal quantity;
+    @NotNull(message = "Quantity is required")
+    @DecimalMin(value = "0.01", message = "Quantity must be greater than 0")
+    private BigDecimal quantity;
 
-  @NotNull(message = "Unit Price is required")
-  @DecimalMin(value = "0.00", message = "Unit Price cannot be negative")
-  private BigDecimal unitPrice;
+    @NotNull(message = "Unit Price is required")
+    @DecimalMin(value = "0.00", message = "Unit Price cannot be negative")
+    private BigDecimal unitPrice;
 
-  private BigDecimal taxRate; // Optional override
+    private BigDecimal taxRate; // Optional override
 
-  // Calculated fields
-  private BigDecimal taxAmount;
-  private BigDecimal cgstAmount;
-  private BigDecimal sgstAmount;
-  private BigDecimal igstAmount;
-  private BigDecimal lineTotal;
+    // Calculated fields
+    private BigDecimal taxAmount;
+    private BigDecimal cgstAmount;
+    private BigDecimal sgstAmount;
+    private BigDecimal igstAmount;
+    private BigDecimal lineTotal;
 }

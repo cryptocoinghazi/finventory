@@ -18,31 +18,32 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class SalesInvoiceDto {
 
-  private UUID id;
+    private UUID id;
 
-  @NotNull(message = "Invoice date is required")
-  private LocalDate invoiceDate;
+    @NotNull(message = "Invoice date is required")
+    private LocalDate invoiceDate;
 
-  @NotNull(message = "Party ID is required")
-  private UUID partyId;
+    @NotNull(message = "Party ID is required")
+    private UUID partyId;
 
-  @NotNull(message = "Warehouse ID is required")
-  private UUID warehouseId;
+    @NotNull(message = "Warehouse ID is required")
+    private UUID warehouseId;
 
-  // Invoice number might be auto-generated or manual.
-  // For now, let's assume manual input is allowed but uniqueness is checked.
-  // Actually, usually it's auto-generated. I'll make it optional in input, but required in output.
-  private String invoiceNumber;
+    // Invoice number might be auto-generated or manual.
+    // For now, let's assume manual input is allowed but uniqueness is checked.
+    // Actually, usually it's auto-generated. I'll make it optional in input, but required in
+    // output.
+    private String invoiceNumber;
 
-  @NotEmpty(message = "Invoice must have at least one line item")
-  @Valid
-  private List<SalesInvoiceLineDto> lines;
+    @NotEmpty(message = "Invoice must have at least one line item")
+    @Valid
+    private List<SalesInvoiceLineDto> lines;
 
-  // Calculated fields (read-only for request usually, but good to return in response)
-  private BigDecimal totalTaxableAmount;
-  private BigDecimal totalTaxAmount;
-  private BigDecimal totalCgstAmount;
-  private BigDecimal totalSgstAmount;
-  private BigDecimal totalIgstAmount;
-  private BigDecimal grandTotal;
+    // Calculated fields (read-only for request usually, but good to return in response)
+    private BigDecimal totalTaxableAmount;
+    private BigDecimal totalTaxAmount;
+    private BigDecimal totalCgstAmount;
+    private BigDecimal totalSgstAmount;
+    private BigDecimal totalIgstAmount;
+    private BigDecimal grandTotal;
 }

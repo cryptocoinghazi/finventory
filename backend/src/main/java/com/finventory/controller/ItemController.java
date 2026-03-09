@@ -21,31 +21,32 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 public class ItemController {
 
-  private final ItemService itemService;
+    private final ItemService itemService;
 
-  @PostMapping
-  public ResponseEntity<ItemDto> createItem(@Valid @RequestBody ItemDto itemDto) {
-    return ResponseEntity.ok(itemService.createItem(itemDto));
-  }
+    @PostMapping
+    public ResponseEntity<ItemDto> createItem(@Valid @RequestBody ItemDto itemDto) {
+        return ResponseEntity.ok(itemService.createItem(itemDto));
+    }
 
-  @GetMapping
-  public ResponseEntity<List<ItemDto>> getAllItems() {
-    return ResponseEntity.ok(itemService.getAllItems());
-  }
+    @GetMapping
+    public ResponseEntity<List<ItemDto>> getAllItems() {
+        return ResponseEntity.ok(itemService.getAllItems());
+    }
 
-  @GetMapping("/{id}")
-  public ResponseEntity<ItemDto> getItemById(@PathVariable UUID id) {
-    return ResponseEntity.ok(itemService.getItemById(id));
-  }
+    @GetMapping("/{id}")
+    public ResponseEntity<ItemDto> getItemById(@PathVariable UUID id) {
+        return ResponseEntity.ok(itemService.getItemById(id));
+    }
 
-  @PutMapping("/{id}")
-  public ResponseEntity<ItemDto> updateItem(@PathVariable UUID id, @Valid @RequestBody ItemDto itemDto) {
-    return ResponseEntity.ok(itemService.updateItem(id, itemDto));
-  }
+    @PutMapping("/{id}")
+    public ResponseEntity<ItemDto> updateItem(
+            @PathVariable UUID id, @Valid @RequestBody ItemDto itemDto) {
+        return ResponseEntity.ok(itemService.updateItem(id, itemDto));
+    }
 
-  @DeleteMapping("/{id}")
-  public ResponseEntity<Void> deleteItem(@PathVariable UUID id) {
-    itemService.deleteItem(id);
-    return ResponseEntity.noContent().build();
-  }
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteItem(@PathVariable UUID id) {
+        itemService.deleteItem(id);
+        return ResponseEntity.noContent().build();
+    }
 }

@@ -22,29 +22,29 @@ import lombok.NoArgsConstructor;
 @Table(name = "parties")
 public class Party {
 
-  @Id
-  @GeneratedValue(strategy = GenerationType.UUID)
-  private UUID id;
+    @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private UUID id;
 
-  @Column(nullable = false)
-  private String name;
+    @Column(nullable = false)
+    private String name;
 
-  @Enumerated(EnumType.STRING)
-  @Column(nullable = false)
-  private PartyType type;
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private PartyType type;
 
-  @Column(unique = true)
-  private String gstin;
+    @Column(unique = true)
+    private String gstin;
 
-  @Column(name = "state_code")
-  private String stateCode;
+    @Column(name = "state_code")
+    private String stateCode;
 
-  private String address;
-  private String phone;
-  private String email;
+    private String address;
+    private String phone;
+    private String email;
 
-  public enum PartyType {
-    CUSTOMER,
-    VENDOR
-  }
+    public enum PartyType {
+        CUSTOMER,
+        VENDOR
+    }
 }

@@ -14,18 +14,18 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class SalesReturnLineDto {
 
-  private UUID id;
+    private UUID id;
 
-  @NotNull(message = "Item ID is required")
-  private UUID itemId;
+    @NotNull(message = "Item ID is required")
+    private UUID itemId;
 
-  @NotNull(message = "Quantity is required")
-  private BigDecimal quantity;
+    @NotNull(message = "Quantity is required")
+    private BigDecimal quantity;
 
-  @NotNull(message = "Unit price is required")
-  private BigDecimal unitPrice;
+    @NotNull(message = "Unit price is required")
+    private BigDecimal unitPrice;
 
-  private BigDecimal taxRate;
-  private BigDecimal taxAmount;
-  private BigDecimal lineTotal;
+    private BigDecimal taxRate;
+    private BigDecimal taxAmount;
+    private BigDecimal lineTotal;
 }

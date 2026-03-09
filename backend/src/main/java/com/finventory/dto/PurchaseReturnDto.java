@@ -16,29 +16,29 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class PurchaseReturnDto {
 
-  private UUID id;
+    private UUID id;
 
-  @NotNull(message = "Return number is required")
-  private String returnNumber;
+    @NotNull(message = "Return number is required")
+    private String returnNumber;
 
-  private UUID purchaseInvoiceId;
+    private UUID purchaseInvoiceId;
 
-  @NotNull(message = "Return date is required")
-  private LocalDate returnDate;
+    @NotNull(message = "Return date is required")
+    private LocalDate returnDate;
 
-  @NotNull(message = "Party ID is required")
-  private UUID partyId;
+    @NotNull(message = "Party ID is required")
+    private UUID partyId;
 
-  @NotNull(message = "Warehouse ID is required")
-  private UUID warehouseId;
+    @NotNull(message = "Warehouse ID is required")
+    private UUID warehouseId;
 
-  private BigDecimal totalTaxableAmount;
-  private BigDecimal totalTaxAmount;
-  private BigDecimal totalCgstAmount;
-  private BigDecimal totalSgstAmount;
-  private BigDecimal totalIgstAmount;
-  private BigDecimal grandTotal;
+    private BigDecimal totalTaxableAmount;
+    private BigDecimal totalTaxAmount;
+    private BigDecimal totalCgstAmount;
+    private BigDecimal totalSgstAmount;
+    private BigDecimal totalIgstAmount;
+    private BigDecimal grandTotal;
 
-  @NotNull(message = "Lines are required")
-  private List<PurchaseReturnLineDto> lines;
+    @NotNull(message = "Lines are required")
+    private List<PurchaseReturnLineDto> lines;
 }
