@@ -45,6 +45,28 @@ public class UserService {
         userRepository.deleteById(id);
     }
 
+    public UserDto getUserByUsername(String username) {
+        return userRepository.findByUsername(username)
+                .map(this::mapToDto)
+                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+    }
+
+    public void updatePassword(String username, com.finventory.dto.ChangePasswordRequest request) {
+        var user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+
+        if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPassword())) {
+            throw new IllegalArgumentException("Invalid current password");
+        }
+
+        if (!request.getNewPassword().equals(request.getConfirmPassword())) {
+            throw new IllegalArgumentException("Passwords do not match");
+        }
+
+        user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+        userRepository.save(user);
+    }
+
     private UserDto mapToDto(User user) {
         return UserDto.builder()
                 .id(user.getId())

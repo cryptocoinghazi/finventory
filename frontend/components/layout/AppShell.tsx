@@ -96,7 +96,12 @@ const NAV: NavSection[] = [
     title: "Admin",
     items: [
       { title: "Users", href: "/admin/users", icon: Users },
-      { title: "Settings", href: "/admin/settings", icon: Settings },
+    ],
+  },
+  {
+    title: "System",
+    items: [
+      { title: "Settings", href: "/settings", icon: Settings },
     ],
   },
 ]

@@ -8,7 +8,7 @@ export function middleware(req: NextRequest) {
   if (isPublic) return NextResponse.next()
 
   const token = req.cookies.get("token")?.value
-  const protectedPrefixes = ["/dashboard", "/masters", "/sales", "/purchase", "/reports", "/admin"]
+  const protectedPrefixes = ["/dashboard", "/masters", "/sales", "/purchase", "/reports", "/admin", "/settings"]
   const isProtected = protectedPrefixes.some((p) => pathname.startsWith(p))
 
   if (isProtected && !token) {
