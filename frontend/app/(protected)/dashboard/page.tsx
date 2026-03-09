@@ -1,3 +1,5 @@
+"use client"
+
 import { Button } from "@/components/ui/button"
 import { PageHeader } from "@/components/ui/page-header"
 import Link from "next/link"
@@ -5,19 +7,47 @@ import { SectionCard } from "@/components/ui-kit/SectionCard"
 import { StatCard } from "@/components/ui-kit/StatCard"
 import { SkeletonCard } from "@/components/ui-kit/SkeletonCard"
 import { ClipboardList, Store, Users, Warehouse } from "lucide-react"
+import { useEffect, useState } from "react"
+import { getDashboardStats, DashboardStats } from "@/lib/reports"
 
 export default function DashboardPage() {
+  const [stats, setStats] = useState<DashboardStats | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    getDashboardStats()
+      .then(setStats)
+      .catch(console.error)
+      .finally(() => setLoading(false))
+  }, [])
+
   return (
     <div className="space-y-6">
       <PageHeader
         title="Dashboard"
-        description="Quick links and system status. Real data where possible; else Coming Soon."
+        description="Quick links and system status."
       />
       <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard title="Sales Today" />
-        <StatCard title="Purchase Today" />
-        <StatCard title="Stock Value" />
-        <StatCard title="Outstanding" />
+        <StatCard
+          title="Sales Today"
+          value={stats ? `₹${stats.salesToday.toLocaleString("en-IN")}` : undefined}
+          loading={loading}
+        />
+        <StatCard
+          title="Purchase Today"
+          value={stats ? `₹${stats.purchaseToday.toLocaleString("en-IN")}` : undefined}
+          loading={loading}
+        />
+        <StatCard
+          title="Stock Value"
+          value={stats ? `₹${stats.stockValue.toLocaleString("en-IN")}` : undefined}
+          loading={loading}
+        />
+        <StatCard
+          title="Outstanding"
+          value={stats ? `₹${stats.outstanding.toLocaleString("en-IN")}` : undefined}
+          loading={loading}
+        />
       </section>
       <section className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <SectionCard title="Masters" description="Jump to key setup screens">

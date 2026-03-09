@@ -25,4 +25,7 @@ public interface SalesInvoiceRepository extends JpaRepository<SalesInvoice, UUID
             "SELECT SUM(s.totalTaxableAmount), SUM(s.totalIgstAmount), SUM(s.totalCgstAmount), SUM(s.totalSgstAmount) "
                     + "FROM SalesInvoice s")
     List<Object[]> findTotalTaxValues();
+
+    @Query("SELECT SUM(s.grandTotal) FROM SalesInvoice s WHERE s.invoiceDate = CURRENT_DATE")
+    java.math.BigDecimal findTotalSalesToday();
 }

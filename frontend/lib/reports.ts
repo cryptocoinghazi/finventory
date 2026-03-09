@@ -44,6 +44,13 @@ export interface PartyOutstanding {
   netBalance: number
 }
 
+export interface DashboardStats {
+  salesToday: number
+  purchaseToday: number
+  stockValue: number
+  outstanding: number
+}
+
 export async function getGstr1(): Promise<GstRegisterEntry[]> {
   const res = await fetch(`${API_BASE}/api/reports/gstr-1`, {
     headers: {
@@ -91,5 +98,15 @@ export async function getPartyOutstanding(): Promise<PartyOutstanding[]> {
     },
   })
   if (!res.ok) throw new Error("Failed to fetch party outstanding")
+  return res.json()
+}
+
+export async function getDashboardStats(): Promise<DashboardStats> {
+  const res = await fetch(`${API_BASE}/api/reports/dashboard-stats`, {
+    headers: {
+      Authorization: `Bearer ${window.localStorage.getItem("token")}`,
+    },
+  })
+  if (!res.ok) throw new Error("Failed to fetch dashboard stats")
   return res.json()
 }

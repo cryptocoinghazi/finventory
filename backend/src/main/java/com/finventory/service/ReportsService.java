@@ -15,8 +15,24 @@ public class ReportsService {
 
     private final StockLedgerRepository stockLedgerRepository;
     private final GLTransactionRepository glTransactionRepository;
+    private final com.finventory.repository.GLLineRepository glLineRepository;
     private final com.finventory.repository.SalesInvoiceRepository salesInvoiceRepository;
     private final com.finventory.repository.PurchaseInvoiceRepository purchaseInvoiceRepository;
+
+    @Transactional(readOnly = true)
+    public com.finventory.dto.DashboardStatsDto getDashboardStats() {
+        java.math.BigDecimal salesToday = salesInvoiceRepository.findTotalSalesToday();
+        java.math.BigDecimal purchaseToday = purchaseInvoiceRepository.findTotalPurchaseToday();
+        java.math.BigDecimal stockValue = stockLedgerRepository.findTotalStockValue();
+        java.math.BigDecimal outstanding = glLineRepository.findTotalReceivables();
+
+        return com.finventory.dto.DashboardStatsDto.builder()
+                .salesToday(salesToday != null ? salesToday : java.math.BigDecimal.ZERO)
+                .purchaseToday(purchaseToday != null ? purchaseToday : java.math.BigDecimal.ZERO)
+                .stockValue(stockValue != null ? stockValue : java.math.BigDecimal.ZERO)
+                .outstanding(outstanding != null ? outstanding : java.math.BigDecimal.ZERO)
+                .build();
+    }
 
     @Transactional(readOnly = true)
     public List<StockSummaryDto> getStockSummary() {

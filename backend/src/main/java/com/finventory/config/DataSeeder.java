@@ -7,8 +7,11 @@ import com.finventory.dto.SalesInvoiceLineDto;
 import com.finventory.model.Item;
 import com.finventory.model.Party;
 import com.finventory.model.Warehouse;
+import com.finventory.model.Role;
+import com.finventory.model.User;
 import com.finventory.repository.ItemRepository;
 import com.finventory.repository.PartyRepository;
+import com.finventory.repository.UserRepository;
 import com.finventory.repository.WarehouseRepository;
 import com.finventory.service.PurchaseInvoiceService;
 import com.finventory.service.SalesInvoiceService;
@@ -18,6 +21,7 @@ import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Profile;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -30,6 +34,8 @@ public class DataSeeder implements CommandLineRunner {
     private final WarehouseRepository warehouseRepository;
     private final PurchaseInvoiceService purchaseInvoiceService;
     private final SalesInvoiceService salesInvoiceService;
+    private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
 
     private static final int TEN_DAYS = 10;
     private static final int EIGHT_DAYS = 8;
@@ -39,6 +45,16 @@ public class DataSeeder implements CommandLineRunner {
 
     @Override
     public void run(String... args) {
+        if (userRepository.findByUsername("admin").isEmpty()) {
+            userRepository.save(
+                    User.builder()
+                            .username("admin")
+                            .email("admin@finventory.local")
+                            .password(passwordEncoder.encode("admin"))
+                            .role(Role.ADMIN)
+                            .build());
+        }
+
         if (itemRepository.count() > 0) {
             return;
         }
@@ -260,6 +276,23 @@ public class DataSeeder implements CommandLineRunner {
                                                 .build()))
                         .build();
         purchaseInvoiceService.createPurchaseInvoice(pi2);
+
+        // Seed Purchase Today
+        PurchaseInvoiceDto piToday =
+                PurchaseInvoiceDto.builder()
+                        .invoiceDate(LocalDate.now())
+                        .partyId(vendor1.getId())
+                        .warehouseId(mainWh.getId())
+                        .lines(
+                                List.of(
+                                        PurchaseInvoiceLineDto.builder()
+                                                .itemId(items.kurta.getId())
+                                                .quantity(new BigDecimal("5"))
+                                                .unitPrice(new BigDecimal("700"))
+                                                .taxRate(items.kurta.getTaxRate())
+                                                .build()))
+                        .build();
+        purchaseInvoiceService.createPurchaseInvoice(piToday);
     }
 
     private void seedSalesInvoices(
@@ -329,6 +362,23 @@ public class DataSeeder implements CommandLineRunner {
                                                 .build()))
                         .build();
         salesInvoiceService.createSalesInvoice(si3);
+
+        // Seed Sales Today
+        SalesInvoiceDto siToday =
+                SalesInvoiceDto.builder()
+                        .invoiceDate(LocalDate.now())
+                        .partyId(walkIn.getId())
+                        .warehouseId(mainWh.getId())
+                        .lines(
+                                List.of(
+                                        SalesInvoiceLineDto.builder()
+                                                .itemId(items.kurta.getId())
+                                                .quantity(new BigDecimal("2"))
+                                                .unitPrice(items.kurta.getUnitPrice())
+                                                .taxRate(items.kurta.getTaxRate())
+                                                .build()))
+                        .build();
+        salesInvoiceService.createSalesInvoice(siToday);
     }
 
     private static class Items {

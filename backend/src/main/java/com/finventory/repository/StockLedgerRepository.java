@@ -20,4 +20,7 @@ public interface StockLedgerRepository extends JpaRepository<StockLedgerEntry, U
                     + "GROUP BY e.item.id, e.item.name, e.item.code, "
                     + "e.warehouse.id, e.warehouse.name, e.item.uom")
     List<StockSummaryDto> findStockSummary();
+
+    @Query("SELECT SUM((e.qtyIn - e.qtyOut) * e.item.unitPrice) FROM StockLedgerEntry e")
+    java.math.BigDecimal findTotalStockValue();
 }

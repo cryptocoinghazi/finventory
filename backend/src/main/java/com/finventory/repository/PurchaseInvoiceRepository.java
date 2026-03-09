@@ -24,4 +24,7 @@ public interface PurchaseInvoiceRepository extends JpaRepository<PurchaseInvoice
             "SELECT SUM(p.totalIgstAmount), SUM(p.totalCgstAmount), SUM(p.totalSgstAmount) "
                     + "FROM PurchaseInvoice p")
     List<Object[]> findTotalItcValues();
+
+    @Query("SELECT SUM(p.grandTotal) FROM PurchaseInvoice p WHERE p.invoiceDate = CURRENT_DATE")
+    java.math.BigDecimal findTotalPurchaseToday();
 }

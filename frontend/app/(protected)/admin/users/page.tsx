@@ -1,11 +1,13 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Button } from "@/components/ui/button"
 import { PageHeader } from "@/components/ui/page-header"
 import { DataTablePro } from "@/components/ui-kit/DataTablePro"
-import { listUsers, User } from "@/lib/users"
-import { Plus } from "lucide-react"
+import { listUsers, deleteUser, User } from "@/lib/users"
+import { UserDialog } from "./UserDialog"
+import { ConfirmDialog } from "@/components/ui-kit/ConfirmDialog"
+import { Trash2 } from "lucide-react"
+import { Button } from "@/components/ui/button"
 
 export default function UsersPage() {
   const [data, setData] = useState<User[]>([])
@@ -28,6 +30,28 @@ export default function UsersPage() {
     }
   }
 
+  function renderActions(user: User) {
+    return (
+      <ConfirmDialog
+        title={`Delete ${user.username}?`}
+        description="This action cannot be undone."
+        confirmText="Delete"
+        onConfirm={async () => {
+          try {
+            await deleteUser(user.id)
+            setData((prev) => prev.filter((u) => u.id !== user.id))
+          } catch (err) {
+            setError(err instanceof Error ? err.message : "Failed to delete user")
+          }
+        }}
+      >
+        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive">
+          <Trash2 className="h-4 w-4" />
+        </Button>
+      </ConfirmDialog>
+    )
+  }
+
   const columns = [
     {
       key: "username",
@@ -41,6 +65,11 @@ export default function UsersPage() {
       key: "role",
       header: "Role",
     },
+    {
+      key: "actions",
+      header: "",
+      cell: renderActions,
+    },
   ]
 
   return (
@@ -50,10 +79,7 @@ export default function UsersPage() {
           title="Users"
           description="Manage system users and roles"
         />
-        <Button className="gap-2">
-          <Plus className="h-4 w-4" />
-          New User
-        </Button>
+        <UserDialog onSuccess={loadData} />
       </div>
 
       {error ? (

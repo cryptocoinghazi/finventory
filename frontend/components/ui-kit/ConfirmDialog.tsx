@@ -8,6 +8,7 @@ export function ConfirmDialog({
   cancelText = "Cancel",
   onConfirm,
   onCancel,
+  children,
 }: {
   title: React.ReactNode
   description?: React.ReactNode
@@ -15,13 +16,16 @@ export function ConfirmDialog({
   cancelText?: string
   onConfirm: () => void
   onCancel?: () => void
+  children?: React.ReactNode
 }) {
   const [open, setOpen] = React.useState(false)
   return (
     <>
-      <Button variant="destructive" onClick={() => setOpen(true)}>
-        {confirmText}
-      </Button>
+      <div onClick={() => setOpen(true)} className="inline-block cursor-pointer">
+        {children || (
+          <Button variant="destructive">{confirmText}</Button>
+        )}
+      </div>
       {open ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 bg-black/30" onClick={() => setOpen(false)} />

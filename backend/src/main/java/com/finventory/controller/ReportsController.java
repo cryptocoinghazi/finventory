@@ -17,6 +17,11 @@ public class ReportsController {
 
     private final ReportsService reportsService;
 
+    @GetMapping("/dashboard-stats")
+    public ResponseEntity<com.finventory.dto.DashboardStatsDto> getDashboardStats() {
+        return ResponseEntity.ok(reportsService.getDashboardStats());
+    }
+
     @GetMapping("/stock-summary")
     public ResponseEntity<List<StockSummaryDto>> getStockSummary() {
         return ResponseEntity.ok(reportsService.getStockSummary());
