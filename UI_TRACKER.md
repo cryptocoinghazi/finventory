@@ -64,20 +64,20 @@
     - [ ] E2E Test: Create Item -> Verify in List.
 
 ### F4. Masters: Warehouse Management
-- [ ] **Screens**
+- [x] **Screens**
     - [x] Warehouse List (`/masters/warehouses`).
     - [x] Create Warehouse Form.
-    - [ ] Edit Warehouse (Coming Soon: requires PUT /api/v1/warehouses/{id}).
+    - [x] Edit Warehouse Form (`/masters/warehouses/[id]/edit`).
 - [ ] **Testing**
     - [ ] E2E Test: Create Warehouse.
 
 ### F5. Masters: Tax Slab Management
-- [ ] **Screens**
+- [x] **Screens**
     - [x] Tax Slab List (`/masters/taxes`).
     - [x] Create Tax Slab Form (Dialog).
-    - [ ] Edit Tax Slab (Coming Soon: requires GET/PUT /api/v1/tax-slabs/{id}).
-- [ ] **Logic**
-    - [ ] Rate Percent Selection (0, 5, 12, 18, 28).
+    - [x] Edit Tax Slab Form (Dialog).
+- [x] **Logic**
+    - [x] Rate Percent Selection (Input validation).
 - [ ] **Testing**
     - [ ] E2E Test: Create Tax Slab.
 
