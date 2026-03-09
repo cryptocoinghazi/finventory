@@ -4,7 +4,7 @@ import Link from "next/link"
 import { SectionCard } from "@/components/ui-kit/SectionCard"
 import { StatCard } from "@/components/ui-kit/StatCard"
 import { SkeletonCard } from "@/components/ui-kit/SkeletonCard"
-import { ClipboardList, FileText, Store, Users, Warehouse } from "lucide-react"
+import { ClipboardList, Store, Users, Warehouse } from "lucide-react"
 
 export default function DashboardPage() {
   return (

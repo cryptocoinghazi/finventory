@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
-import { ReactNode, useEffect, useMemo, useState } from "react"
+import { ReactNode, useEffect, useState } from "react"
 import {
   ClipboardList,
   FileText,
@@ -30,7 +30,6 @@ import {
   CommandSeparator,
 } from "@/components/ui/command"
 import { Kbd } from "@/components/ui/kbd"
-import { Separator } from "@/components/ui/separator"
 import {
   Tooltip,
   TooltipContent,
@@ -41,6 +40,8 @@ import { ThemeToggle } from "@/components/ui/theme-toggle"
 import { QuickCreateMenu } from "@/components/ui-kit/QuickCreateMenu"
 import { NotificationBell } from "@/components/ui/notifications"
 import { Breadcrumbs } from "@/components/ui-kit/Breadcrumbs"
+import { SignOutButton } from "@/components/ui/signout-button"
+import { AuthBanner } from "@/components/ui-kit/AuthBanner"
 import { motion } from "framer-motion"
 
 type NavItem = {
@@ -105,8 +106,6 @@ export function AppShell({ children }: { children: ReactNode }) {
   const router = useRouter()
   const [collapsed, setCollapsed] = useState(false)
   const [commandOpen, setCommandOpen] = useState(false)
-
-  const allItems = useMemo(() => NAV.flatMap((s) => s.items), [])
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
@@ -242,6 +241,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 <div className="flex items-center gap-2">
                   <QuickCreateMenu />
                   <NotificationBell />
+                  <SignOutButton />
                   <Button
                     variant="outline"
                     className="gap-2 shadow-soft border-border-subtle"
@@ -260,7 +260,10 @@ export function AppShell({ children }: { children: ReactNode }) {
             </header>
 
             <main className="px-6 py-6">
-              <div className="max-w-[1320px] mx-auto">{children}</div>
+              <div className="max-w-[1320px] mx-auto">
+                <AuthBanner />
+                {children}
+              </div>
             </main>
           </div>
         </div>
@@ -353,10 +356,4 @@ function NavButton({
   )
 }
 
-function pageTitleFromPath(pathname: string | null) {
-  if (!pathname) return "Dashboard"
-  const match = NAV.flatMap((s) => s.items).find((i) =>
-    i.href === "/dashboard" ? pathname === "/dashboard" : pathname.startsWith(i.href)
-  )
-  return match?.title || "Finventory"
-}
+

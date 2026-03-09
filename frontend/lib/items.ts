@@ -1,0 +1,70 @@
+import { apiFetch } from "@/lib/api"
+
+export type Item = {
+  id: string
+  name: string
+  code: string
+  hsnCode?: string | null
+  taxRate: number
+  unitPrice: number
+  uom: string
+}
+
+export type ItemInput = Omit<Item, "id">
+
+export async function listItems(): Promise<Item[]> {
+  const res = await apiFetch("/api/v1/items", { cache: "no-store" })
+  return readJsonOrThrow<Item[]>(res)
+}
+
+export async function getItem(id: string): Promise<Item> {
+  const res = await apiFetch(`/api/v1/items/${encodeURIComponent(id)}`, {
+    cache: "no-store",
+  })
+  return readJsonOrThrow<Item>(res)
+}
+
+export async function createItem(input: ItemInput): Promise<Item> {
+  const res = await apiFetch("/api/v1/items", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  })
+  return readJsonOrThrow<Item>(res)
+}
+
+export async function updateItem(id: string, input: ItemInput): Promise<Item> {
+  const res = await apiFetch(`/api/v1/items/${encodeURIComponent(id)}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  })
+  return readJsonOrThrow<Item>(res)
+}
+
+export async function deleteItem(id: string): Promise<void> {
+  const res = await apiFetch(`/api/v1/items/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+  })
+  if (!res.ok) {
+    const msg = await safeReadText(res)
+    throw new Error(msg || `Delete failed (${res.status})`)
+  }
+}
+
+async function readJsonOrThrow<T>(res: Response): Promise<T> {
+  if (!res.ok) {
+    const msg = await safeReadText(res)
+    throw new Error(msg || `Request failed (${res.status})`)
+  }
+  return (await res.json()) as T
+}
+
+async function safeReadText(res: Response): Promise<string> {
+  try {
+    return await res.text()
+  } catch {
+    return ""
+  }
+}
+

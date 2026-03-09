@@ -74,8 +74,8 @@ export function PartyForm({
     setSubmitting(true)
     try {
       await onSubmit(normalizedInput)
-    } catch (err: any) {
-      setError(err?.message || "Save failed")
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Save failed")
     } finally {
       setSubmitting(false)
     }

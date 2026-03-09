@@ -7,6 +7,7 @@ import {
   getSortedRowModel,
   flexRender,
   ColumnDef,
+  SortingState,
 } from "@tanstack/react-table"
 import { ArrowDownWideNarrow, ArrowUpWideNarrow } from "lucide-react"
 
@@ -45,14 +46,17 @@ export function DataTablePro<T>({
       ? Math.max(1, Math.ceil(total / pageSize))
       : undefined
 
-  const [sorting, setSorting] = React.useState<any>([])
+  const [sorting, setSorting] = React.useState<SortingState>([])
 
-  const columnDefs = React.useMemo<ColumnDef<T, any>[]>(() => {
+  const columnDefs = React.useMemo<ColumnDef<T>[]>(() => {
     return columns.map((c) => ({
       id: String(c.key),
       accessorKey: typeof c.key === "string" ? c.key : String(c.key),
       header: () => c.header,
-      cell: ({ row }) => (c.cell ? c.cell(row.original) : (row.original as any)[c.key]),
+      cell: ({ row }) =>
+        c.cell
+          ? c.cell(row.original)
+          : (row.original as Record<string, unknown>)[c.key as string],
       meta: { className: c.className },
       enableSorting: true,
     }))

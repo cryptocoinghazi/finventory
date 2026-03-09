@@ -30,10 +30,13 @@ export default function LoginPage() {
         throw new Error(msg || "Login failed")
       }
       const data = await res.json()
-      document.cookie = `token=${data.token}; path=/`
+      try {
+        window.localStorage.setItem("token", data.token)
+      } catch {}
+      document.cookie = `token=${data.token}; path=/; max-age=86400; samesite=lax`
       window.location.href = "/dashboard"
-    } catch (err: any) {
-      setError(err.message || "Login failed")
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Login failed")
     } finally {
       setLoading(false)
     }

@@ -22,8 +22,8 @@ export default function PartiesListPage() {
     try {
       const data = await listParties()
       setRows(data)
-    } catch (err: any) {
-      setError(err?.message || "Failed to load parties")
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load parties")
     } finally {
       setLoading(false)
     }
@@ -66,8 +66,8 @@ export default function PartiesListPage() {
             try {
               await deleteParty(p.id)
               setRows((prev) => prev.filter((x) => x.id !== p.id))
-            } catch (err: any) {
-              setError(err?.message || "Delete failed")
+            } catch (err) {
+              setError(err instanceof Error ? err.message : "Delete failed")
             }
           }}
         />

@@ -8,10 +8,21 @@ export async function apiFetch(
   const token = getToken()
   const headers = new Headers(init.headers)
   if (token) headers.set("Authorization", `Bearer ${token}`)
-  return fetch(`${API_BASE}${path}`, {
+  const res = await fetch(`${API_BASE}${path}`, {
     ...init,
     headers,
   })
+  if (typeof window !== "undefined" && (res.status === 401 || res.status === 403)) {
+    try {
+      window.localStorage.setItem("authMissing", "1")
+    } catch {}
+  }
+  if (res.status === 401 && typeof window !== "undefined") {
+    try {
+      window.location.href = "/login"
+    } catch {}
+  }
+  return res
 }
 
 function getToken(): string | null {
@@ -31,4 +42,3 @@ function getCookie(name: string): string | null {
   if (parts.length === 2) return parts.pop()!.split(";").shift() || null
   return null
 }
-

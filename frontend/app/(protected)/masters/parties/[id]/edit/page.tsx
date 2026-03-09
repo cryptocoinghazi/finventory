@@ -33,8 +33,8 @@ export default function EditPartyPage({
           phone: p.phone ?? null,
           email: p.email ?? null,
         })
-      } catch (err: any) {
-        setError(err?.message || "Failed to load party")
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to load party")
       } finally {
         setLoading(false)
       }
