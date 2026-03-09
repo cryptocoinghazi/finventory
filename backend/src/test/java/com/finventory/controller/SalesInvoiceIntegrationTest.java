@@ -14,6 +14,7 @@ import com.finventory.model.Party;
 import com.finventory.model.Role;
 import com.finventory.model.User;
 import com.finventory.model.Warehouse;
+import com.finventory.repository.DocumentSequenceRepository;
 import com.finventory.repository.GLLineRepository;
 import com.finventory.repository.GLTransactionRepository;
 import com.finventory.repository.ItemRepository;
@@ -57,6 +58,7 @@ class SalesInvoiceIntegrationTest {
     @Autowired private PurchaseReturnRepository purchaseReturnRepository;
     @Autowired private StockLedgerRepository stockLedgerRepository;
     @Autowired private GLTransactionRepository glTransactionRepository;
+    @Autowired private DocumentSequenceRepository documentSequenceRepository;
 
     private String jwtToken;
     private Party testParty;
@@ -65,6 +67,7 @@ class SalesInvoiceIntegrationTest {
 
     @BeforeEach
     void setUp() throws Exception {
+        documentSequenceRepository.deleteAll();
         stockLedgerRepository.deleteAll();
         glLineRepository.deleteAll();
         glTransactionRepository.deleteAll();
@@ -133,6 +136,34 @@ class SalesInvoiceIntegrationTest {
                         .stateCode("29") // Karnataka
                         .build();
         testWarehouse = warehouseRepository.save(testWarehouse);
+    }
+
+    @Test
+    void shouldGenerateInvoiceNumberWhenNull() throws Exception {
+        SalesInvoiceDto request =
+                SalesInvoiceDto.builder()
+                        .invoiceDate(LocalDate.now())
+                        .partyId(testParty.getId())
+                        .warehouseId(testWarehouse.getId())
+                        .lines(
+                                List.of(
+                                        SalesInvoiceLineDto.builder()
+                                                .itemId(testItem.getId())
+                                                .quantity(new BigDecimal("10"))
+                                                .unitPrice(new BigDecimal("100"))
+                                                .build()))
+                        .build();
+
+        mockMvc.perform(
+                        post("/api/v1/sales-invoices")
+                                .header("Authorization", "Bearer " + jwtToken)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.invoiceNumber").isNotEmpty())
+                .andExpect(
+                        jsonPath("$.invoiceNumber")
+                                .value(org.hamcrest.Matchers.startsWith("INV/")));
     }
 
     @Test

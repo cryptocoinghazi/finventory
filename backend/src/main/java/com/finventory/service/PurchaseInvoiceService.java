@@ -6,6 +6,7 @@ import com.finventory.model.Item;
 import com.finventory.model.Party;
 import com.finventory.model.PurchaseInvoice;
 import com.finventory.model.PurchaseInvoiceLine;
+import com.finventory.model.SequenceType;
 import com.finventory.model.StockLedgerEntry;
 import com.finventory.model.Warehouse;
 import com.finventory.repository.ItemRepository;
@@ -52,7 +53,13 @@ public class PurchaseInvoiceService {
 
         PurchaseInvoice purchaseInvoice =
                 PurchaseInvoice.builder()
-                        .invoiceNumber(dto.getInvoiceNumber())
+                        .invoiceNumber(
+                                dto.getInvoiceNumber() != null
+                                        ? dto.getInvoiceNumber()
+                                        : sequenceGeneratorService.generateSequence(
+                                                SequenceType.PURCHASE_INVOICE,
+                                                warehouse,
+                                                dto.getInvoiceDate()))
                         .vendorInvoiceNumber(dto.getVendorInvoiceNumber())
                         .invoiceDate(dto.getInvoiceDate())
                         .party(party)

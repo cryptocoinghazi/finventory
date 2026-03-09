@@ -50,7 +50,13 @@ public class SalesInvoiceService {
 
         SalesInvoice salesInvoice =
                 SalesInvoice.builder()
-                        .invoiceNumber(dto.getInvoiceNumber()) // Should generate if null
+                        .invoiceNumber(
+                                dto.getInvoiceNumber() != null
+                                        ? dto.getInvoiceNumber()
+                                        : sequenceGeneratorService.generateSequence(
+                                                SequenceType.SALES_INVOICE,
+                                                warehouse,
+                                                dto.getInvoiceDate()))
                         .invoiceDate(dto.getInvoiceDate())
                         .party(party)
                         .warehouse(warehouse)

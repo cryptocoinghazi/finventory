@@ -66,6 +66,7 @@ class PurchaseInvoiceIntegrationTest {
 
     @BeforeEach
     void setUp() throws Exception {
+        documentSequenceRepository.deleteAll();
         stockLedgerRepository.deleteAll();
         glLineRepository.deleteAll();
         glTransactionRepository.deleteAll();
@@ -134,6 +135,35 @@ class PurchaseInvoiceIntegrationTest {
                         .taxRate(new BigDecimal("18.00"))
                         .build();
         itemRepository.save(testItem);
+    }
+
+    @Test
+    void shouldGenerateInvoiceNumberWhenNull() throws Exception {
+        PurchaseInvoiceDto request =
+                PurchaseInvoiceDto.builder()
+                        .invoiceDate(LocalDate.now())
+                        .vendorInvoiceNumber("VEND-001")
+                        .partyId(testParty.getId())
+                        .warehouseId(testWarehouse.getId())
+                        .lines(
+                                List.of(
+                                        PurchaseInvoiceLineDto.builder()
+                                                .itemId(testItem.getId())
+                                                .quantity(new BigDecimal("10"))
+                                                .unitPrice(new BigDecimal("100"))
+                                                .build()))
+                        .build();
+
+        mockMvc.perform(
+                        post("/api/v1/purchase-invoices")
+                                .header("Authorization", "Bearer " + jwtToken)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.invoiceNumber").isNotEmpty())
+                .andExpect(
+                        jsonPath("$.invoiceNumber")
+                                .value(org.hamcrest.Matchers.startsWith("PINV/")));
     }
 
     @Test
