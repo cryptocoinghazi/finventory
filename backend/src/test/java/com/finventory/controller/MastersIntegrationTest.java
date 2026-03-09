@@ -11,7 +11,17 @@ import com.finventory.dto.AuthenticationResponse;
 import com.finventory.dto.ItemDto;
 import com.finventory.model.Role;
 import com.finventory.model.User;
+import com.finventory.repository.GLLineRepository;
+import com.finventory.repository.GLTransactionRepository;
+import com.finventory.repository.ItemRepository;
+import com.finventory.repository.PartyRepository;
+import com.finventory.repository.PurchaseInvoiceRepository;
+import com.finventory.repository.PurchaseReturnRepository;
+import com.finventory.repository.SalesInvoiceRepository;
+import com.finventory.repository.SalesReturnRepository;
+import com.finventory.repository.StockLedgerRepository;
 import com.finventory.repository.UserRepository;
+import com.finventory.repository.WarehouseRepository;
 import java.math.BigDecimal;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -31,12 +41,32 @@ class MastersIntegrationTest {
     @Autowired private MockMvc mockMvc;
     @Autowired private ObjectMapper objectMapper;
     @Autowired private UserRepository userRepository;
+    @Autowired private ItemRepository itemRepository;
+    @Autowired private PartyRepository partyRepository;
+    @Autowired private WarehouseRepository warehouseRepository;
+    @Autowired private SalesInvoiceRepository salesInvoiceRepository;
+    @Autowired private SalesReturnRepository salesReturnRepository;
+    @Autowired private PurchaseInvoiceRepository purchaseInvoiceRepository;
+    @Autowired private PurchaseReturnRepository purchaseReturnRepository;
+    @Autowired private StockLedgerRepository stockLedgerRepository;
+    @Autowired private GLLineRepository glLineRepository;
+    @Autowired private GLTransactionRepository glTransactionRepository;
     @Autowired private PasswordEncoder passwordEncoder;
 
     private String jwtToken;
 
     @BeforeEach
     void setUp() throws Exception {
+        stockLedgerRepository.deleteAll();
+        glLineRepository.deleteAll();
+        glTransactionRepository.deleteAll();
+        salesReturnRepository.deleteAll();
+        salesInvoiceRepository.deleteAll();
+        purchaseReturnRepository.deleteAll();
+        purchaseInvoiceRepository.deleteAll();
+        itemRepository.deleteAll();
+        partyRepository.deleteAll();
+        warehouseRepository.deleteAll();
         userRepository.deleteAll();
 
         // Create Admin User

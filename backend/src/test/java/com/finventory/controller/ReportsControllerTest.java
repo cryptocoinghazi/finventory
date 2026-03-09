@@ -75,10 +75,10 @@ public class ReportsControllerTest {
 
     @BeforeEach
     void setUp() {
-        salesInvoiceRepository.deleteAll();
         salesReturnRepository.deleteAll();
-        purchaseInvoiceRepository.deleteAll();
+        salesInvoiceRepository.deleteAll();
         purchaseReturnRepository.deleteAll();
+        purchaseInvoiceRepository.deleteAll();
         stockLedgerRepository.deleteAll();
         glLineRepository.deleteAll();
         glTransactionRepository.deleteAll();

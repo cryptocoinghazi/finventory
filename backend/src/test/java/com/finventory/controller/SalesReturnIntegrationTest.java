@@ -49,6 +49,9 @@ class SalesReturnIntegrationTest {
     @Autowired private ItemRepository itemRepository;
     @Autowired private WarehouseRepository warehouseRepository;
     @Autowired private SalesReturnRepository salesReturnRepository;
+    @Autowired private SalesInvoiceRepository salesInvoiceRepository;
+    @Autowired private PurchaseInvoiceRepository purchaseInvoiceRepository;
+    @Autowired private PurchaseReturnRepository purchaseReturnRepository;
     @Autowired private StockLedgerRepository stockLedgerRepository;
     @Autowired private GLTransactionRepository glTransactionRepository;
     @Autowired private GLLineRepository glLineRepository;
@@ -64,6 +67,9 @@ class SalesReturnIntegrationTest {
         glLineRepository.deleteAll();
         glTransactionRepository.deleteAll();
         salesReturnRepository.deleteAll();
+        salesInvoiceRepository.deleteAll();
+        purchaseReturnRepository.deleteAll();
+        purchaseInvoiceRepository.deleteAll();
         partyRepository.deleteAll();
         itemRepository.deleteAll();
         warehouseRepository.deleteAll();

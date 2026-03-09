@@ -18,7 +18,10 @@ import com.finventory.repository.GLLineRepository;
 import com.finventory.repository.GLTransactionRepository;
 import com.finventory.repository.ItemRepository;
 import com.finventory.repository.PartyRepository;
+import com.finventory.repository.PurchaseInvoiceRepository;
+import com.finventory.repository.PurchaseReturnRepository;
 import com.finventory.repository.SalesInvoiceRepository;
+import com.finventory.repository.SalesReturnRepository;
 import com.finventory.repository.StockLedgerRepository;
 import com.finventory.repository.UserRepository;
 import com.finventory.repository.WarehouseRepository;
@@ -49,6 +52,9 @@ class SalesInvoiceIntegrationTest {
     @Autowired private ItemRepository itemRepository;
     @Autowired private WarehouseRepository warehouseRepository;
     @Autowired private SalesInvoiceRepository salesInvoiceRepository;
+    @Autowired private SalesReturnRepository salesReturnRepository;
+    @Autowired private PurchaseInvoiceRepository purchaseInvoiceRepository;
+    @Autowired private PurchaseReturnRepository purchaseReturnRepository;
     @Autowired private StockLedgerRepository stockLedgerRepository;
     @Autowired private GLTransactionRepository glTransactionRepository;
 
@@ -60,8 +66,12 @@ class SalesInvoiceIntegrationTest {
     @BeforeEach
     void setUp() throws Exception {
         stockLedgerRepository.deleteAll();
+        glLineRepository.deleteAll();
         glTransactionRepository.deleteAll();
+        salesReturnRepository.deleteAll();
         salesInvoiceRepository.deleteAll();
+        purchaseReturnRepository.deleteAll();
+        purchaseInvoiceRepository.deleteAll();
         partyRepository.deleteAll();
         itemRepository.deleteAll();
         warehouseRepository.deleteAll();
