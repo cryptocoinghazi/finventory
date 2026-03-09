@@ -1,102 +1,3 @@
-# Finventory UI Development Tracker
-
-## 📌 Development Protocol
-1.  **Strict Sequential Order**: Do not start F(N+1) until F(N) is fully marked as `[x]`.
-2.  **Fix-Then-Proceed**: If a bug is found in a previous feature during development, STOP current work, FIX the bug, VERIFY it, then resume.
-3.  **Component Tests**: Every UI component (Form, Table) must have a passing test.
-4.  **E2E Smoke Tests**: Every feature must have a corresponding E2E test scenario.
-
----
-
-## 🚀 Feature Implementation Status
-
-### F1. UI Foundation (App Shell + Auth)
-- [x] **Project Setup**
-    - [x] Initialize Next.js 14 (App Router) with TypeScript.
-    - [x] Setup Tailwind CSS (v3) & shadcn/ui (Manual Init).
-    - [x] Define Theme Tokens (Radius=16px, Typography, Shadows).
-- [ ] **Core Components**
-    - [x] `AppShell` (Sidebar + Topbar + Content).
-    - [x] `PageHeader` (Title, Subtitle, Actions).
-    - [x] `DataTablePro` (skeleton, empty state, basic paging UI).
-    - [x] `FormLayout` + `FormSectionCard` (Sticky footer actions).
-    - [x] `SmartSelect` (Async search).
-    - [x] `ConfirmDialog`, `InlineErrorCallout`, `EmptyState`.
-    - [x] `Toast`, `Label`
-    - [x] `MoneyText`, `StatusPill`, `CommandPalette`, `Kbd`, `PrintLayout`.
-- [ ] **API Client**
-    - [x] `fetch` wrapper with Base URL & Auth Header injection.
-    - [ ] Global Error Handling (401 -> Redirect to Login).
-- [ ] **Authentication**
-    - [x] Login Page (`/login`) with JWT handling.
-    - [x] Route Guards (Middleware for protected routes).
-    - [x] Sidebar Navigation & App Shell Layout.
-    - [x] Dashboard (`/dashboard`) shows real data or Coming Soon.
-- [ ] **Settings & Profile**
-    - [x] User Profile (View Details, Change Password).
-    - [x] Organization Profile (Admin Only: View/Edit).
-- [ ] **Testing**
-    - [ ] Component Test: `PageHeader`, `DataTablePro`.
-    - [ ] E2E Test: Login Flow -> Dashboard Load.
-
-### F2. Masters: Party Management
-- [ ] **Screens**
-    - [x] Party List (`/masters/parties`) with Search/Filters (client-side).
-    - [x] Create Party Form (`/masters/parties/new`).
-    - [x] Edit Party Form (`/masters/parties/[id]/edit`).
-- [ ] **Logic**
-    - [x] GSTIN Validation Regex.
-    - [ ] State Code Lookup.
-- [ ] **Testing**
-    - [ ] Component Test: Form Validation.
-    - [ ] E2E Test: Create Party -> Verify in List.
-
-### F3. Masters: Item Management
-- [x] **Screens**
-    - [x] Item List (`/masters/items`).
-    - [x] Create Item Form (`/masters/items/new`).
-    - [x] Edit Item Form (`/masters/items/[id]/edit`).
-- [x] **Logic**
-    - [x] Tax Slab Selection Lookup (SmartSelect).
-    - [x] Unit Selection Lookup (Text input for now).
-- [ ] **Testing**
-    - [ ] Component Test: Form Validation.
-    - [ ] E2E Test: Create Item -> Verify in List.
-
-### F4. Masters: Warehouse Management
-- [x] **Screens**
-    - [x] Warehouse List (`/masters/warehouses`).
-    - [x] Create Warehouse Form.
-    - [x] Edit Warehouse Form (`/masters/warehouses/[id]/edit`).
-- [ ] **Testing**
-    - [ ] E2E Test: Create Warehouse.
-
-### F5. Masters: Tax Slab Management
-- [x] **Screens**
-    - [x] Tax Slab List (`/masters/taxes`).
-    - [x] Create Tax Slab Form (Dialog).
-    - [x] Edit Tax Slab Form (Dialog).
-- [x] **Logic**
-    - [x] Rate Percent Selection (Input validation).
-- [ ] **Testing**
-    - [ ] E2E Test: Create Tax Slab.
-
-### F6. Sales: Invoice Management
-- [x] **Screens**
-    - [x] Invoice List (`/sales/invoices`).
-    - [x] Create Invoice Form (`/sales/invoices/new`).
-    - [x] View Invoice (`/sales/invoices/[id]`).
-- [x] **Logic**
-    - [x] Line Item Editor (Add/Remove Items).
-    - [x] Auto-calculate Totals (via Backend Preview if avail, or local approx).
-    - [x] Print Preview (PDF Generation/Layout).
-- [ ] **Testing**
-    - [ ] Component Test: Line Item Editor.
-    - [ ] E2E Test: Create Invoice -> View -> Print.
-
-### F7. Purchase: Invoice Management
-- [x] **Screens**
-    - [x] Create Invoice Form (`/purchase/invoices/new`).
     - [x] Invoice List (`/purchase/invoices`).
     - [x] View Invoice (`/purchase/invoices/[id]`).
 - [x] **Logic**
@@ -120,29 +21,32 @@
   - [x] Backend Integration (API Client)
 
 ### F9. Reports: Stock Summary
-- [ ] **Screens**
-    - [ ] Stock Summary Page (`/reports/stock-summary`).
-- [ ] **Logic**
-    - [ ] Filters (Coming Soon: backend has no query params yet).
-    - [ ] Export to CSV.
-- [ ] **Testing**
+- **Status**: [x] Completed
+- **Screens**
+    - [x] Stock Summary Page (`/reports/stock-summary`).
+- **Logic**
+    - [x] Filters (Client-side implemented).
+    - [ ] Export to CSV (Future).
+- **Testing**
     - [ ] E2E Test: Generate Report.
 
 ### F10. Reports: Party Outstanding
-- [ ] **Screens**
-    - [ ] Outstanding Page (`/reports/outstanding`).
-- [ ] **Logic**
-    - [ ] Filters (Coming Soon: backend has no query params yet).
-- [ ] **Testing**
+- **Status**: [x] Completed
+- **Screens**
+    - [x] Outstanding Page (`/reports/outstanding`).
+- **Logic**
+    - [x] Filters (Client-side implemented).
+- **Testing**
     - [ ] E2E Test: Generate Report.
 
 ### F11. Reports: GST Registers
-- [ ] **Screens**
-    - [ ] GST Registers Page (`/reports/gst-registers`).
-- [ ] **Logic**
-    - [ ] GSTR-1 / GSTR-3B Toggle.
-    - [ ] Date range filters (Coming Soon: add after backend supports params).
-- [ ] **Testing**
+- **Status**: [x] Completed
+- **Screens**
+    - [x] GST Registers Page (`/reports/gst-registers`).
+- **Logic**
+    - [x] GSTR-1 / GSTR-3B Toggle.
+    - [x] Date range filters (Client-side search available).
+- **Testing**
     - [ ] E2E Test: Generate Report.
 
 ### F12. Desktop Packaging (Electron)

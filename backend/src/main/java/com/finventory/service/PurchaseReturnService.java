@@ -36,6 +36,7 @@ public class PurchaseReturnService {
     private final WarehouseRepository warehouseRepository;
     private final StockPostingService stockPostingService;
     private final GLPostingService glPostingService;
+    private final SequenceGeneratorService sequenceGeneratorService;
 
     @Transactional
     public PurchaseReturnDto createPurchaseReturn(PurchaseReturnDto dto) {
@@ -64,9 +65,18 @@ public class PurchaseReturnService {
                                                     "Purchase Invoice not found"));
         }
 
+        String returnNumber = dto.getReturnNumber();
+        if (returnNumber == null || returnNumber.trim().isEmpty()) {
+            returnNumber =
+                    sequenceGeneratorService.generateSequence(
+                            com.finventory.model.SequenceType.PURCHASE_RETURN,
+                            warehouse,
+                            dto.getReturnDate());
+        }
+
         PurchaseReturn purchaseReturn =
                 PurchaseReturn.builder()
-                        .returnNumber(dto.getReturnNumber())
+                        .returnNumber(returnNumber)
                         .purchaseInvoice(purchaseInvoice)
                         .returnDate(dto.getReturnDate())
                         .party(party)
@@ -92,6 +102,43 @@ public class PurchaseReturnService {
         if (partyState != null && warehouseState != null) {
             isInterState = !partyState.equalsIgnoreCase(warehouseState);
         }
+
+        calculateReturnTotals(purchaseReturn, dto, isInterState);
+
+        PurchaseReturn savedReturn = purchaseReturnRepository.save(purchaseReturn);
+
+        // Post to Stock (OUT)
+        for (PurchaseReturnLine line : savedReturn.getLines()) {
+            stockPostingService.postStockOut(
+                    savedReturn.getReturnDate(),
+                    line.getItem(),
+                    savedReturn.getWarehouse(),
+                    line.getQuantity(),
+                    StockLedgerEntry.ReferenceType.PURCHASE_RETURN,
+                    savedReturn.getId());
+        }
+
+        // Post to GL
+        glPostingService.postPurchaseReturn(
+                savedReturn.getReturnDate(),
+                savedReturn.getId(),
+                savedReturn.getParty(),
+                savedReturn.getTotalTaxableAmount(),
+                savedReturn.getTotalCgstAmount(),
+                savedReturn.getTotalSgstAmount(),
+                savedReturn.getTotalIgstAmount(),
+                savedReturn.getGrandTotal());
+
+        return mapToDto(savedReturn);
+    }
+
+    private void calculateReturnTotals(
+            PurchaseReturn purchaseReturn, PurchaseReturnDto dto, boolean isInterState) {
+        BigDecimal totalTaxable = BigDecimal.ZERO;
+        BigDecimal totalTax = BigDecimal.ZERO;
+        BigDecimal totalCgst = BigDecimal.ZERO;
+        BigDecimal totalSgst = BigDecimal.ZERO;
+        BigDecimal totalIgst = BigDecimal.ZERO;
 
         for (PurchaseReturnLineDto lineDto : dto.getLines()) {
             Item item =
@@ -153,32 +200,6 @@ public class PurchaseReturnService {
         purchaseReturn.setTotalSgstAmount(totalSgst);
         purchaseReturn.setTotalIgstAmount(totalIgst);
         purchaseReturn.setGrandTotal(totalTaxable.add(totalTax));
-
-        PurchaseReturn savedReturn = purchaseReturnRepository.save(purchaseReturn);
-
-        // Post to Stock (OUT)
-        for (PurchaseReturnLine line : savedReturn.getLines()) {
-            stockPostingService.postStockOut(
-                    savedReturn.getReturnDate(),
-                    line.getItem(),
-                    savedReturn.getWarehouse(),
-                    line.getQuantity(),
-                    StockLedgerEntry.ReferenceType.PURCHASE_RETURN,
-                    savedReturn.getId());
-        }
-
-        // Post to GL
-        glPostingService.postPurchaseReturn(
-                savedReturn.getReturnDate(),
-                savedReturn.getId(),
-                savedReturn.getParty(),
-                savedReturn.getTotalTaxableAmount(),
-                savedReturn.getTotalCgstAmount(),
-                savedReturn.getTotalSgstAmount(),
-                savedReturn.getTotalIgstAmount(),
-                savedReturn.getGrandTotal());
-
-        return mapToDto(savedReturn);
     }
 
     @Transactional(readOnly = true)

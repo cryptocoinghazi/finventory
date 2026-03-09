@@ -34,6 +34,11 @@ export default function PurchaseReturnsPage() {
     {
       key: "returnNumber",
       header: "Return #",
+      cell: (row: PurchaseReturn) => (
+        <Link href={`/purchase/returns/${row.id}`} className="text-primary hover:underline">
+          {row.returnNumber || "PR-####"}
+        </Link>
+      ),
     },
     {
       key: "returnDate",

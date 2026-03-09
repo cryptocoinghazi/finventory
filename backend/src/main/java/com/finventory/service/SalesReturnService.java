@@ -36,6 +36,7 @@ public class SalesReturnService {
     private final ItemRepository itemRepository;
     private final StockPostingService stockPostingService;
     private final GLPostingService glPostingService;
+    private final SequenceGeneratorService sequenceGeneratorService;
 
     @Transactional
     public SalesReturnDto createSalesReturn(SalesReturnDto dto) {
@@ -58,9 +59,18 @@ public class SalesReturnService {
                                     () -> new EntityNotFoundException("Sales Invoice not found"));
         }
 
+        String returnNumber = dto.getReturnNumber();
+        if (returnNumber == null || returnNumber.trim().isEmpty()) {
+            returnNumber =
+                    sequenceGeneratorService.generateSequence(
+                            com.finventory.model.SequenceType.SALES_RETURN,
+                            warehouse,
+                            dto.getReturnDate());
+        }
+
         SalesReturn salesReturn =
                 SalesReturn.builder()
-                        .returnNumber(dto.getReturnNumber())
+                        .returnNumber(returnNumber)
                         .salesInvoice(salesInvoice)
                         .returnDate(dto.getReturnDate())
                         .party(party)

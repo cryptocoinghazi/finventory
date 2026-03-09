@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useFieldArray, useForm } from "react-hook-form"
@@ -27,9 +28,11 @@ import { Item } from "@/lib/items"
 import { Party } from "@/lib/parties"
 import { Warehouse } from "@/lib/warehouses"
 import { PurchaseReturnInput } from "@/lib/purchase-returns"
+import { PurchaseInvoice } from "@/lib/purchase-invoices"
 
 const returnSchema = z.object({
   returnDate: z.string().min(1, "Date is required"),
+  purchaseInvoiceId: z.string().optional(),
   partyId: z.string().min(1, "Vendor is required"),
   warehouseId: z.string().min(1, "Warehouse is required"),
   lines: z
@@ -50,6 +53,7 @@ interface PurchaseReturnFormProps {
   items: Item[]
   parties: Party[]
   warehouses: Warehouse[]
+  invoices?: PurchaseInvoice[]
   onSubmit: (data: PurchaseReturnInput) => Promise<void>
   submitLabel?: string
 }
@@ -59,11 +63,13 @@ export function PurchaseReturnForm({
   items,
   parties,
   warehouses,
+  invoices = [],
   onSubmit,
   submitLabel = "Create Return",
 }: PurchaseReturnFormProps) {
   const defaultValues: Partial<ReturnFormValues> = {
     returnDate: initialData?.returnDate || new Date().toISOString().slice(0, 10),
+    purchaseInvoiceId: initialData?.purchaseInvoiceId || "none",
     partyId: initialData?.partyId || "",
     warehouseId: initialData?.warehouseId || "",
     lines: initialData?.lines?.map((l) => ({
@@ -78,7 +84,7 @@ export function PurchaseReturnForm({
     defaultValues,
   })
 
-  const { fields, append, remove } = useFieldArray({
+  const { fields, append, remove, replace } = useFieldArray({
     control: form.control,
     name: "lines",
   })
@@ -114,9 +120,30 @@ export function PurchaseReturnForm({
     }
   }
 
+  const handleInvoiceChange = (invoiceId: string) => {
+    if (!invoiceId || invoiceId === "none") {
+        form.setValue("purchaseInvoiceId", undefined)
+        return
+    }
+    
+    const invoice = invoices.find((i) => i.id === invoiceId)
+    if (invoice) {
+      form.setValue("partyId", invoice.partyId)
+      form.setValue("warehouseId", invoice.warehouseId)
+      form.setValue("purchaseInvoiceId", invoiceId)
+
+      const newLines = invoice.lines.map((line) => ({
+        itemId: line.itemId,
+        quantity: line.quantity,
+        unitPrice: line.unitPrice,
+      }))
+      replace(newLines)
+    }
+  }
+
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit((data) => onSubmit({ ...data, returnNumber: "" }))} className="space-y-8">
+      <form onSubmit={form.handleSubmit((data) => onSubmit({ ...data, returnNumber: "", purchaseInvoiceId: data.purchaseInvoiceId === "none" ? undefined : data.purchaseInvoiceId }))} className="space-y-8">
         <div className="grid gap-4 md:grid-cols-3">
           <FormField
             control={form.control}
@@ -134,11 +161,40 @@ export function PurchaseReturnForm({
 
           <FormField
             control={form.control}
+            name="purchaseInvoiceId"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Link Invoice (Optional)</FormLabel>
+                <Select
+                  onValueChange={(val) => handleInvoiceChange(val)}
+                  defaultValue={field.value || "none"}
+                >
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select invoice" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value="none">None</SelectItem>
+                    {invoices.map((inv) => (
+                      <SelectItem key={inv.id} value={inv.id}>
+                        {inv.invoiceNumber || inv.vendorInvoiceNumber} ({inv.invoiceDate})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
             name="partyId"
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Vendor</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                <Select onValueChange={field.onChange} value={field.value}>
                   <FormControl>
                     <SelectTrigger>
                       <SelectValue placeholder="Select vendor" />
@@ -165,7 +221,7 @@ export function PurchaseReturnForm({
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Warehouse</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                <Select onValueChange={field.onChange} value={field.value}>
                   <FormControl>
                     <SelectTrigger>
                       <SelectValue placeholder="Select warehouse" />
@@ -210,7 +266,7 @@ export function PurchaseReturnForm({
                         <FormLabel>Item</FormLabel>
                         <Select
                           onValueChange={(val) => handleItemChange(index, val)}
-                          defaultValue={field.value}
+                          value={field.value}
                         >
                           <FormControl>
                             <SelectTrigger>

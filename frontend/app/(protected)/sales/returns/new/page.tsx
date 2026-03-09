@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useEffect, useState } from "react"
@@ -10,6 +11,7 @@ import { Item, listItems } from "@/lib/items"
 import { Party, listParties } from "@/lib/parties"
 import { Warehouse, listWarehouses } from "@/lib/warehouses"
 import { createSalesReturn, SalesReturnInput } from "@/lib/sales-returns"
+import { SalesInvoice, listSalesInvoices } from "@/lib/sales-invoices"
 
 export default function NewSalesReturnPage() {
   const router = useRouter()
@@ -19,18 +21,21 @@ export default function NewSalesReturnPage() {
   const [items, setItems] = useState<Item[]>([])
   const [parties, setParties] = useState<Party[]>([])
   const [warehouses, setWarehouses] = useState<Warehouse[]>([])
+  const [invoices, setInvoices] = useState<SalesInvoice[]>([])
 
   useEffect(() => {
     async function loadMasters() {
       try {
-        const [itemsData, partiesData, warehousesData] = await Promise.all([
+        const [itemsData, partiesData, warehousesData, invoicesData] = await Promise.all([
           listItems(),
           listParties(),
           listWarehouses(),
+          listSalesInvoices(),
         ])
         setItems(itemsData)
         setParties(partiesData)
         setWarehouses(warehousesData)
+        setInvoices(invoicesData)
       } catch (err) {
         setError("Failed to load master data")
         console.error(err)
@@ -85,6 +90,7 @@ export default function NewSalesReturnPage() {
         items={items}
         parties={parties}
         warehouses={warehouses}
+        invoices={invoices}
         onSubmit={onSubmit}
       />
     </div>

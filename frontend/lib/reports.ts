@@ -1,4 +1,5 @@
-import { API_BASE } from "./api"
+
+import { apiFetch } from "@/lib/api"
 
 export interface GstRegisterEntry {
   invoiceNumber: string
@@ -51,62 +52,38 @@ export interface DashboardStats {
   outstanding: number
 }
 
+export async function getDashboardStats(): Promise<DashboardStats> {
+  const res = await apiFetch("/api/reports/dashboard-stats")
+  if (!res.ok) throw new Error("Failed to fetch dashboard stats")
+  return res.json()
+}
+
 export async function getGstr1(): Promise<GstRegisterEntry[]> {
-  const res = await fetch(`${API_BASE}/api/reports/gstr-1`, {
-    headers: {
-      Authorization: `Bearer ${window.localStorage.getItem("token")}`,
-    },
-  })
+  const res = await apiFetch("/api/reports/gstr-1")
   if (!res.ok) throw new Error("Failed to fetch GSTR-1")
   return res.json()
 }
 
 export async function getGstr2(): Promise<GstRegisterEntry[]> {
-  const res = await fetch(`${API_BASE}/api/reports/gstr-2`, {
-    headers: {
-      Authorization: `Bearer ${window.localStorage.getItem("token")}`,
-    },
-  })
+  const res = await apiFetch("/api/reports/gstr-2")
   if (!res.ok) throw new Error("Failed to fetch GSTR-2")
   return res.json()
 }
 
 export async function getGstr3b(): Promise<Gstr3b> {
-  const res = await fetch(`${API_BASE}/api/reports/gstr-3b`, {
-    headers: {
-      Authorization: `Bearer ${window.localStorage.getItem("token")}`,
-    },
-  })
+  const res = await apiFetch("/api/reports/gstr-3b")
   if (!res.ok) throw new Error("Failed to fetch GSTR-3B")
   return res.json()
 }
 
 export async function getStockSummary(): Promise<StockSummary[]> {
-  const res = await fetch(`${API_BASE}/api/reports/stock-summary`, {
-    headers: {
-      Authorization: `Bearer ${window.localStorage.getItem("token")}`,
-    },
-  })
+  const res = await apiFetch("/api/reports/stock-summary")
   if (!res.ok) throw new Error("Failed to fetch stock summary")
   return res.json()
 }
 
 export async function getPartyOutstanding(): Promise<PartyOutstanding[]> {
-  const res = await fetch(`${API_BASE}/api/reports/party-outstanding`, {
-    headers: {
-      Authorization: `Bearer ${window.localStorage.getItem("token")}`,
-    },
-  })
+  const res = await apiFetch("/api/reports/party-outstanding")
   if (!res.ok) throw new Error("Failed to fetch party outstanding")
-  return res.json()
-}
-
-export async function getDashboardStats(): Promise<DashboardStats> {
-  const res = await fetch(`${API_BASE}/api/reports/dashboard-stats`, {
-    headers: {
-      Authorization: `Bearer ${window.localStorage.getItem("token")}`,
-    },
-  })
-  if (!res.ok) throw new Error("Failed to fetch dashboard stats")
   return res.json()
 }
