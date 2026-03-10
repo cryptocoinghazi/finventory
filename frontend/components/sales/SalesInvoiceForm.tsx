@@ -3,7 +3,7 @@
 import { useFieldArray, useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
-import { useMemo } from "react"
+import { useEffect, useMemo } from "react"
 import { Button } from "@/components/ui/button"
 import {
   Form,
@@ -14,19 +14,13 @@ import {
   FormMessage,
 } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
 import { Card, CardContent } from "@/components/ui/card"
 import { Trash2, Plus } from "lucide-react"
 import { Item } from "@/lib/items"
 import { Party } from "@/lib/parties"
 import { Warehouse } from "@/lib/warehouses"
 import { SalesInvoiceInput } from "@/lib/sales-invoices"
+import { SmartSelect } from "@/components/ui-kit/SmartSelect"
 
 const invoiceSchema = z.object({
   invoiceDate: z.string().min(1, "Date is required"),
@@ -62,10 +56,11 @@ export function SalesInvoiceForm({
   onSubmit,
   submitLabel = "Save Invoice",
 }: SalesInvoiceFormProps) {
+  const defaultWarehouseId = initialData?.warehouseId || warehouses[0]?.id || ""
   const defaultValues: Partial<InvoiceFormValues> = {
     invoiceDate: initialData?.invoiceDate || new Date().toISOString().slice(0, 10),
     partyId: initialData?.partyId || "",
-    warehouseId: initialData?.warehouseId || "",
+    warehouseId: defaultWarehouseId,
     lines: initialData?.lines?.map((l) => ({
       itemId: l.itemId,
       quantity: l.quantity,
@@ -84,6 +79,13 @@ export function SalesInvoiceForm({
   })
 
   const watchLines = form.watch("lines")
+
+  useEffect(() => {
+    const current = form.getValues("warehouseId")
+    if (!current && warehouses[0]?.id) {
+      form.setValue("warehouseId", warehouses[0].id, { shouldValidate: true })
+    }
+  }, [form, warehouses])
 
   // Calculate totals for preview
   const totals = useMemo(() => {
@@ -140,22 +142,30 @@ export function SalesInvoiceForm({
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Customer</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select customer" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {parties
-                      .filter((p) => p.type === "CUSTOMER")
-                      .map((p) => (
-                        <SelectItem key={p.id} value={p.id}>
-                          {p.name}
-                        </SelectItem>
-                      ))}
-                  </SelectContent>
-                </Select>
+                <FormControl>
+                  <SmartSelect<Party>
+                    value={field.value}
+                    onSelect={(id) => field.onChange(id)}
+                    placeholder="Select customer"
+                    searchPlaceholder="Search customer..."
+                    options={parties.filter((p) => p.type === "CUSTOMER")}
+                    labelKey="name"
+                    valueKey="id"
+                    renderOption={(p) => (
+                      <div className="flex flex-col">
+                        <span className="text-sm">{p.name}</span>
+                        <span className="text-xs text-muted-foreground">
+                          {p.phone || p.email || p.gstin || ""}
+                        </span>
+                      </div>
+                    )}
+                    renderValue={(p) => <span className="truncate">{p.name}</span>}
+                    filterOption={(p, q) => {
+                      const hay = `${p.name} ${p.phone ?? ""} ${p.email ?? ""} ${p.gstin ?? ""}`.toLowerCase()
+                      return hay.includes(q)
+                    }}
+                  />
+                </FormControl>
                 <FormMessage />
               </FormItem>
             )}
@@ -167,20 +177,19 @@ export function SalesInvoiceForm({
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Warehouse</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select warehouse" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {warehouses.map((w) => (
-                      <SelectItem key={w.id} value={w.id}>
-                        {w.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <FormControl>
+                  <SmartSelect<Warehouse>
+                    value={field.value}
+                    onSelect={(id) => field.onChange(id)}
+                    placeholder="Select warehouse"
+                    searchPlaceholder="Search warehouse..."
+                    options={warehouses}
+                    labelKey="name"
+                    valueKey="id"
+                    renderValue={(w) => <span className="truncate">{w.name}</span>}
+                    filterOption={(w, q) => w.name.toLowerCase().includes(q)}
+                  />
+                </FormControl>
                 <FormMessage />
               </FormItem>
             )}
@@ -226,26 +235,39 @@ export function SalesInvoiceForm({
                       name={`lines.${index}.itemId`}
                       render={({ field }) => (
                         <FormItem>
-                          <Select
-                            onValueChange={(val) => {
-                              field.onChange(val)
-                              handleItemChange(index, val)
-                            }}
-                            defaultValue={field.value}
-                          >
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select item" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              {items.map((item) => (
-                                <SelectItem key={item.id} value={item.id}>
-                                  {item.code} - {item.name}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                          <FormControl>
+                            <SmartSelect<Item>
+                              value={field.value}
+                              onSelect={(id) => {
+                                field.onChange(id)
+                                handleItemChange(index, id)
+                              }}
+                              placeholder="Select item"
+                              searchPlaceholder="Search item by name, code, HSN..."
+                              options={items}
+                              labelKey="name"
+                              valueKey="id"
+                              renderOption={(it) => (
+                                <div className="flex flex-col">
+                                  <span className="text-sm">
+                                    {it.code} - {it.name}
+                                  </span>
+                                  <span className="text-xs text-muted-foreground">
+                                    HSN: {it.hsnCode || "-"} • Tax: {it.taxRate}%
+                                  </span>
+                                </div>
+                              )}
+                              renderValue={(it) => (
+                                <span className="truncate">
+                                  {it.code} - {it.name}
+                                </span>
+                              )}
+                              filterOption={(it, q) => {
+                                const hay = `${it.name} ${it.code} ${it.hsnCode ?? ""}`.toLowerCase()
+                                return hay.includes(q)
+                              }}
+                            />
+                          </FormControl>
                           <FormMessage />
                         </FormItem>
                       )}

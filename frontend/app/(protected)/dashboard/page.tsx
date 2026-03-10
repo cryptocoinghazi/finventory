@@ -5,7 +5,7 @@ import { PageHeader } from "@/components/ui/page-header"
 import Link from "next/link"
 import { SectionCard } from "@/components/ui-kit/SectionCard"
 import { StatCard } from "@/components/ui-kit/StatCard"
-import { ClipboardList, Store, Users, Warehouse } from "lucide-react"
+import { ClipboardList, ShoppingCart, Store, Users, Warehouse } from "lucide-react"
 import { useEffect, useState } from "react"
 import {
   getActivityFeed,
@@ -122,6 +122,12 @@ export default function DashboardPage() {
               <Button variant="secondary" className="w-full gap-2">
                 <ClipboardList className="h-4 w-4" />
                 Tax Slabs
+              </Button>
+            </Link>
+            <Link href="/pos">
+              <Button variant="secondary" className="w-full gap-2">
+                <ShoppingCart className="h-4 w-4" />
+                Quick POS
               </Button>
             </Link>
           </div>

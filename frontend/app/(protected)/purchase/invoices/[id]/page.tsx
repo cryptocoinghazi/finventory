@@ -6,6 +6,7 @@ import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { PageHeader } from "@/components/ui/page-header"
 import { getPurchaseInvoice, PurchaseInvoice } from "@/lib/purchase-invoices"
+import { getOrganizationProfile, OrganizationProfile } from "@/lib/settings"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import {
   Table,
@@ -20,6 +21,7 @@ export default function PurchaseInvoiceDetailPage() {
   const params = useParams()
   const id = params.id as string
   const [invoice, setInvoice] = useState<PurchaseInvoice | null>(null)
+  const [organization, setOrganization] = useState<OrganizationProfile | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -37,6 +39,25 @@ export default function PurchaseInvoiceDetailPage() {
     }
     load()
   }, [id])
+
+  useEffect(() => {
+    document.body.classList.add("a4-print-scope")
+    return () => {
+      document.body.classList.remove("a4-print-scope")
+    }
+  }, [])
+
+  useEffect(() => {
+    async function loadOrg() {
+      try {
+        const org = await getOrganizationProfile()
+        setOrganization(org)
+      } catch {
+        setOrganization(null)
+      }
+    }
+    loadOrg()
+  }, [])
 
   if (loading) {
     return <div className="p-8 text-center">Loading invoice...</div>
@@ -57,22 +78,80 @@ export default function PurchaseInvoiceDetailPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title={`Purchase Invoice ${invoice.invoiceNumber || "Draft"}`}
-        description="View purchase invoice details"
-        actions={
-          <div className="flex gap-2">
-            <Link href="/purchase/invoices">
-              <Button variant="outline">Back</Button>
-            </Link>
-            <Button variant="secondary" onClick={() => window.print()}>
-              Print
-            </Button>
-          </div>
-        }
-      />
+      <style jsx global>{`
+        @media print {
+          @page {
+            size: A4;
+            margin: 12mm;
+          }
 
-      <div className="grid gap-6 md:grid-cols-2">
+          html,
+          body {
+            background: white !important;
+          }
+
+          body.a4-print-scope aside,
+          body.a4-print-scope header,
+          body.a4-print-scope nav,
+          body.a4-print-scope .print\\:hidden,
+          body.a4-print-scope [role="dialog"] {
+            display: none !important;
+          }
+
+          body.a4-print-scope main,
+          body.a4-print-scope main > div,
+          body.a4-print-scope main > div > div {
+            max-width: none !important;
+          }
+
+          body.a4-print-scope .a4-print-root {
+            padding: 0 !important;
+            margin: 0 !important;
+          }
+        }
+      `}</style>
+
+      <div className="print:hidden">
+        <PageHeader
+          title={`Purchase Invoice ${invoice.invoiceNumber || "Draft"}`}
+          description="View purchase invoice details"
+          actions={
+            <div className="flex gap-2">
+              <Link href="/purchase/invoices">
+                <Button variant="outline">Back</Button>
+              </Link>
+              <Button variant="secondary" onClick={() => window.print()}>
+                Print (A4)
+              </Button>
+            </div>
+          }
+        />
+      </div>
+
+      <div className="a4-print-root space-y-6">
+        {organization ? (
+          <div className="rounded-lg border bg-card p-4">
+            <div className="flex flex-col gap-1">
+              <div className="text-base font-semibold">{organization.companyName}</div>
+              <div className="text-sm text-muted-foreground">
+                {[
+                  organization.addressLine1,
+                  organization.addressLine2,
+                  [organization.city, organization.state, organization.pincode].filter(Boolean).join(" "),
+                ]
+                  .filter(Boolean)
+                  .join(", ")}
+              </div>
+              <div className="text-sm text-muted-foreground">
+                {[organization.phone, organization.email, organization.gstin ? `GSTIN: ${organization.gstin}` : ""]
+                  .filter(Boolean)
+                  .join(" • ")}
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        <div className="grid gap-6 md:grid-cols-2">
         <Card>
           <CardHeader>
             <CardTitle>Invoice Details</CardTitle>
@@ -150,6 +229,7 @@ export default function PurchaseInvoiceDetailPage() {
           </Table>
         </CardContent>
       </Card>
+      </div>
     </div>
   )
 }

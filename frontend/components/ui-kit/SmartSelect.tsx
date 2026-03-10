@@ -24,10 +24,15 @@ interface SmartSelectProps<T> {
   onSelect: (value: string, item?: T) => void
   placeholder?: string
   searchPlaceholder?: string
-  endpoint: string
+  endpoint?: string
+  options?: T[]
   labelKey: keyof T
   valueKey: keyof T
   renderOption?: (item: T) => React.ReactNode
+  renderValue?: (item: T) => React.ReactNode
+  filterOption?: (item: T, query: string) => boolean
+  onCreate?: (query: string) => void
+  createLabel?: (query: string) => string
   disabled?: boolean
   className?: string
   initialLabel?: string
@@ -39,23 +44,29 @@ export function SmartSelect<T>({
   placeholder = "Select...",
   searchPlaceholder = "Search...",
   endpoint,
+  options: optionsProp,
   labelKey,
   valueKey,
   renderOption,
+  renderValue,
+  filterOption,
+  onCreate,
+  createLabel,
   disabled = false,
   className,
   initialLabel,
 }: SmartSelectProps<T>) {
   const [open, setOpen] = React.useState(false)
   const [query, setQuery] = React.useState("")
-  const [options, setOptions] = React.useState<T[]>([])
+  const [remoteOptions, setRemoteOptions] = React.useState<T[]>([])
   const [loading, setLoading] = React.useState(false)
   
   const debouncedQuery = useDebounce(query, 300)
 
-  // Fetch initial options or search
   React.useEffect(() => {
     if (!open) return
+    if (optionsProp) return
+    if (!endpoint) return
 
     let active = true
     setLoading(true)
@@ -71,7 +82,7 @@ export function SmartSelect<T>({
         
         const data = await res.json()
         if (active) {
-          setOptions(Array.isArray(data) ? data : data.content || []) // Handle array or Page<T>
+          setRemoteOptions(Array.isArray(data) ? data : data.content || [])
         }
       } catch (err) {
         console.error("SmartSelect fetch error:", err)
@@ -85,10 +96,26 @@ export function SmartSelect<T>({
     return () => {
       active = false
     }
-  }, [open, debouncedQuery, endpoint])
+  }, [open, debouncedQuery, endpoint, optionsProp])
+
+  const options = optionsProp ?? remoteOptions
+
+  const visibleOptions = React.useMemo(() => {
+    const q = query.trim().toLowerCase()
+    if (!q) return options
+    return options.filter((opt) => {
+      if (filterOption) return filterOption(opt, q)
+      const label = String((opt as Record<string, unknown>)[String(labelKey)] ?? "")
+      return label.toLowerCase().includes(q)
+    })
+  }, [filterOption, labelKey, options, query])
+
+  const canCreate = React.useMemo(() => {
+    const q = query.trim()
+    return Boolean(onCreate && q.length > 0 && !loading && visibleOptions.length === 0)
+  }, [loading, onCreate, query, visibleOptions.length])
 
   const selectedOption = React.useMemo(() => {
-    // If we have options loaded, try to find in them
     const found = options.find((opt) => String((opt as Record<string, unknown>)[String(valueKey)]) === value)
     return found
   }, [options, value, valueKey])
@@ -110,15 +137,16 @@ export function SmartSelect<T>({
         >
           {value
             ? selectedOption
-              ? (String((selectedOption as Record<string, unknown>)[String(labelKey)]))
-              : initialLabel || "Selected" // Fallback if we can't find label
+              ? (renderValue
+                  ? renderValue(selectedOption)
+                  : String((selectedOption as Record<string, unknown>)[String(labelKey)]))
+              : initialLabel || "Selected"
             : placeholder}
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[300px] p-0" align="start">
         <Command shouldFilter={false}> 
-          {/* We handle filtering server-side or manually */}
           <CommandInput 
             placeholder={searchPlaceholder} 
             value={query}
@@ -126,10 +154,24 @@ export function SmartSelect<T>({
           />
           <CommandList>
             {loading && <div className="py-6 text-center text-sm text-muted-foreground">Loading...</div>}
-            {!loading && options.length === 0 && (
+            {canCreate ? (
+              <CommandItem
+                value="__create__"
+                onSelect={() => {
+                  const q = query.trim()
+                  if (!q) return
+                  onCreate?.(q)
+                  setOpen(false)
+                  setQuery("")
+                }}
+              >
+                {createLabel ? createLabel(query.trim()) : `Add "${query.trim()}"`}
+              </CommandItem>
+            ) : null}
+            {!loading && !canCreate && visibleOptions.length === 0 ? (
               <CommandEmpty>No results found.</CommandEmpty>
-            )}
-            {!loading && options.map((item) => {
+            ) : null}
+            {!loading && visibleOptions.map((item) => {
               const itemValue = String((item as Record<string, unknown>)[String(valueKey)])
               const itemLabel = String((item as Record<string, unknown>)[String(labelKey)])
               return (
@@ -137,9 +179,6 @@ export function SmartSelect<T>({
                   key={itemValue}
                   value={itemValue}
                   onSelect={() => {
-                    // currentValue here is lowercase label from cmdk usually, 
-                    // but we want the real ID. 
-                    // However, we passed itemValue as value prop.
                     onSelect(itemValue, item)
                     setOpen(false)
                   }}

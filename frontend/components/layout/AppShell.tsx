@@ -70,6 +70,7 @@ const NAV: NavSection[] = [
     title: "Sales",
     items: [
       { title: "Invoices", href: "/sales/invoices", icon: FileText },
+      { title: "Quick POS", href: "/pos", icon: ShoppingCart, keywords: "pos quick thermal receipt" },
       { title: "Returns", href: "/sales/returns", icon: ShoppingCart },
     ],
   },
@@ -128,7 +129,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         <div className="flex">
           <motion.aside
             className={cn(
-              "h-screen sticky top-0 border-r border-sidebar-border bg-sidebar text-sidebar-foreground"
+              "h-screen sticky top-0 border-r border-sidebar-border bg-sidebar text-sidebar-foreground print:hidden"
             )}
             animate={{ width: collapsed ? 76 : 288 }}
             transition={{ duration: 0.15, ease: "easeInOut" }}
@@ -226,7 +227,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           </motion.aside>
 
           <div className="min-w-0 flex-1">
-            <header className="sticky top-0 z-40 border-b border-topbar-border bg-topbar/80 backdrop-blur">
+            <header className="sticky top-0 z-40 border-b border-topbar-border bg-topbar/80 backdrop-blur print:hidden">
               <div className="h-14 px-6 flex items-center justify-between">
                 <div className="flex items-center gap-3 min-w-0">
                   <Breadcrumbs />
@@ -311,5 +312,3 @@ export function AppShell({ children }: { children: ReactNode }) {
     </TooltipProvider>
   )
 }
-
-

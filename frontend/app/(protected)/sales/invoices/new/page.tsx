@@ -10,6 +10,7 @@ import { listParties, Party } from "@/lib/parties"
 import { listWarehouses, Warehouse } from "@/lib/warehouses"
 import { useEffect, useState } from "react"
 import { SalesInvoiceForm } from "@/components/sales/SalesInvoiceForm"
+import { getOrganizationProfile, OrganizationProfile } from "@/lib/settings"
 
 export default function NewSalesInvoicePage() {
   const router = useRouter()
@@ -19,6 +20,7 @@ export default function NewSalesInvoicePage() {
   const [parties, setParties] = useState<Party[]>([])
   const [warehouses, setWarehouses] = useState<Warehouse[]>([])
   const [items, setItems] = useState<Item[]>([])
+  const [organization, setOrganization] = useState<OrganizationProfile | null>(null)
 
   useEffect(() => {
     async function loadMasters() {
@@ -33,6 +35,13 @@ export default function NewSalesInvoicePage() {
         setParties(p)
         setWarehouses(w)
         setItems(i)
+
+        try {
+          const org = await getOrganizationProfile()
+          setOrganization(org)
+        } catch {
+          setOrganization(null)
+        }
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load masters")
       } finally {
@@ -90,7 +99,27 @@ export default function NewSalesInvoicePage() {
           </Link>
         }
       />
-      
+      {organization ? (
+        <div className="rounded-lg border bg-card p-4">
+          <div className="flex flex-col gap-1">
+            <div className="text-base font-semibold">{organization.companyName}</div>
+            <div className="text-sm text-muted-foreground">
+              {[
+                organization.addressLine1,
+                organization.addressLine2,
+                [organization.city, organization.state, organization.pincode].filter(Boolean).join(" "),
+              ]
+                .filter(Boolean)
+                .join(", ")}
+            </div>
+            <div className="text-sm text-muted-foreground">
+              {[organization.phone, organization.email, organization.gstin ? `GSTIN: ${organization.gstin}` : ""]
+                .filter(Boolean)
+                .join(" • ")}
+            </div>
+          </div>
+        </div>
+      ) : null}
       <SalesInvoiceForm
         items={items}
         parties={parties}
