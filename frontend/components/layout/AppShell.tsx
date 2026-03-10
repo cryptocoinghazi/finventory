@@ -93,6 +93,7 @@ const NAV: NavSection[] = [
     title: "Admin",
     items: [
       { title: "Users", href: "/admin/users", icon: Users },
+      { title: "Migration", href: "/admin/migration", icon: ClipboardList },
     ],
   },
   {
