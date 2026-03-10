@@ -14,6 +14,11 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class WarehouseService {
 
+    private static final int CODE_LENGTH = 10;
+    private static final int UNIQUE_PREFIX_LENGTH = 8;
+    private static final int MAX_SUFFIX = 99;
+    private static final int HASH_SUFFIX_MOD = 100;
+
     private final WarehouseRepository warehouseRepository;
 
     public WarehouseDto createWarehouse(WarehouseDto dto) {
@@ -76,8 +81,8 @@ public class WarehouseService {
 
     private String generateWarehouseCode(String name) {
         String base = name == null ? "" : name.trim().toUpperCase(Locale.ROOT);
-        StringBuilder sb = new StringBuilder(10);
-        for (int i = 0; i < base.length() && sb.length() < 10; i++) {
+        StringBuilder sb = new StringBuilder(CODE_LENGTH);
+        for (int i = 0; i < base.length() && sb.length() < CODE_LENGTH; i++) {
             char ch = base.charAt(i);
             if ((ch >= 'A' && ch <= 'Z') || (ch >= '0' && ch <= '9')) {
                 sb.append(ch);
@@ -91,15 +96,18 @@ public class WarehouseService {
             return candidate;
         }
 
-        String prefix = candidate.length() > 8 ? candidate.substring(0, 8) : candidate;
-        for (int suffix = 1; suffix <= 99; suffix++) {
+        String prefix =
+                candidate.length() > UNIQUE_PREFIX_LENGTH
+                        ? candidate.substring(0, UNIQUE_PREFIX_LENGTH)
+                        : candidate;
+        for (int suffix = 1; suffix <= MAX_SUFFIX; suffix++) {
             String next = prefix + String.format(Locale.ROOT, "%02d", suffix);
             if (!warehouseRepository.existsByCode(next)) {
                 return next;
             }
         }
 
-        return prefix + String.format(Locale.ROOT, "%02d", Math.abs(name.hashCode()) % 100);
+        return prefix + String.format(Locale.ROOT, "%02d", Math.abs(name.hashCode()) % HASH_SUFFIX_MOD);
     }
 
     public void deleteWarehouse(UUID id) {
