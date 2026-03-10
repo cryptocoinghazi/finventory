@@ -1,5 +1,6 @@
 package com.finventory.dto;
 
+import com.finventory.model.InvoicePaymentStatus;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
@@ -47,4 +48,6 @@ public class PurchaseInvoiceDto {
     private BigDecimal totalSgstAmount;
     private BigDecimal totalIgstAmount;
     private BigDecimal grandTotal;
+
+    private InvoicePaymentStatus paymentStatus;
 }

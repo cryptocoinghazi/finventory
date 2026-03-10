@@ -11,6 +11,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import com.finventory.model.InvoicePaymentStatus;
 
 @Data
 @Builder
@@ -49,4 +50,6 @@ public class SalesInvoiceDto {
     private BigDecimal totalSgstAmount;
     private BigDecimal totalIgstAmount;
     private BigDecimal grandTotal;
+
+    private InvoicePaymentStatus paymentStatus;
 }

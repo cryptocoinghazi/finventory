@@ -3,6 +3,8 @@ package com.finventory.model;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -63,6 +65,11 @@ public class SalesInvoice {
 
     @Column(name = "grand_total", nullable = false)
     private BigDecimal grandTotal;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "payment_status", nullable = false)
+    @Builder.Default
+    private InvoicePaymentStatus paymentStatus = InvoicePaymentStatus.PENDING;
 
     @Builder.Default
     @OneToMany(mappedBy = "salesInvoice", cascade = CascadeType.ALL, orphanRemoval = true)

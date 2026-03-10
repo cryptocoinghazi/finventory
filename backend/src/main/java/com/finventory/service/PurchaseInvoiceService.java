@@ -2,6 +2,7 @@ package com.finventory.service;
 
 import com.finventory.dto.PurchaseInvoiceDto;
 import com.finventory.dto.PurchaseInvoiceLineDto;
+import com.finventory.model.InvoicePaymentStatus;
 import com.finventory.model.Item;
 import com.finventory.model.Party;
 import com.finventory.model.PurchaseInvoice;
@@ -16,6 +17,7 @@ import com.finventory.repository.WarehouseRepository;
 import jakarta.persistence.EntityNotFoundException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -68,6 +70,10 @@ public class PurchaseInvoiceService {
                         .invoiceDate(dto.getInvoiceDate())
                         .party(party)
                         .warehouse(warehouse)
+                        .paymentStatus(
+                                dto.getPaymentStatus() != null
+                                        ? dto.getPaymentStatus()
+                                        : InvoicePaymentStatus.PENDING)
                         .lines(new ArrayList<>())
                         .build();
 
@@ -186,10 +192,21 @@ public class PurchaseInvoiceService {
         return mapToDto(invoice);
     }
 
-    public List<PurchaseInvoiceDto> getAllPurchaseInvoices() {
-        return purchaseInvoiceRepository.findAll().stream()
+    public List<PurchaseInvoiceDto> getAllPurchaseInvoices(
+            InvoicePaymentStatus paymentStatus, LocalDate fromDate, LocalDate toDate) {
+        return purchaseInvoiceRepository.findAllWithFilters(paymentStatus, fromDate, toDate).stream()
                 .map(this::mapToDto)
                 .collect(Collectors.toList());
+    }
+
+    @Transactional
+    public PurchaseInvoiceDto updatePaymentStatus(UUID id, InvoicePaymentStatus status) {
+        PurchaseInvoice invoice =
+                purchaseInvoiceRepository
+                        .findById(id)
+                        .orElseThrow(() -> new EntityNotFoundException("Invoice not found"));
+        invoice.setPaymentStatus(status);
+        return mapToDto(purchaseInvoiceRepository.save(invoice));
     }
 
     private PurchaseInvoiceDto mapToDto(PurchaseInvoice invoice) {
@@ -208,6 +225,7 @@ public class PurchaseInvoiceService {
                 .totalSgstAmount(invoice.getTotalSgstAmount())
                 .totalIgstAmount(invoice.getTotalIgstAmount())
                 .grandTotal(invoice.getGrandTotal())
+                .paymentStatus(invoice.getPaymentStatus())
                 .lines(
                         invoice.getLines().stream()
                                 .map(

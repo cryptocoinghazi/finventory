@@ -1,6 +1,7 @@
 package com.finventory.repository;
 
 import com.finventory.dto.GstRegisterEntryDto;
+import com.finventory.model.InvoicePaymentStatus;
 import com.finventory.model.SalesInvoice;
 import java.time.LocalDate;
 import java.util.List;
@@ -9,6 +10,7 @@ import java.util.UUID;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 @Repository
@@ -18,6 +20,17 @@ public interface SalesInvoiceRepository extends JpaRepository<SalesInvoice, UUID
     List<SalesInvoice> findAllByOrderByInvoiceDateDesc(Pageable pageable);
 
     long countByInvoiceDate(LocalDate invoiceDate);
+
+    @Query(
+            "SELECT s FROM SalesInvoice s "
+                    + "WHERE (:paymentStatus IS NULL OR s.paymentStatus = :paymentStatus) "
+                    + "AND (:fromDate IS NULL OR s.invoiceDate >= :fromDate) "
+                    + "AND (:toDate IS NULL OR s.invoiceDate <= :toDate) "
+                    + "ORDER BY s.invoiceDate DESC")
+    List<SalesInvoice> findAllWithFilters(
+            @Param("paymentStatus") InvoicePaymentStatus paymentStatus,
+            @Param("fromDate") LocalDate fromDate,
+            @Param("toDate") LocalDate toDate);
 
     @Query(
             "SELECT new com.finventory.dto.GstRegisterEntryDto("
