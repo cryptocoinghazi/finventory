@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation"
 import { ItemForm } from "@/components/masters/ItemForm"
 import { PageHeader } from "@/components/ui/page-header"
 import { Button } from "@/components/ui/button"
-import { getItem, updateItem, Item, ItemInput } from "@/lib/items"
+import { getItem, updateItem, Item, ItemInput, uploadItemImage } from "@/lib/items"
 import Link from "next/link"
 
 export default function EditItemPage() {
@@ -32,8 +32,11 @@ export default function EditItemPage() {
     load()
   }, [id])
 
-  async function onSubmit(input: ItemInput) {
+  async function onSubmit(input: ItemInput, imageFile: File | null) {
     await updateItem(id, input)
+    if (imageFile) {
+      await uploadItemImage(id, imageFile)
+    }
     router.push("/masters/items")
     router.refresh()
   }

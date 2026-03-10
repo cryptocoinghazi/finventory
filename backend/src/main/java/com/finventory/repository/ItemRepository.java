@@ -11,4 +11,8 @@ public interface ItemRepository extends JpaRepository<Item, UUID> {
     boolean existsByCode(String code);
 
     Optional<Item> findByCode(String code);
+
+    boolean existsByBarcode(String barcode);
+
+    Optional<Item> findByBarcode(String barcode);
 }

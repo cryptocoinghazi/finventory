@@ -36,6 +36,12 @@ public class ItemController {
         return ResponseEntity.ok(itemService.createItem(itemDto));
     }
 
+    @PostMapping(value = "/{id}/image", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<ItemDto> uploadItemImage(
+            @PathVariable UUID id, @RequestParam("file") MultipartFile file) {
+        return ResponseEntity.ok(itemService.uploadItemImage(id, file));
+    }
+
     @GetMapping
     public ResponseEntity<List<ItemDto>> getAllItems() {
         return ResponseEntity.ok(itemService.getAllItems());

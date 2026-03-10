@@ -12,6 +12,7 @@ import { ItemUploadDialog } from "@/components/items/ItemUploadDialog"
 import { Input } from "@/components/ui/input"
 import { ChevronDown, ChevronRight, Search } from "lucide-react"
 import { useDebounce } from "@/hooks/use-debounce"
+import { API_BASE } from "@/lib/api"
 
 export default function ItemsListPage() {
   const [rows, setRows] = useState<Item[]>([])
@@ -47,6 +48,7 @@ export default function ItemsListPage() {
         !q ||
         p.name.toLowerCase().includes(q) ||
         p.code.toLowerCase().includes(q) ||
+        (p.barcode ?? "").toLowerCase().includes(q) ||
         (p.hsnCode ?? "").toLowerCase().includes(q) ||
         String(p.taxRate).includes(q)
       return matchesText
@@ -104,8 +106,26 @@ export default function ItemsListPage() {
   }
 
   const columns = [
+    {
+      key: "image",
+      header: "Image",
+      cell: (row: Item) =>
+        row.imageUrl ? (
+          <div className="h-10 w-10 rounded-md overflow-hidden border bg-muted">
+            <img
+              src={row.imageUrl.startsWith("http") ? row.imageUrl : `${API_BASE}${row.imageUrl}`}
+              alt={row.name}
+              className="h-full w-full object-cover"
+            />
+          </div>
+        ) : (
+          <div className="h-10 w-10 rounded-md border bg-muted" />
+        ),
+      className: "w-[70px]",
+    },
     { key: "name", header: "Name", sortable: true },
     { key: "code", header: "Code", sortable: true },
+    { key: "barcode", header: "Barcode" },
     { key: "hsnCode", header: "HSN" },
     { key: "uom", header: "UOM" },
     { 

@@ -4,10 +4,12 @@ export type Item = {
   id: string
   name: string
   code: string
+  barcode?: string | null
   hsnCode?: string | null
   taxRate: number
   unitPrice: number
   uom: string
+  imageUrl?: string | null
   vendorId?: string | null
   vendorName?: string | null
 }
@@ -32,6 +34,16 @@ export async function uploadItems(formData: FormData): Promise<Item[]> {
     body: formData,
   })
   return readJsonOrThrow<Item[]>(res)
+}
+
+export async function uploadItemImage(id: string, file: File): Promise<Item> {
+  const formData = new FormData()
+  formData.append("file", file)
+  const res = await apiFetch(`/api/v1/items/${encodeURIComponent(id)}/image`, {
+    method: "POST",
+    body: formData,
+  })
+  return readJsonOrThrow<Item>(res)
 }
 
 export async function createItem(input: ItemInput): Promise<Item> {
@@ -77,4 +89,3 @@ async function safeReadText(res: Response): Promise<string> {
     return ""
   }
 }
-

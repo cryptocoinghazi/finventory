@@ -13,6 +13,9 @@ public class ItemCsvDto {
     @CsvBindByName(column = "code", required = true)
     private String code;
 
+    @CsvBindByName(column = "barcode")
+    private String barcode;
+
     @CsvBindByName(column = "hsnCode")
     private String hsnCode;
 
@@ -24,4 +27,7 @@ public class ItemCsvDto {
 
     @CsvBindByName(column = "uom", required = true)
     private String uom;
+
+    @CsvBindByName(column = "imageUrl")
+    private String imageUrl;
 }

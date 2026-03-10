@@ -5,13 +5,16 @@
  import { ItemForm } from "@/components/masters/ItemForm"
  import { PageHeader } from "@/components/ui/page-header"
  import { Button } from "@/components/ui/button"
- import { createItem, ItemInput } from "@/lib/items"
+ import { createItem, ItemInput, uploadItemImage } from "@/lib/items"
  
  export default function NewItemPage() {
    const router = useRouter()
  
-   async function onSubmit(input: ItemInput) {
-     await createItem(input)
+  async function onSubmit(input: ItemInput, imageFile: File | null) {
+    const created = await createItem(input)
+    if (imageFile) {
+      await uploadItemImage(created.id, imageFile)
+    }
      router.push("/masters/items")
      router.refresh()
    }
@@ -27,7 +30,7 @@
            </Link>
          }
        />
-       <ItemForm submitLabel="Create Item" onSubmit={onSubmit} />
+      <ItemForm submitLabel="Create Item" onSubmit={onSubmit} />
      </div>
    )
  }

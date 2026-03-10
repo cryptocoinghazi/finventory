@@ -19,6 +19,8 @@ public class ItemDto {
     @NotBlank(message = "Item code is required")
     private String code;
 
+    private String barcode;
+
     private String hsnCode;
 
     @NotNull(message = "Tax rate is required")
@@ -31,6 +33,8 @@ public class ItemDto {
 
     @NotBlank(message = "Unit of measurement (UOM) is required")
     private String uom;
+
+    private String imageUrl;
 
     private UUID vendorId;
     private String vendorName;

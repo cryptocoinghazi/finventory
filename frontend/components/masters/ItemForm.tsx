@@ -14,10 +14,12 @@ import { ItemInput } from "@/lib/items"
 import { TaxSlab } from "@/lib/tax-slabs"
 import { Party } from "@/lib/parties"
 import { useState } from "react"
+import { API_BASE } from "@/lib/api"
 
 const itemSchema = z.object({
   name: z.string().min(1, "Name is required"),
   code: z.string().min(1, "Code is required"),
+  barcode: z.string().max(64, "Barcode too long").optional(),
   hsnCode: z.string().optional(),
   uom: z.string().min(1, "UOM is required"),
   unitPrice: z.coerce.number().min(0, "Price must be >= 0"),
@@ -34,7 +36,7 @@ export function ItemForm({
 }: {
   initialValue?: ItemInput & { vendorName?: string | null }
   submitLabel: string
-  onSubmit: (input: ItemInput) => Promise<void>
+  onSubmit: (input: ItemInput, imageFile: File | null) => Promise<void>
 }) {
   const router = useRouter()
   const [serverError, setServerError] = useState<string | null>(null)
@@ -47,12 +49,14 @@ export function ItemForm({
   const [initialVendorName] = useState<string | undefined>(
     initialValue?.vendorName || undefined
   )
+  const [imageFile, setImageFile] = useState<File | null>(null)
 
   const form = useForm<FormValues>({
     resolver: zodResolver(itemSchema),
     defaultValues: {
       name: initialValue?.name ?? "",
       code: initialValue?.code ?? "",
+      barcode: initialValue?.barcode ?? "",
       hsnCode: initialValue?.hsnCode ?? "",
       uom: initialValue?.uom ?? "",
       unitPrice: initialValue?.unitPrice ?? 0,
@@ -66,12 +70,17 @@ export function ItemForm({
     try {
       await onSubmit({
         ...data,
+        barcode: (data.barcode ?? "").trim(),
         hsnCode: data.hsnCode || null,
-      })
+      }, imageFile)
     } catch (err) {
       setServerError(err instanceof Error ? err.message : "An error occurred")
     }
   }
+
+  const existingImageUrl = initialValue?.imageUrl
+    ? (initialValue.imageUrl.startsWith("http") ? initialValue.imageUrl : `${API_BASE}${initialValue.imageUrl}`)
+    : null
 
   return (
     <Form {...form}>
@@ -117,6 +126,19 @@ export function ItemForm({
                     <FormLabel>Code</FormLabel>
                     <FormControl>
                       <Input placeholder="Item Code" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="barcode"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Barcode</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Optional barcode" {...field} value={field.value || ""} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -172,6 +194,32 @@ export function ItemForm({
                   </FormItem>
                 )}
               />
+            </div>
+          </FormSectionCard>
+
+          <FormSectionCard title="Image">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
+              <div className="space-y-2">
+                <FormLabel>Item Image</FormLabel>
+                <Input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => setImageFile(e.target.files?.[0] ?? null)}
+                />
+                {imageFile ? (
+                  <div className="text-sm text-muted-foreground truncate">{imageFile.name}</div>
+                ) : null}
+              </div>
+              <div className="space-y-2">
+                <FormLabel>Current Image</FormLabel>
+                {existingImageUrl ? (
+                  <div className="h-24 w-24 rounded-md overflow-hidden border bg-muted">
+                    <img src={existingImageUrl} alt="Item" className="h-full w-full object-cover" />
+                  </div>
+                ) : (
+                  <div className="text-sm text-muted-foreground">No image uploaded.</div>
+                )}
+              </div>
             </div>
           </FormSectionCard>
 
