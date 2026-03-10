@@ -76,8 +76,8 @@ class PurchaseInvoiceIntegrationTest {
         purchaseInvoiceRepository.deleteAll();
         salesReturnRepository.deleteAll();
         salesInvoiceRepository.deleteAll();
-        partyRepository.deleteAll();
         itemRepository.deleteAll();
+        partyRepository.deleteAll();
         warehouseRepository.deleteAll();
         userRepository.deleteAll();
 
@@ -157,7 +157,7 @@ class PurchaseInvoiceIntegrationTest {
                         .build();
 
         mockMvc.perform(
-                        post("/api/purchase-invoices")
+                        post("/api/v1/purchase-invoices")
                                 .header("Authorization", jwtToken)
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(objectMapper.writeValueAsString(request)))
@@ -188,7 +188,7 @@ class PurchaseInvoiceIntegrationTest {
                         .build();
 
         mockMvc.perform(
-                        post("/api/purchase-invoices")
+                        post("/api/v1/purchase-invoices")
                                 .header("Authorization", jwtToken)
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(objectMapper.writeValueAsString(invoiceDto)))

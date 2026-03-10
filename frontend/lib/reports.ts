@@ -52,6 +52,36 @@ export interface DashboardStats {
   outstanding: number
 }
 
+export interface ActivityFeedEntry {
+  kind: string
+  id: string
+  date: string
+  title: string
+  subtitle: string
+  amount: number | null
+  href: string | null
+}
+
+export interface SystemStatus {
+  app: string
+  serverTime: string
+  dbUp: boolean
+  dbError: string | null
+  items: number
+  parties: number
+  warehouses: number
+  salesInvoices: number
+  purchaseInvoices: number
+  salesReturns: number
+  purchaseReturns: number
+  stockAdjustments: number
+  salesInvoicesToday: number
+  purchaseInvoicesToday: number
+  salesReturnsToday: number
+  purchaseReturnsToday: number
+  stockAdjustmentsToday: number
+}
+
 export async function getDashboardStats(): Promise<DashboardStats> {
   const res = await apiFetch("/api/reports/dashboard-stats")
   if (!res.ok) throw new Error("Failed to fetch dashboard stats")
@@ -85,5 +115,17 @@ export async function getStockSummary(): Promise<StockSummary[]> {
 export async function getPartyOutstanding(): Promise<PartyOutstanding[]> {
   const res = await apiFetch("/api/reports/party-outstanding")
   if (!res.ok) throw new Error("Failed to fetch party outstanding")
+  return res.json()
+}
+
+export async function getActivityFeed(limit = 10): Promise<ActivityFeedEntry[]> {
+  const res = await apiFetch(`/api/reports/activity?limit=${encodeURIComponent(limit)}`)
+  if (!res.ok) throw new Error("Failed to fetch activity feed")
+  return res.json()
+}
+
+export async function getSystemStatus(): Promise<SystemStatus> {
+  const res = await apiFetch("/api/reports/system-status", { cache: "no-store" })
+  if (!res.ok) throw new Error("Failed to fetch system status")
   return res.json()
 }

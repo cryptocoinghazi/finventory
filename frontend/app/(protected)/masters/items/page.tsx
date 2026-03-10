@@ -10,7 +10,7 @@ import { ConfirmDialog } from "@/components/ui-kit/ConfirmDialog"
 import { MoneyText } from "@/components/ui-kit/MoneyText"
 import { ItemUploadDialog } from "@/components/items/ItemUploadDialog"
 import { Input } from "@/components/ui/input"
-import { Search } from "lucide-react"
+import { ChevronDown, ChevronRight, Search } from "lucide-react"
 import { useDebounce } from "@/hooks/use-debounce"
 
 export default function ItemsListPage() {
@@ -18,7 +18,10 @@ export default function ItemsListPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [query, setQuery] = useState("")
+  const [collapsedByVendor, setCollapsedByVendor] = useState<Record<string, boolean>>({})
+  const [pageByVendor, setPageByVendor] = useState<Record<string, number>>({})
   const debouncedQuery = useDebounce(query, 300)
+  const pageSize = 10
 
   async function load() {
     setLoading(true)
@@ -65,6 +68,17 @@ export default function ItemsListPage() {
   const sortedVendorNames = useMemo(() => {
     return Object.keys(grouped).sort()
   }, [grouped])
+
+  useEffect(() => {
+    setPageByVendor((prev) => {
+      if (sortedVendorNames.length === 0) return prev
+      const next: Record<string, number> = {}
+      sortedVendorNames.forEach((name) => {
+        next[name] = prev[name] ?? 1
+      })
+      return next
+    })
+  }, [sortedVendorNames])
 
   function renderActions(it: Item) {
     return (
@@ -152,17 +166,52 @@ export default function ItemsListPage() {
       ) : (
         sortedVendorNames.map((vendorName) => (
           <div key={vendorName} className="space-y-4 border rounded-lg p-4 bg-card">
-            <h3 className="text-lg font-semibold flex items-center gap-2">
-              {vendorName}
-              <span className="text-sm font-normal text-muted-foreground">
-                ({grouped[vendorName].length})
-              </span>
-            </h3>
-            <DataTablePro
-              columns={columns}
-              data={grouped[vendorName]}
-              loading={false}
-            />
+            <div className="flex items-center justify-between gap-3">
+              <button
+                type="button"
+                className="text-lg font-semibold inline-flex items-center gap-2"
+                onClick={() =>
+                  setCollapsedByVendor((prev) => ({
+                    ...prev,
+                    [vendorName]: !(prev[vendorName] ?? false),
+                  }))
+                }
+              >
+                {(collapsedByVendor[vendorName] ?? false) ? (
+                  <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                ) : (
+                  <ChevronDown className="h-5 w-5 text-muted-foreground" />
+                )}
+                <span>{vendorName}</span>
+                <span className="text-sm font-normal text-muted-foreground">
+                  ({grouped[vendorName].length})
+                </span>
+              </button>
+            </div>
+
+            {(collapsedByVendor[vendorName] ?? false) ? null : (
+              <DataTablePro
+                columns={columns}
+                data={(() => {
+                  const total = grouped[vendorName].length
+                  const totalPages = Math.max(1, Math.ceil(total / pageSize))
+                  const page = Math.min(pageByVendor[vendorName] ?? 1, totalPages)
+                  const start = (page - 1) * pageSize
+                  return grouped[vendorName].slice(start, start + pageSize)
+                })()}
+                loading={false}
+                page={(() => {
+                  const total = grouped[vendorName].length
+                  const totalPages = Math.max(1, Math.ceil(total / pageSize))
+                  return Math.min(pageByVendor[vendorName] ?? 1, totalPages)
+                })()}
+                pageSize={pageSize}
+                total={grouped[vendorName].length}
+                onPageChange={(nextPage) =>
+                  setPageByVendor((prev) => ({ ...prev, [vendorName]: nextPage }))
+                }
+              />
+            )}
           </div>
         ))
       )}

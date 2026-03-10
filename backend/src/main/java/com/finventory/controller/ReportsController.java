@@ -1,13 +1,16 @@
 package com.finventory.controller;
 
+import com.finventory.dto.ActivityFeedEntryDto;
 import com.finventory.dto.PartyOutstandingDto;
 import com.finventory.dto.StockSummaryDto;
+import com.finventory.dto.SystemStatusDto;
 import com.finventory.service.ReportsService;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -45,5 +48,16 @@ public class ReportsController {
     @GetMapping("/gstr-3b")
     public ResponseEntity<com.finventory.dto.Gstr3bDto> getGstr3b() {
         return ResponseEntity.ok(reportsService.getGstr3b());
+    }
+
+    @GetMapping("/activity")
+    public ResponseEntity<List<ActivityFeedEntryDto>> getActivityFeed(
+            @RequestParam(name = "limit", defaultValue = "10") int limit) {
+        return ResponseEntity.ok(reportsService.getActivityFeed(limit));
+    }
+
+    @GetMapping("/system-status")
+    public ResponseEntity<SystemStatusDto> getSystemStatus() {
+        return ResponseEntity.ok(reportsService.getSystemStatus());
     }
 }

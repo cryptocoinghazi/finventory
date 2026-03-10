@@ -4,6 +4,11 @@ import com.finventory.dto.PurchaseInvoiceDto;
 import com.finventory.dto.PurchaseInvoiceLineDto;
 import com.finventory.dto.SalesInvoiceDto;
 import com.finventory.dto.SalesInvoiceLineDto;
+import com.finventory.dto.PurchaseReturnDto;
+import com.finventory.dto.PurchaseReturnLineDto;
+import com.finventory.dto.SalesReturnDto;
+import com.finventory.dto.SalesReturnLineDto;
+import com.finventory.dto.StockAdjustmentDto;
 import com.finventory.model.Item;
 import com.finventory.model.Party;
 import com.finventory.model.Warehouse;
@@ -15,6 +20,9 @@ import com.finventory.repository.UserRepository;
 import com.finventory.repository.WarehouseRepository;
 import com.finventory.service.PurchaseInvoiceService;
 import com.finventory.service.SalesInvoiceService;
+import com.finventory.service.PurchaseReturnService;
+import com.finventory.service.SalesReturnService;
+import com.finventory.service.StockAdjustmentService;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
@@ -34,6 +42,9 @@ public class DataSeeder implements CommandLineRunner {
     private final WarehouseRepository warehouseRepository;
     private final PurchaseInvoiceService purchaseInvoiceService;
     private final SalesInvoiceService salesInvoiceService;
+    private final PurchaseReturnService purchaseReturnService;
+    private final SalesReturnService salesReturnService;
+    private final StockAdjustmentService stockAdjustmentService;
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
 
@@ -85,8 +96,10 @@ public class DataSeeder implements CommandLineRunner {
 
         Items items = createItems();
 
-        seedPurchaseInvoices(mainWh, vendor1, vendor2, items);
-        seedSalesInvoices(mainWh, walkIn, ahmed, sara, items);
+        List<PurchaseInvoiceDto> purchaseInvoices =
+                seedPurchaseInvoices(mainWh, vendor1, vendor2, items);
+        List<SalesInvoiceDto> salesInvoices = seedSalesInvoices(mainWh, walkIn, ahmed, sara, items);
+        seedReturnsAndAdjustments(mainWh, vendor1, walkIn, items, purchaseInvoices, salesInvoices);
     }
 
     private Warehouse createMainWarehouse() {
@@ -220,7 +233,9 @@ public class DataSeeder implements CommandLineRunner {
         return items;
     }
 
-    private void seedPurchaseInvoices(Warehouse mainWh, Party vendor1, Party vendor2, Items items) {
+    private List<PurchaseInvoiceDto> seedPurchaseInvoices(
+            Warehouse mainWh, Party vendor1, Party vendor2, Items items) {
+        java.util.ArrayList<PurchaseInvoiceDto> created = new java.util.ArrayList<>();
         PurchaseInvoiceDto pi1 =
                 PurchaseInvoiceDto.builder()
                         .invoiceDate(LocalDate.now().minusDays(TEN_DAYS))
@@ -247,7 +262,7 @@ public class DataSeeder implements CommandLineRunner {
                                                 .taxRate(items.hijab.getTaxRate())
                                                 .build()))
                         .build();
-        purchaseInvoiceService.createPurchaseInvoice(pi1);
+        created.add(purchaseInvoiceService.createPurchaseInvoice(pi1));
 
         PurchaseInvoiceDto pi2 =
                 PurchaseInvoiceDto.builder()
@@ -275,7 +290,7 @@ public class DataSeeder implements CommandLineRunner {
                                                 .taxRate(items.stole.getTaxRate())
                                                 .build()))
                         .build();
-        purchaseInvoiceService.createPurchaseInvoice(pi2);
+        created.add(purchaseInvoiceService.createPurchaseInvoice(pi2));
 
         // Seed Purchase Today
         PurchaseInvoiceDto piToday =
@@ -292,11 +307,13 @@ public class DataSeeder implements CommandLineRunner {
                                                 .taxRate(items.kurta.getTaxRate())
                                                 .build()))
                         .build();
-        purchaseInvoiceService.createPurchaseInvoice(piToday);
+        created.add(purchaseInvoiceService.createPurchaseInvoice(piToday));
+        return created;
     }
 
-    private void seedSalesInvoices(
+    private List<SalesInvoiceDto> seedSalesInvoices(
             Warehouse mainWh, Party walkIn, Party ahmed, Party sara, Items items) {
+        java.util.ArrayList<SalesInvoiceDto> created = new java.util.ArrayList<>();
         SalesInvoiceDto si1 =
                 SalesInvoiceDto.builder()
                         .invoiceDate(LocalDate.now().minusDays(FIVE_DAYS))
@@ -317,7 +334,7 @@ public class DataSeeder implements CommandLineRunner {
                                                 .taxRate(items.hijab.getTaxRate())
                                                 .build()))
                         .build();
-        salesInvoiceService.createSalesInvoice(si1);
+        created.add(salesInvoiceService.createSalesInvoice(si1));
 
         SalesInvoiceDto si2 =
                 SalesInvoiceDto.builder()
@@ -339,7 +356,7 @@ public class DataSeeder implements CommandLineRunner {
                                                 .taxRate(items.stole.getTaxRate())
                                                 .build()))
                         .build();
-        salesInvoiceService.createSalesInvoice(si2);
+        created.add(salesInvoiceService.createSalesInvoice(si2));
 
         SalesInvoiceDto si3 =
                 SalesInvoiceDto.builder()
@@ -361,7 +378,7 @@ public class DataSeeder implements CommandLineRunner {
                                                 .taxRate(items.niqab.getTaxRate())
                                                 .build()))
                         .build();
-        salesInvoiceService.createSalesInvoice(si3);
+        created.add(salesInvoiceService.createSalesInvoice(si3));
 
         // Seed Sales Today
         SalesInvoiceDto siToday =
@@ -378,7 +395,63 @@ public class DataSeeder implements CommandLineRunner {
                                                 .taxRate(items.kurta.getTaxRate())
                                                 .build()))
                         .build();
-        salesInvoiceService.createSalesInvoice(siToday);
+        created.add(salesInvoiceService.createSalesInvoice(siToday));
+        return created;
+    }
+
+    private void seedReturnsAndAdjustments(
+            Warehouse mainWh,
+            Party vendor1,
+            Party walkIn,
+            Items items,
+            List<PurchaseInvoiceDto> purchaseInvoices,
+            List<SalesInvoiceDto> salesInvoices) {
+        SalesInvoiceDto salesInvoice = salesInvoices.stream().findFirst().orElse(null);
+        if (salesInvoice != null) {
+            salesReturnService.createSalesReturn(
+                    SalesReturnDto.builder()
+                            .salesInvoiceId(salesInvoice.getId())
+                            .returnDate(LocalDate.now())
+                            .partyId(walkIn.getId())
+                            .warehouseId(mainWh.getId())
+                            .lines(
+                                    List.of(
+                                            SalesReturnLineDto.builder()
+                                                    .itemId(items.kurta.getId())
+                                                    .quantity(new BigDecimal("1"))
+                                                    .unitPrice(items.kurta.getUnitPrice())
+                                                    .taxRate(items.kurta.getTaxRate())
+                                                    .build()))
+                            .build());
+        }
+
+        PurchaseInvoiceDto purchaseInvoice = purchaseInvoices.stream().findFirst().orElse(null);
+        if (purchaseInvoice != null) {
+            purchaseReturnService.createPurchaseReturn(
+                    PurchaseReturnDto.builder()
+                            .purchaseInvoiceId(purchaseInvoice.getId())
+                            .returnDate(LocalDate.now().minusDays(ONE_DAY))
+                            .partyId(vendor1.getId())
+                            .warehouseId(mainWh.getId())
+                            .lines(
+                                    List.of(
+                                            PurchaseReturnLineDto.builder()
+                                                    .itemId(items.hijab.getId())
+                                                    .quantity(new BigDecimal("2"))
+                                                    .unitPrice(new BigDecimal("200"))
+                                                    .taxRate(items.hijab.getTaxRate())
+                                                    .build()))
+                            .build());
+        }
+
+        stockAdjustmentService.createAdjustment(
+                StockAdjustmentDto.builder()
+                        .adjustmentDate(LocalDate.now())
+                        .warehouseId(mainWh.getId())
+                        .itemId(items.stole.getId())
+                        .quantity(new BigDecimal("-1"))
+                        .reason("Damaged item")
+                        .build());
     }
 
     private static class Items {

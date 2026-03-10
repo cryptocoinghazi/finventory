@@ -1,11 +1,26 @@
 package com.finventory.service;
 
+import com.finventory.dto.ActivityFeedEntryDto;
 import com.finventory.dto.PartyOutstandingDto;
 import com.finventory.dto.StockSummaryDto;
+import com.finventory.dto.SystemStatusDto;
 import com.finventory.repository.GLTransactionRepository;
+import com.finventory.repository.ItemRepository;
+import com.finventory.repository.PartyRepository;
+import com.finventory.repository.PurchaseInvoiceRepository;
+import com.finventory.repository.PurchaseReturnRepository;
+import com.finventory.repository.SalesInvoiceRepository;
+import com.finventory.repository.SalesReturnRepository;
+import com.finventory.repository.StockAdjustmentRepository;
 import com.finventory.repository.StockLedgerRepository;
+import com.finventory.repository.WarehouseRepository;
+import java.time.LocalDate;
+import java.time.OffsetDateTime;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -13,11 +28,19 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class ReportsService {
 
+    private static final int MAX_ACTIVITY_LIMIT = 50;
+
     private final StockLedgerRepository stockLedgerRepository;
     private final GLTransactionRepository glTransactionRepository;
     private final com.finventory.repository.GLLineRepository glLineRepository;
-    private final com.finventory.repository.SalesInvoiceRepository salesInvoiceRepository;
-    private final com.finventory.repository.PurchaseInvoiceRepository purchaseInvoiceRepository;
+    private final SalesInvoiceRepository salesInvoiceRepository;
+    private final PurchaseInvoiceRepository purchaseInvoiceRepository;
+    private final SalesReturnRepository salesReturnRepository;
+    private final PurchaseReturnRepository purchaseReturnRepository;
+    private final StockAdjustmentRepository stockAdjustmentRepository;
+    private final ItemRepository itemRepository;
+    private final PartyRepository partyRepository;
+    private final WarehouseRepository warehouseRepository;
 
     @Transactional(readOnly = true)
     public com.finventory.dto.DashboardStatsDto getDashboardStats() {
@@ -128,5 +151,142 @@ public class ReportsService {
                 .itcSgst(itcSgst)
                 .netTaxPayable(netTaxPayable)
                 .build();
+    }
+
+    @Transactional(readOnly = true)
+    public List<ActivityFeedEntryDto> getActivityFeed(int limit) {
+        int safeLimit = Math.max(1, Math.min(limit, MAX_ACTIVITY_LIMIT));
+        PageRequest page = PageRequest.of(0, safeLimit);
+
+        List<ActivityFeedEntryDto> entries = new ArrayList<>();
+
+        for (com.finventory.model.SalesInvoice inv
+                : salesInvoiceRepository.findAllByOrderByInvoiceDateDesc(page)) {
+            entries.add(
+                    ActivityFeedEntryDto.builder()
+                            .kind("SALES_INVOICE")
+                            .id(inv.getId())
+                            .date(inv.getInvoiceDate())
+                            .title("Sales Invoice • " + inv.getInvoiceNumber())
+                            .subtitle(inv.getParty().getName())
+                            .amount(inv.getGrandTotal())
+                            .href("/sales/invoices/" + inv.getId())
+                            .build());
+        }
+
+        for (com.finventory.model.PurchaseInvoice inv
+                : purchaseInvoiceRepository.findAllByOrderByInvoiceDateDesc(page)) {
+            entries.add(
+                    ActivityFeedEntryDto.builder()
+                            .kind("PURCHASE_INVOICE")
+                            .id(inv.getId())
+                            .date(inv.getInvoiceDate())
+                            .title("Purchase Invoice • " + inv.getInvoiceNumber())
+                            .subtitle(inv.getParty().getName())
+                            .amount(inv.getGrandTotal())
+                            .href("/purchase/invoices/" + inv.getId())
+                            .build());
+        }
+
+        for (com.finventory.model.SalesReturn ret
+                : salesReturnRepository.findAllByOrderByReturnDateDesc(page)) {
+            entries.add(
+                    ActivityFeedEntryDto.builder()
+                            .kind("SALES_RETURN")
+                            .id(ret.getId())
+                            .date(ret.getReturnDate())
+                            .title("Sales Return • " + ret.getReturnNumber())
+                            .subtitle(ret.getParty().getName())
+                            .amount(ret.getGrandTotal())
+                            .href("/sales/returns/" + ret.getId())
+                            .build());
+        }
+
+        for (com.finventory.model.PurchaseReturn ret
+                : purchaseReturnRepository.findAllByOrderByReturnDateDesc(page)) {
+            entries.add(
+                    ActivityFeedEntryDto.builder()
+                            .kind("PURCHASE_RETURN")
+                            .id(ret.getId())
+                            .date(ret.getReturnDate())
+                            .title("Purchase Return • " + ret.getReturnNumber())
+                            .subtitle(ret.getParty().getName())
+                            .amount(ret.getGrandTotal())
+                            .href("/purchase/returns/" + ret.getId())
+                            .build());
+        }
+
+        for (com.finventory.model.StockAdjustment adj
+                : stockAdjustmentRepository.findAllByOrderByAdjustmentDateDesc(page)) {
+            String qty =
+                    (adj.getQuantity() != null && adj.getQuantity().signum() > 0 ? "+" : "")
+                            + (adj.getQuantity() != null ? adj.getQuantity().toPlainString() : "0");
+            entries.add(
+                    ActivityFeedEntryDto.builder()
+                            .kind("STOCK_ADJUSTMENT")
+                            .id(adj.getId())
+                            .date(adj.getAdjustmentDate())
+                            .title("Stock Adjustment • " + adj.getAdjustmentNumber())
+                            .subtitle(
+                                    adj.getWarehouse().getName()
+                                            + " • "
+                                            + adj.getItem().getName()
+                                            + " • "
+                                            + qty)
+                            .amount(null)
+                            .href(null)
+                            .build());
+        }
+
+        entries.sort(Comparator.comparing(ActivityFeedEntryDto::getDate).reversed());
+        return entries.stream().limit(safeLimit).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public SystemStatusDto getSystemStatus() {
+        OffsetDateTime now = OffsetDateTime.now();
+        LocalDate today = LocalDate.now();
+
+        try {
+            return SystemStatusDto.builder()
+                    .app("Finventory Backend")
+                    .serverTime(now)
+                    .dbUp(true)
+                    .dbError(null)
+                    .items(itemRepository.count())
+                    .parties(partyRepository.count())
+                    .warehouses(warehouseRepository.count())
+                    .salesInvoices(salesInvoiceRepository.count())
+                    .purchaseInvoices(purchaseInvoiceRepository.count())
+                    .salesReturns(salesReturnRepository.count())
+                    .purchaseReturns(purchaseReturnRepository.count())
+                    .stockAdjustments(stockAdjustmentRepository.count())
+                    .salesInvoicesToday(salesInvoiceRepository.countByInvoiceDate(today))
+                    .purchaseInvoicesToday(purchaseInvoiceRepository.countByInvoiceDate(today))
+                    .salesReturnsToday(salesReturnRepository.countByReturnDate(today))
+                    .purchaseReturnsToday(purchaseReturnRepository.countByReturnDate(today))
+                    .stockAdjustmentsToday(stockAdjustmentRepository.countByAdjustmentDate(today))
+                    .build();
+        } catch (Exception ex) {
+            return SystemStatusDto.builder()
+                    .app("Finventory Backend")
+                    .serverTime(now)
+                    .dbUp(false)
+                    .dbError(ex.getMessage())
+                    .items(0)
+                    .parties(0)
+                    .warehouses(0)
+                    .salesInvoices(0)
+                    .purchaseInvoices(0)
+                    .salesReturns(0)
+                    .purchaseReturns(0)
+                    .stockAdjustments(0)
+                    .salesInvoicesToday(0)
+                    .purchaseInvoicesToday(0)
+                    .salesReturnsToday(0)
+                    .purchaseReturnsToday(0)
+                    .stockAdjustmentsToday(0)
+                    .build();
+        }
     }
 }
