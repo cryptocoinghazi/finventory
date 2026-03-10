@@ -29,14 +29,15 @@ $BackendDir = Join-Path $ProjectRoot "backend"
 $BackendCommand = "-NoExit -Command `". '$ActivateScript'; cd '$BackendDir'; mvn spring-boot:run`""
 Start-Process powershell -ArgumentList $BackendCommand -WorkingDirectory $BackendDir
 
-# 4. Start Frontend (Future)
-# Write-Host "Starting Frontend..." -ForegroundColor Cyan
-# $FrontendDir = Join-Path $ProjectRoot "web"
-# $FrontendCommand = "-NoExit -Command `". '$ActivateScript'; cd '$FrontendDir'; npm run dev`""
-# Start-Process powershell -ArgumentList $FrontendCommand -WorkingDirectory $FrontendDir
+# 4. Start Frontend
+Write-Host "Starting Frontend..." -ForegroundColor Cyan
+$FrontendDir = Join-Path $ProjectRoot "frontend"
+$FrontendCommand = "-NoExit -Command `". '$ActivateScript'; cd '$FrontendDir'; npm run dev`""
+Start-Process powershell -ArgumentList $FrontendCommand -WorkingDirectory $FrontendDir
 
 Write-Host "--------------------------------------------------------" -ForegroundColor Green
 Write-Host "Finventory Backend is starting in a new window." -ForegroundColor Green
+Write-Host "Finventory Frontend is starting in a new window." -ForegroundColor Green
 Write-Host "Database is running in a separate window." -ForegroundColor Green
 Write-Host "Logs are visible in their respective windows." -ForegroundColor Green
 Write-Host "--------------------------------------------------------" -ForegroundColor Green
