@@ -209,6 +209,55 @@ public class PurchaseInvoiceService {
         return mapToDto(purchaseInvoiceRepository.save(invoice));
     }
 
+    @Transactional
+    public PurchaseInvoiceDto applyPayment(
+            UUID id, InvoicePaymentStatus status, BigDecimal paymentAmount) {
+        PurchaseInvoice invoice =
+                purchaseInvoiceRepository
+                        .findById(id)
+                        .orElseThrow(() -> new EntityNotFoundException("Invoice not found"));
+
+        BigDecimal grandTotal = invoice.getGrandTotal() != null ? invoice.getGrandTotal() : BigDecimal.ZERO;
+        BigDecimal paidSoFar = invoice.getPaidAmount() != null ? invoice.getPaidAmount() : BigDecimal.ZERO;
+        BigDecimal balance = grandTotal.subtract(paidSoFar);
+
+        if (status == null) {
+            throw new IllegalArgumentException("Payment status is required");
+        }
+
+        if (paymentAmount == null) {
+            paymentAmount = BigDecimal.ZERO;
+        }
+
+        if (paymentAmount.compareTo(BigDecimal.ZERO) < 0) {
+            throw new IllegalArgumentException("Payment amount must be >= 0");
+        }
+
+        if (paymentAmount.compareTo(balance) > 0) {
+            throw new IllegalArgumentException("Payment amount exceeds outstanding balance");
+        }
+
+        if (status == InvoicePaymentStatus.PENDING) {
+            invoice.setPaidAmount(BigDecimal.ZERO);
+            invoice.setPaymentStatus(InvoicePaymentStatus.PENDING);
+        } else {
+            BigDecimal nextPaid =
+                    status == InvoicePaymentStatus.PAID ? grandTotal : paidSoFar.add(paymentAmount);
+            invoice.setPaidAmount(nextPaid);
+
+            if (nextPaid.compareTo(BigDecimal.ZERO) == 0) {
+                invoice.setPaymentStatus(InvoicePaymentStatus.PENDING);
+            } else if (nextPaid.compareTo(grandTotal) >= 0) {
+                invoice.setPaidAmount(grandTotal);
+                invoice.setPaymentStatus(InvoicePaymentStatus.PAID);
+            } else {
+                invoice.setPaymentStatus(InvoicePaymentStatus.PARTIAL);
+            }
+        }
+
+        return mapToDto(purchaseInvoiceRepository.save(invoice));
+    }
+
     private PurchaseInvoiceDto mapToDto(PurchaseInvoice invoice) {
         return PurchaseInvoiceDto.builder()
                 .id(invoice.getId())
@@ -225,6 +274,15 @@ public class PurchaseInvoiceService {
                 .totalSgstAmount(invoice.getTotalSgstAmount())
                 .totalIgstAmount(invoice.getTotalIgstAmount())
                 .grandTotal(invoice.getGrandTotal())
+                .paidAmount(invoice.getPaidAmount())
+                .balanceAmount(
+                        invoice.getGrandTotal() != null
+                                ? invoice.getGrandTotal()
+                                        .subtract(
+                                                invoice.getPaidAmount() != null
+                                                        ? invoice.getPaidAmount()
+                                                        : BigDecimal.ZERO)
+                                : BigDecimal.ZERO)
                 .paymentStatus(invoice.getPaymentStatus())
                 .lines(
                         invoice.getLines().stream()

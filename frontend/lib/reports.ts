@@ -30,6 +30,8 @@ export interface StockSummary {
   itemId: string
   itemName: string
   itemCode: string
+  vendorId?: string | null
+  vendorName?: string | null
   warehouseId: string
   warehouseName: string
   currentStock: number

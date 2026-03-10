@@ -66,6 +66,10 @@ public class SalesInvoice {
     @Column(name = "grand_total", nullable = false)
     private BigDecimal grandTotal;
 
+    @Builder.Default
+    @Column(name = "paid_amount", nullable = false)
+    private BigDecimal paidAmount = BigDecimal.ZERO;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "payment_status", nullable = false)
     @Builder.Default

@@ -11,8 +11,9 @@ import {
   ColumnDef,
   SortingState,
   ColumnFiltersState,
+  SortingFn,
 } from "@tanstack/react-table"
-import { ArrowDownWideNarrow, ArrowUpWideNarrow, Search, ArrowUpDown } from "lucide-react"
+import { Search, ArrowUpDown, ArrowDownWideNarrow, ArrowUpWideNarrow } from "lucide-react"
 
 type Column<T> = {
   key: keyof T | string
@@ -22,6 +23,31 @@ type Column<T> = {
   sortable?: boolean
   filterable?: boolean
   filterPlaceholder?: string
+}
+
+const caseInsensitiveAutoSort: SortingFn<unknown> = (rowA, rowB, columnId) => {
+  const a = rowA.getValue(columnId)
+  const b = rowB.getValue(columnId)
+
+  if (a == null && b == null) return 0
+  if (a == null) return -1
+  if (b == null) return 1
+
+  if (typeof a === "number" && typeof b === "number") return a - b
+  if (a instanceof Date && b instanceof Date) return a.getTime() - b.getTime()
+
+  const aNum = typeof a === "string" ? Number(a) : NaN
+  const bNum = typeof b === "string" ? Number(b) : NaN
+  const bothNumeric =
+    typeof a !== "boolean" &&
+    typeof b !== "boolean" &&
+    Number.isFinite(aNum) &&
+    Number.isFinite(bNum)
+  if (bothNumeric) return aNum - bNum
+
+  const aStr = String(a).toLowerCase()
+  const bStr = String(b).toLowerCase()
+  return aStr.localeCompare(bStr)
 }
 
 export function DataTablePro<T>({
@@ -103,6 +129,7 @@ export function DataTablePro<T>({
           : (row.original as Record<string, unknown>)[c.key as string],
       meta: { className: c.className },
       enableSorting: c.sortable ?? false,
+      sortingFn: c.sortable ? (caseInsensitiveAutoSort as SortingFn<T>) : undefined,
     }))
   }, [columns])
 
@@ -146,30 +173,11 @@ export function DataTablePro<T>({
           <thead className="bg-muted/50">
             {table.getHeaderGroups().map((hg) => (
               <tr key={hg.id} className="text-left">
-                {hg.headers.map((header) => {
-                  const isSorted = header.column.getIsSorted()
-                  return (
-                    <th
-                      key={header.id}
-                      className="p-3 font-medium select-none"
-                      onClick={header.column.getToggleSortingHandler()}
-                      aria-sort={
-                        isSorted === "asc" ? "ascending" : isSorted === "desc" ? "descending" : "none"
-                      }
-                    >
-                      <div className="inline-flex items-center gap-1">
-                        {flexRender(header.column.columnDef.header, header.getContext())}
-                        {isSorted ? (
-                          isSorted === "asc" ? (
-                            <ArrowUpWideNarrow className="h-3.5 w-3.5 text-muted-foreground" />
-                          ) : (
-                            <ArrowDownWideNarrow className="h-3.5 w-3.5 text-muted-foreground" />
-                          )
-                        ) : null}
-                      </div>
-                    </th>
-                  )
-                })}
+                {hg.headers.map((header) => (
+                  <th key={header.id} className="p-3 font-medium select-none">
+                    {flexRender(header.column.columnDef.header, header.getContext())}
+                  </th>
+                ))}
               </tr>
             ))}
           </thead>

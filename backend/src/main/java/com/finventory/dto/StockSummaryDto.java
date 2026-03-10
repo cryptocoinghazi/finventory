@@ -15,6 +15,8 @@ public class StockSummaryDto {
     private UUID itemId;
     private String itemName;
     private String itemCode;
+    private UUID vendorId;
+    private String vendorName;
     private UUID warehouseId;
     private String warehouseName;
     private BigDecimal currentStock;

@@ -26,6 +26,8 @@ export type SalesInvoice = {
   warehouseName?: string
   invoiceNumber?: string | null
   paymentStatus?: InvoicePaymentStatus
+  paidAmount?: number
+  balanceAmount?: number
   lines: SalesInvoiceLine[]
   totalTaxableAmount?: number
   totalTaxAmount?: number
@@ -75,6 +77,19 @@ export async function updateSalesInvoicePaymentStatus(
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ paymentStatus }),
+  })
+  return readJsonOrThrow<SalesInvoice>(res)
+}
+
+export async function applySalesInvoicePayment(
+  id: string,
+  paymentStatus: InvoicePaymentStatus,
+  paymentAmount: number
+): Promise<SalesInvoice> {
+  const res = await apiFetch(`/api/v1/sales-invoices/${encodeURIComponent(id)}/payment`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ paymentStatus, paymentAmount }),
   })
   return readJsonOrThrow<SalesInvoice>(res)
 }

@@ -27,6 +27,8 @@ export type PurchaseInvoice = {
   invoiceNumber?: string | null
   vendorInvoiceNumber?: string | null
   paymentStatus?: InvoicePaymentStatus
+  paidAmount?: number
+  balanceAmount?: number
   lines: PurchaseInvoiceLine[]
   totalTaxableAmount?: number
   totalTaxAmount?: number
@@ -78,6 +80,19 @@ export async function updatePurchaseInvoicePaymentStatus(
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ paymentStatus }),
+  })
+  return readJsonOrThrow<PurchaseInvoice>(res)
+}
+
+export async function applyPurchaseInvoicePayment(
+  id: string,
+  paymentStatus: InvoicePaymentStatus,
+  paymentAmount: number
+): Promise<PurchaseInvoice> {
+  const res = await apiFetch(`/api/v1/purchase-invoices/${encodeURIComponent(id)}/payment`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ paymentStatus, paymentAmount }),
   })
   return readJsonOrThrow<PurchaseInvoice>(res)
 }

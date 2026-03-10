@@ -4,6 +4,7 @@ import com.finventory.dto.PurchaseInvoiceDto;
 import com.finventory.model.InvoicePaymentStatus;
 import com.finventory.service.PurchaseInvoiceService;
 import jakarta.validation.Valid;
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
@@ -55,6 +56,15 @@ public class PurchaseInvoiceController {
         return ResponseEntity.ok(updated);
     }
 
+    @PutMapping("/{id}/payment")
+    public ResponseEntity<PurchaseInvoiceDto> applyPayment(
+            @PathVariable UUID id, @RequestBody PaymentUpdateRequest request) {
+        PurchaseInvoiceDto updated =
+                purchaseInvoiceService.applyPayment(
+                        id, request.getPaymentStatus(), request.getPaymentAmount());
+        return ResponseEntity.ok(updated);
+    }
+
     public static class PaymentStatusUpdateRequest {
         private InvoicePaymentStatus paymentStatus;
 
@@ -64,6 +74,27 @@ public class PurchaseInvoiceController {
 
         public void setPaymentStatus(InvoicePaymentStatus paymentStatus) {
             this.paymentStatus = paymentStatus;
+        }
+    }
+
+    public static class PaymentUpdateRequest {
+        private InvoicePaymentStatus paymentStatus;
+        private BigDecimal paymentAmount;
+
+        public InvoicePaymentStatus getPaymentStatus() {
+            return paymentStatus;
+        }
+
+        public void setPaymentStatus(InvoicePaymentStatus paymentStatus) {
+            this.paymentStatus = paymentStatus;
+        }
+
+        public BigDecimal getPaymentAmount() {
+            return paymentAmount;
+        }
+
+        public void setPaymentAmount(BigDecimal paymentAmount) {
+            this.paymentAmount = paymentAmount;
         }
     }
 }

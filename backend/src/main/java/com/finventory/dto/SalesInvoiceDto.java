@@ -50,6 +50,8 @@ public class SalesInvoiceDto {
     private BigDecimal totalSgstAmount;
     private BigDecimal totalIgstAmount;
     private BigDecimal grandTotal;
+    private BigDecimal paidAmount;
+    private BigDecimal balanceAmount;
 
     private InvoicePaymentStatus paymentStatus;
 }

@@ -15,8 +15,11 @@ export type Party = {
 
 export type PartyInput = Omit<Party, "id">
 
-export async function listParties(): Promise<Party[]> {
-  const res = await apiFetch("/api/v1/parties", { cache: "no-store" })
+export async function listParties(type?: PartyType): Promise<Party[]> {
+  const params = new URLSearchParams()
+  if (type) params.set("type", type)
+  const url = params.toString() ? `/api/v1/parties?${params.toString()}` : "/api/v1/parties"
+  const res = await apiFetch(url, { cache: "no-store" })
   return readJsonOrThrow<Party[]>(res)
 }
 
@@ -70,4 +73,3 @@ async function safeReadText(res: Response): Promise<string> {
     return ""
   }
 }
-

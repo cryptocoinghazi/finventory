@@ -14,10 +14,13 @@ public interface StockLedgerRepository extends JpaRepository<StockLedgerEntry, U
     @Query(
             "SELECT new com.finventory.dto.StockSummaryDto("
                     + "e.item.id, e.item.name, e.item.code, "
+                    + "v.id, v.name, "
                     + "e.warehouse.id, e.warehouse.name, "
                     + "SUM(e.qtyIn - e.qtyOut), e.item.uom) "
                     + "FROM StockLedgerEntry e "
+                    + "LEFT JOIN e.item.vendor v "
                     + "GROUP BY e.item.id, e.item.name, e.item.code, "
+                    + "v.id, v.name, "
                     + "e.warehouse.id, e.warehouse.name, e.item.uom")
     List<StockSummaryDto> findStockSummary();
 
