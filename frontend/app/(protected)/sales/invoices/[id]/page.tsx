@@ -5,10 +5,16 @@ import { useParams } from "next/navigation"
 import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { PageHeader } from "@/components/ui/page-header"
-import { getSalesInvoice, SalesInvoice } from "@/lib/sales-invoices"
+import {
+  getSalesInvoice,
+  InvoicePaymentStatus,
+  SalesInvoice,
+  updateSalesInvoicePaymentStatus,
+} from "@/lib/sales-invoices"
 import { getOrganizationProfile, OrganizationProfile } from "@/lib/settings"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import {
   Table,
   TableBody,
@@ -25,6 +31,7 @@ export default function SalesInvoiceDetailPage() {
   const [organization, setOrganization] = useState<OrganizationProfile | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [savingStatus, setSavingStatus] = useState(false)
 
   useEffect(() => {
     async function load() {
@@ -165,6 +172,38 @@ export default function SalesInvoiceDetailPage() {
             <div className="flex justify-between">
               <span className="text-muted-foreground">Number:</span>
               <span className="font-medium">{invoice.invoiceNumber || "N/A"}</span>
+            </div>
+            <div className="flex justify-between items-center gap-3">
+              <span className="text-muted-foreground">Status:</span>
+              <div className="w-[180px] print:hidden">
+                <Select
+                  value={invoice.paymentStatus || "PENDING"}
+                  onValueChange={async (v) => {
+                    const next = v as InvoicePaymentStatus
+                    if (invoice.paymentStatus === next) return
+                    setSavingStatus(true)
+                    try {
+                      const updated = await updateSalesInvoicePaymentStatus(invoice.id, next)
+                      setInvoice(updated)
+                    } catch (err) {
+                      setError(err instanceof Error ? err.message : "Failed to update status")
+                    } finally {
+                      setSavingStatus(false)
+                    }
+                  }}
+                  disabled={savingStatus}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="PENDING">Pending</SelectItem>
+                    <SelectItem value="PARTIAL">Partial</SelectItem>
+                    <SelectItem value="PAID">Paid</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <span className="font-medium hidden print:inline">{invoice.paymentStatus || "PENDING"}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Warehouse:</span>

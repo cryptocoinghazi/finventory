@@ -1,34 +1,38 @@
 "use client"
 
 import Link from "next/link"
-import { useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { PageHeader } from "@/components/ui/page-header"
-import { listPurchaseInvoices, PurchaseInvoice } from "@/lib/purchase-invoices"
+import { InvoicePaymentStatus, listPurchaseInvoices, PurchaseInvoice } from "@/lib/purchase-invoices"
 import { DataTablePro } from "@/components/ui-kit/DataTablePro"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 export default function PurchaseInvoicesListPage() {
   const [rows, setRows] = useState<PurchaseInvoice[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [query, setQuery] = useState("")
+  const [paymentStatus, setPaymentStatus] = useState<InvoicePaymentStatus | "">("")
+  const [fromDate, setFromDate] = useState("")
+  const [toDate, setToDate] = useState("")
 
-  async function load() {
+  const load = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
-      const data = await listPurchaseInvoices()
+      const data = await listPurchaseInvoices({ paymentStatus, fromDate, toDate })
       setRows(data)
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load purchase invoices")
     } finally {
       setLoading(false)
     }
-  }
+  }, [fromDate, paymentStatus, toDate])
 
   useEffect(() => {
     load()
-  }, [])
+  }, [load])
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -67,6 +71,7 @@ export default function PurchaseInvoicesListPage() {
           { key: "vendorInvoiceNumber", header: "Vendor Ref", cell: (row) => row.vendorInvoiceNumber || "-" },
           { key: "partyName", header: "Vendor", cell: (row) => row.partyName || "N/A" },
           { key: "warehouseName", header: "Warehouse", cell: (row) => row.warehouseName || "N/A" },
+          { key: "paymentStatus", header: "Status", cell: (row) => row.paymentStatus || "PENDING" },
           { key: "grandTotal", header: "Total", cell: (row) => row.grandTotal?.toFixed(2) || "0.00" },
         ]}
         data={filtered}
@@ -78,6 +83,31 @@ export default function PurchaseInvoicesListPage() {
               placeholder="Search invoices..."
               value={query}
               onChange={(e) => setQuery(e.target.value)}
+            />
+            <div className="w-full max-w-[180px]">
+              <Select value={paymentStatus} onValueChange={(v) => setPaymentStatus(v as InvoicePaymentStatus | "")}>
+                <SelectTrigger>
+                  <SelectValue placeholder="All Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">All</SelectItem>
+                  <SelectItem value="PENDING">Pending</SelectItem>
+                  <SelectItem value="PARTIAL">Partial</SelectItem>
+                  <SelectItem value="PAID">Paid</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <input
+              className="w-full max-w-[170px] px-3 py-2 rounded-md border border-input bg-background"
+              type="date"
+              value={fromDate}
+              onChange={(e) => setFromDate(e.target.value)}
+            />
+            <input
+              className="w-full max-w-[170px] px-3 py-2 rounded-md border border-input bg-background"
+              type="date"
+              value={toDate}
+              onChange={(e) => setToDate(e.target.value)}
             />
             <Button variant="outline" onClick={load} disabled={loading}>
               Refresh

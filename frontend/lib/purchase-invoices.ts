@@ -1,5 +1,7 @@
 import { apiFetch } from "@/lib/api"
 
+export type InvoicePaymentStatus = "PENDING" | "PARTIAL" | "PAID"
+
 export type PurchaseInvoiceLine = {
   id?: string
   itemId: string
@@ -24,6 +26,7 @@ export type PurchaseInvoice = {
   warehouseName?: string
   invoiceNumber?: string | null
   vendorInvoiceNumber?: string | null
+  paymentStatus?: InvoicePaymentStatus
   lines: PurchaseInvoiceLine[]
   totalTaxableAmount?: number
   totalTaxAmount?: number
@@ -35,8 +38,19 @@ export type PurchaseInvoice = {
 
 export type PurchaseInvoiceInput = Omit<PurchaseInvoice, "id">
 
-export async function listPurchaseInvoices(): Promise<PurchaseInvoice[]> {
-  const res = await apiFetch("/api/v1/purchase-invoices", { cache: "no-store" })
+export async function listPurchaseInvoices(filters?: {
+  paymentStatus?: InvoicePaymentStatus | ""
+  fromDate?: string
+  toDate?: string
+}): Promise<PurchaseInvoice[]> {
+  const params = new URLSearchParams()
+  if (filters?.paymentStatus) params.set("paymentStatus", filters.paymentStatus)
+  if (filters?.fromDate) params.set("fromDate", filters.fromDate)
+  if (filters?.toDate) params.set("toDate", filters.toDate)
+  const url = params.toString()
+    ? `/api/v1/purchase-invoices?${params.toString()}`
+    : "/api/v1/purchase-invoices"
+  const res = await apiFetch(url, { cache: "no-store" })
   return readJsonOrThrow<PurchaseInvoice[]>(res)
 }
 
@@ -52,6 +66,18 @@ export async function createPurchaseInvoice(input: PurchaseInvoiceInput): Promis
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input),
+  })
+  return readJsonOrThrow<PurchaseInvoice>(res)
+}
+
+export async function updatePurchaseInvoicePaymentStatus(
+  id: string,
+  paymentStatus: InvoicePaymentStatus
+): Promise<PurchaseInvoice> {
+  const res = await apiFetch(`/api/v1/purchase-invoices/${encodeURIComponent(id)}/payment-status`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ paymentStatus }),
   })
   return readJsonOrThrow<PurchaseInvoice>(res)
 }

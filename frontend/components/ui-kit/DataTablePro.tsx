@@ -20,6 +20,8 @@ type Column<T> = {
   cell?: (row: T) => React.ReactNode
   className?: string
   sortable?: boolean
+  filterable?: boolean
+  filterPlaceholder?: string
 }
 
 export function DataTablePro<T>({
@@ -60,9 +62,7 @@ export function DataTablePro<T>({
       id: String(c.key),
       accessorKey: typeof c.key === "string" ? c.key : String(c.key),
       header: ({ column }) => {
-        if (!c.sortable) return c.header
-
-        return (
+        const headerLabel = c.sortable ? (
           <Button
             variant="ghost"
             onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
@@ -77,6 +77,24 @@ export function DataTablePro<T>({
               <ArrowUpDown className="ml-2 h-4 w-4" />
             )}
           </Button>
+        ) : (
+          c.header
+        )
+
+        if (!c.filterable) return headerLabel
+
+        return (
+          <div className="flex flex-col gap-2">
+            <div>{headerLabel}</div>
+            <Input
+              placeholder={c.filterPlaceholder ?? "Filter..."}
+              value={(column.getFilterValue() as string) ?? ""}
+              onChange={(event) => column.setFilterValue(event.target.value)}
+              onClick={(e) => e.stopPropagation()}
+              onKeyDown={(e) => e.stopPropagation()}
+              className="h-8"
+            />
+          </div>
         )
       },
       cell: ({ row }) =>
