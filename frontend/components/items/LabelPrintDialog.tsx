@@ -7,7 +7,6 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
-import { PrintLayout } from "@/components/ui-kit/PrintLayout"
 import { Item } from "@/lib/items"
 import {
   LabelBarcodeFormat,
@@ -39,10 +38,21 @@ const LABEL_TEMPLATES: Record<
   LABEL_4X2: { title: "4″ × 2″", widthIn: 4, heightIn: 2 },
 }
 
+const SVG_NS = "http://www.w3.org/2000/svg"
+
 function clampInt(value: string, fallback: number) {
   const n = Number.parseInt(value, 10)
   if (!Number.isFinite(n) || n < 1) return fallback
   return n
+}
+
+function escapeHtml(value: string) {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;")
 }
 
 function computeTotal(lines: Line[]) {
@@ -90,6 +100,65 @@ function buildLabelPages(prepared: LabelPrintPrepareResponse) {
   })
 
   return pages
+}
+
+let jsBarcodeDefault: Promise<unknown> | null = null
+async function getJsBarcodeDefault(): Promise<unknown> {
+  if (!jsBarcodeDefault) {
+    jsBarcodeDefault = import("jsbarcode").then((m) => m.default)
+  }
+  return jsBarcodeDefault
+}
+
+async function buildBarcodeSvgMarkup(opts: { value: string; format: LabelBarcodeFormat; height: number }) {
+  const JsBarcode = (await getJsBarcodeDefault()) as unknown as (
+    el: SVGSVGElement,
+    value: string,
+    options: Record<string, unknown>
+  ) => void
+  const svg = document.createElementNS(SVG_NS, "svg") as unknown as SVGSVGElement
+  svg.setAttribute("shape-rendering", "crispEdges")
+
+  const effective =
+    opts.format === "EAN13" && isValidEan13(opts.value) ? ("EAN13" as const) : ("CODE128" as const)
+  try {
+    JsBarcode(svg, opts.value, {
+      format: effective,
+      displayValue: false,
+      margin: 0,
+      height: opts.height,
+      width: 1.2,
+    })
+  } catch {
+    try {
+      JsBarcode(svg, opts.value, {
+        format: "CODE128",
+        displayValue: false,
+        margin: 0,
+        height: opts.height,
+        width: 1.2,
+      })
+    } catch {}
+  }
+  return svg.outerHTML
+}
+
+function getOrCreatePrintIframe() {
+  const existing = document.getElementById("label-print-iframe") as HTMLIFrameElement | null
+  if (existing) return existing
+  const iframe = document.createElement("iframe")
+  iframe.id = "label-print-iframe"
+  iframe.setAttribute("aria-hidden", "true")
+  iframe.style.position = "fixed"
+  iframe.style.right = "0"
+  iframe.style.bottom = "0"
+  iframe.style.width = "0"
+  iframe.style.height = "0"
+  iframe.style.border = "0"
+  iframe.style.opacity = "0"
+  iframe.style.pointerEvents = "none"
+  document.body.appendChild(iframe)
+  return iframe
 }
 
 function BarcodeSvg({
@@ -227,22 +296,11 @@ export function LabelPrintDialog({
   }, [open, selectedItems])
 
   useEffect(() => {
-    if (!open) return
-    function afterPrint() {
-      if (!prepared?.jobId) return
-      updateLabelPrintJobStatus(prepared.jobId, "PRINTED").catch(() => {})
-      document.body.classList.remove("label-print-scope")
-    }
-    window.addEventListener("afterprint", afterPrint)
-    return () => window.removeEventListener("afterprint", afterPrint)
-  }, [open, prepared?.jobId])
-
-  useEffect(() => {
     if (open) return
     if (prepared?.jobId && prepared.status !== "PRINTED") {
       updateLabelPrintJobStatus(prepared.jobId, "CANCELLED").catch(() => {})
+      setPrepared((p) => (p ? { ...p, status: "CANCELLED" } : p))
     }
-    document.body.classList.remove("label-print-scope")
   }, [open, prepared?.jobId, prepared?.status])
 
   const previewPages = useMemo(() => (prepared ? buildLabelPages(prepared) : []), [prepared])
@@ -283,6 +341,183 @@ export function LabelPrintDialog({
       ? Math.max(1, Math.ceil(totalPrintableLabels / Math.max(1, a4PerPage)))
       : totalPrintableLabels
 
+  async function printPreparedInIframe() {
+    if (!prepared) return
+
+    const tmpl = LABEL_TEMPLATES[templateName]
+    const barcodeHeight = tmpl.heightIn >= 2 ? 44 : 34
+    const all = buildLabelPages(prepared)
+
+    const barcodeCache = new Map<string, string>()
+    async function barcodeSvgFor(value: string, format: LabelBarcodeFormat) {
+      const key = `${format}|${barcodeHeight}|${value}`
+      const existing = barcodeCache.get(key)
+      if (existing) return existing
+      const svg = await buildBarcodeSvgMarkup({ value, format, height: barcodeHeight })
+      barcodeCache.set(key, svg)
+      return svg
+    }
+
+    const includeCode = prepared.includeItemCode
+    const safeStore = escapeHtml(orgName || "")
+
+    const labelCss = `
+      * { box-sizing: border-box; }
+      html, body { margin: 0; padding: 0; background: white; color: black; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .label { border: 1px solid #000; background: #fff; overflow: hidden; display: flex; flex-direction: column; justify-content: space-between; }
+      .top { padding: 0.05in 0.06in 0; font-size: 9.5px; line-height: 1.1; }
+      .store { font-size: 8px; font-weight: 600; }
+      .name { font-weight: 600; }
+      .code { font-size: 9px; }
+      .barcode { padding: 0 0.06in; }
+      .barcode svg { width: 100%; height: auto; shape-rendering: crispEdges; }
+      .bottom { display: flex; align-items: center; justify-content: space-between; padding: 0 0.06in 0.05in; font-size: 10px; }
+      .barcodeText { font-size: 8.5px; }
+    `
+
+    function labelHtml(opts: {
+      name: string
+      code: string
+      barcode: string
+      unitPrice: number
+      barcodeSvg: string
+    }) {
+      const name = escapeHtml(opts.name)
+      const code = escapeHtml(opts.code)
+      const barcode = escapeHtml(opts.barcode)
+      const price = `₹${Number(opts.unitPrice ?? 0).toLocaleString("en-IN")}`
+      return `
+        <div class="label" style="width:${tmpl.widthIn}in; height:${tmpl.heightIn}in;">
+          <div class="top">
+            ${safeStore ? `<div class="store">${safeStore}</div>` : ""}
+            <div class="name">${name}</div>
+            ${includeCode ? `<div class="code">${code}</div>` : ""}
+          </div>
+          <div class="barcode">${opts.barcodeSvg}</div>
+          <div class="bottom">
+            <div class="price"><b>${escapeHtml(price)}</b></div>
+            <div class="barcodeText">${barcode}</div>
+          </div>
+        </div>
+      `
+    }
+
+    let bodyHtml = ""
+    let pageCss = ""
+
+    if (printPaper === "A4") {
+      const cols = effectiveA4Columns
+      const sheetWidthMm = A4_WIDTH_MM - A4_MARGIN_MM * 2
+      const sheetHeightMm = A4_HEIGHT_MM - A4_MARGIN_MM * 2
+      const perPage = Math.max(1, a4PerPage)
+      const sheets: typeof all[] = []
+      for (let i = 0; i < all.length; i += perPage) {
+        sheets.push(all.slice(i, i + perPage))
+      }
+
+      const renderedSheets = await Promise.all(
+        sheets.map(async (sheet) => {
+          const labels = await Promise.all(
+            sheet.map(async (p) =>
+              labelHtml({
+                name: p.name,
+                code: p.code,
+                barcode: p.barcode,
+                unitPrice: p.unitPrice,
+                barcodeSvg: await barcodeSvgFor(p.barcode, p.format),
+              })
+            )
+          )
+          return `
+            <div class="sheet">
+              ${labels.join("")}
+            </div>
+          `
+        })
+      )
+
+      bodyHtml = renderedSheets.join("")
+      pageCss = `
+        @page { size: A4; margin: ${A4_MARGIN_MM}mm; }
+        .sheet {
+          width: ${sheetWidthMm}mm;
+          height: ${sheetHeightMm}mm;
+          display: grid;
+          grid-template-columns: repeat(${cols}, ${tmpl.widthIn}in);
+          grid-auto-rows: ${tmpl.heightIn}in;
+          gap: ${A4_GAP_MM}mm;
+          justify-content: center;
+          align-content: start;
+          page-break-after: always;
+          break-after: page;
+        }
+        .sheet:last-child { page-break-after: auto; break-after: auto; }
+      `
+    } else {
+      const rendered = await Promise.all(
+        all.map(async (p) =>
+          labelHtml({
+            name: p.name,
+            code: p.code,
+            barcode: p.barcode,
+            unitPrice: p.unitPrice,
+            barcodeSvg: await barcodeSvgFor(p.barcode, p.format),
+          })
+        )
+      )
+      bodyHtml = rendered
+        .map((h, i) => `<div class="rollPage"${i === rendered.length - 1 ? ` data-last="1"` : ""}>${h}</div>`)
+        .join("")
+      pageCss = `
+        @page { size: ${tmpl.widthIn}in ${tmpl.heightIn}in; margin: 0; }
+        .rollPage { page-break-after: always; break-after: page; }
+        .rollPage[data-last="1"] { page-break-after: auto; break-after: auto; }
+      `
+    }
+
+    const html = `<!doctype html>
+      <html>
+        <head>
+          <meta charset="utf-8" />
+          <meta name="viewport" content="width=device-width, initial-scale=1" />
+          <title>Label Print</title>
+          <style>
+            ${labelCss}
+            ${pageCss}
+          </style>
+        </head>
+        <body>
+          ${bodyHtml}
+        </body>
+      </html>
+    `
+
+    const iframe = getOrCreatePrintIframe()
+    const win = iframe.contentWindow
+    const doc = iframe.contentDocument
+    if (!win || !doc) throw new Error("Print frame not available")
+
+    await new Promise<void>((resolve) => {
+      const cleanup = () => {
+        win.removeEventListener("load", onLoad)
+        resolve()
+      }
+      const onLoad = () => cleanup()
+      win.addEventListener("load", onLoad)
+      doc.open()
+      doc.write(html)
+      doc.close()
+      setTimeout(() => cleanup(), 30)
+    })
+
+    await new Promise<void>((resolve) => {
+      const onAfterPrint = () => resolve()
+      win.addEventListener("afterprint", onAfterPrint, { once: true })
+      win.focus()
+      win.print()
+    })
+  }
+
   async function onPrepare() {
     setError(null)
     setPreparing(true)
@@ -308,134 +543,20 @@ export function LabelPrintDialog({
     try {
       await updateLabelPrintJobStatus(prepared.jobId, "PRINT_DIALOG_OPENED")
     } catch {}
-    document.body.classList.add("label-print-scope")
-    requestAnimationFrame(() => requestAnimationFrame(() => window.print()))
+    try {
+      await printPreparedInIframe()
+      await updateLabelPrintJobStatus(prepared.jobId, "PRINTED")
+      setPrepared((p) => (p ? { ...p, status: "PRINTED" } : p))
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Print failed")
+    }
   }
 
   const invalidCount = prepared?.invalidItems?.length ?? 0
   const canPrint = Boolean(prepared?.jobId) && invalidCount === 0 && prepared!.items.length > 0
 
-  const printPageCss =
-    printPaper === "A4" ? `size: A4; margin: ${A4_MARGIN_MM}mm;` : `size: ${template.widthIn}in ${template.heightIn}in; margin: 0;`
-
   return (
     <>
-      <style jsx global>{`
-        @media print {
-          @page {
-            ${printPageCss}
-          }
-
-          .label-print-root {
-            display: none !important;
-          }
-
-          body.label-print-scope .label-print-root {
-            display: block !important;
-          }
-
-          body.label-print-scope * {
-            visibility: hidden !important;
-          }
-
-          body.label-print-scope [data-radix-portal] {
-            display: none !important;
-          }
-
-          body.label-print-scope .label-print-root,
-          body.label-print-scope .label-print-root * {
-            visibility: visible !important;
-          }
-
-          body.label-print-scope .label-print-root {
-            position: absolute;
-            left: 0;
-            top: 0;
-          }
-
-          body.label-print-scope .label-page {
-            break-inside: avoid;
-          }
-
-          body.label-print-scope .label-sheet {
-            break-after: page;
-          }
-
-          body.label-print-scope .label-sheet:last-child {
-            break-after: auto;
-          }
-
-          body.label-print-scope .label-page-roll {
-            page-break-after: always;
-          }
-
-          body.label-print-scope .label-page-roll:last-child {
-            page-break-after: auto;
-            break-after: auto;
-          }
-        }
-      `}</style>
-
-      {prepared ? (
-        <PrintLayout className="label-print-root">
-          {printPaper === "A4" ? (
-            (() => {
-              const all = buildLabelPages(prepared)
-              const sheets: typeof all[] = []
-              const size = Math.max(1, a4PerPage)
-              for (let i = 0; i < all.length; i += size) {
-                sheets.push(all.slice(i, i + size))
-              }
-              return sheets.map((sheet, sheetIdx) => (
-                <div
-                  key={`sheet-${sheetIdx}`}
-                  className="label-sheet"
-                  style={{
-                    width: `${a4UsableWidthMm}mm`,
-                    height: `${a4UsableHeightMm}mm`,
-                    display: "grid",
-                    gridTemplateColumns: `repeat(${effectiveA4Columns}, ${template.widthIn}in)`,
-                    gridAutoRows: `${template.heightIn}in`,
-                    gap: `${A4_GAP_MM}mm`,
-                    justifyContent: "center",
-                    alignContent: "start",
-                  }}
-                >
-                  {sheet.map((p, idx) => (
-                    <LabelPage
-                      key={`${p.itemId}-${sheetIdx}-${idx}`}
-                      storeName={orgName}
-                      name={p.name}
-                      code={p.code}
-                      barcode={p.barcode}
-                      unitPrice={p.unitPrice}
-                      format={p.format}
-                      includeItemCode={prepared.includeItemCode}
-                      templateName={templateName}
-                    />
-                  ))}
-                </div>
-              ))
-            })()
-          ) : (
-            buildLabelPages(prepared).map((p, idx) => (
-              <div key={`${p.itemId}-${idx}`} className="label-page-roll">
-                <LabelPage
-                  storeName={orgName}
-                  name={p.name}
-                  code={p.code}
-                  barcode={p.barcode}
-                  unitPrice={p.unitPrice}
-                  format={p.format}
-                  includeItemCode={prepared.includeItemCode}
-                  templateName={templateName}
-                />
-              </div>
-            ))
-          )}
-        </PrintLayout>
-      ) : null}
-
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="flex max-h-[90vh] max-w-5xl flex-col overflow-hidden">
           <DialogHeader>
