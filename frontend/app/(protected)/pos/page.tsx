@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { PageHeader } from "@/components/ui/page-header"
 import { Input } from "@/components/ui/input"
@@ -53,6 +53,10 @@ export default function PosPage() {
   const [newCustomerName, setNewCustomerName] = useState("")
   const [newCustomerPhone, setNewCustomerPhone] = useState("")
   const [creatingCustomer, setCreatingCustomer] = useState(false)
+  const [barcodeValue, setBarcodeValue] = useState("")
+  const [barcodeError, setBarcodeError] = useState<string | null>(null)
+  const barcodeRef = useRef<HTMLInputElement>(null)
+  const barcodeValueRef = useRef("")
 
   useEffect(() => {
     async function loadMasters() {
@@ -95,10 +99,71 @@ export default function PosPage() {
     }
   }, [])
 
+  useEffect(() => {
+    requestAnimationFrame(() => {
+      if (!loading && !createCustomerOpen) {
+        barcodeRef.current?.focus()
+      }
+    })
+  }, [createCustomerOpen, loading])
+
+  useEffect(() => {
+    function isEditableTarget(target: EventTarget | null) {
+      const el = target as HTMLElement | null
+      if (!el) return false
+      if ((el as unknown as { isContentEditable?: boolean }).isContentEditable) return true
+      const tag = (el.tagName || "").toLowerCase()
+      return tag === "input" || tag === "textarea" || tag === "select"
+    }
+
+    function onKeyDown(e: KeyboardEvent) {
+      if (createCustomerOpen) return
+      if (isEditableTarget(e.target)) return
+      if (e.ctrlKey || e.altKey || e.metaKey) return
+
+      if (e.key === "Enter") {
+        e.preventDefault()
+        handleBarcodeScanSubmit(barcodeValueRef.current)
+        return
+      }
+
+      if (e.key === "Backspace") {
+        e.preventDefault()
+        barcodeValueRef.current = barcodeValueRef.current.slice(0, -1)
+        setBarcodeValue(barcodeValueRef.current)
+        requestAnimationFrame(() => barcodeRef.current?.focus())
+        return
+      }
+
+      if (e.key.length === 1) {
+        e.preventDefault()
+        barcodeValueRef.current = barcodeValueRef.current + e.key
+        setBarcodeValue(barcodeValueRef.current)
+        if (barcodeError) setBarcodeError(null)
+        requestAnimationFrame(() => barcodeRef.current?.focus())
+      }
+    }
+
+    window.addEventListener("keydown", onKeyDown, true)
+    return () => window.removeEventListener("keydown", onKeyDown, true)
+  }, [barcodeError, createCustomerOpen])
+
   const customers = useMemo(() => parties.filter((p) => p.type === "CUSTOMER"), [parties])
 
   const itemById = useMemo(() => {
     return new Map(items.map((i) => [i.id, i]))
+  }, [items])
+
+  const itemIdByBarcode = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const it of items) {
+      const b = (it.barcode ?? "").trim()
+      if (!b) continue
+      if (!map.has(b)) {
+        map.set(b, it.id)
+      }
+    }
+    return map
   }, [items])
 
   const partyById = useMemo(() => {
@@ -193,6 +258,25 @@ export default function PosPage() {
       }
       return [...prev, { itemId, quantity: 1, unitPrice: Number(item.unitPrice) || 0 }]
     })
+  }
+
+  function handleBarcodeScanSubmit(scannedRaw?: string) {
+    const scanned = (scannedRaw ?? barcodeValueRef.current).trim()
+    if (!scanned) return
+
+    const itemId = itemIdByBarcode.get(scanned)
+    if (!itemId) {
+      setBarcodeError(`Barcode not found: ${scanned}`)
+      barcodeValueRef.current = ""
+      setBarcodeValue("")
+      return
+    }
+
+    setBarcodeError(null)
+    barcodeValueRef.current = ""
+    setBarcodeValue("")
+    addItem(itemId)
+    requestAnimationFrame(() => barcodeRef.current?.focus())
   }
 
   function updateLine(index: number, patch: Partial<PosLine>) {
@@ -421,7 +505,10 @@ export default function PosPage() {
               <div className="text-sm font-medium">Add Item</div>
               <SmartSelect<Item>
                 value={undefined}
-                onSelect={(id) => addItem(id)}
+                onSelect={(id) => {
+                  addItem(id)
+                  requestAnimationFrame(() => barcodeRef.current?.focus())
+                }}
                 placeholder="Type to search item"
                 searchPlaceholder="Search item by name, code, HSN..."
                 options={items}
@@ -448,6 +535,28 @@ export default function PosPage() {
                 }}
               />
 
+              <div className="space-y-1">
+                <Input
+                  ref={barcodeRef}
+                  value={barcodeValue}
+                  autoFocus
+                  placeholder="Scan barcode and press Enter"
+                  onChange={(e) => {
+                    const v = e.target.value
+                    barcodeValueRef.current = v
+                    setBarcodeValue(v)
+                    if (barcodeError) setBarcodeError(null)
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault()
+                      handleBarcodeScanSubmit(barcodeValueRef.current)
+                    }
+                  }}
+                />
+                {barcodeError ? <div className="text-xs text-destructive">{barcodeError}</div> : null}
+              </div>
+
               <div className="space-y-2">
                 {lines.length === 0 ? (
                   <div className="text-sm text-muted-foreground">No items added.</div>
@@ -457,7 +566,7 @@ export default function PosPage() {
                     return (
                       <div key={`${l.itemId}-${idx}`} className="grid grid-cols-[1fr_90px_120px_32px] gap-2 items-center">
                         <div className="min-w-0">
-                          <div className="text-sm font-medium truncate">{it ? `${it.code} - ${it.name}` : l.itemId}</div>
+                          <div className="text-sm font-medium truncate">{it ? it.name : l.itemId}</div>
                           <div className="text-xs text-muted-foreground truncate">{it?.uom ? `UOM: ${it.uom}` : ""}</div>
                         </div>
                         <Input
@@ -588,7 +697,7 @@ export default function PosPage() {
                     const amt = qty * unit
                     return (
                       <div key={`${l.itemId}-${idx}`} className="grid grid-cols-[1fr_40px_70px] gap-2">
-                        <div className="truncate">{it ? `${it.code} ${it.name}` : l.itemId}</div>
+                        <div className="truncate">{it ? it.name : l.itemId}</div>
                         <div className="text-right">{qty}</div>
                         <div className="text-right">₹{amt.toFixed(2)}</div>
                       </div>
