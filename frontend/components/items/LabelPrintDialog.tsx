@@ -343,6 +343,19 @@ export function LabelPrintDialog({
       ? Math.max(1, Math.ceil(totalPrintableLabels / Math.max(1, a4PerPage)))
       : totalPrintableLabels
 
+  async function resolveStoreName() {
+    const existing = (orgName || "").trim()
+    if (existing) return existing
+    try {
+      const p = await getOrganizationProfile()
+      const next = (p.companyName || "").trim()
+      if (next) setOrgName(next)
+      return next
+    } catch {
+      return ""
+    }
+  }
+
   async function printPreparedInIframe() {
     if (!prepared) return
 
@@ -361,7 +374,8 @@ export function LabelPrintDialog({
     }
 
     const includeCode = prepared.includeItemCode
-    const safeStore = escapeHtml(orgName || "")
+    const storeName = await resolveStoreName()
+    const safeStore = escapeHtml(storeName)
 
     const labelCss = `
       * { box-sizing: border-box; }
