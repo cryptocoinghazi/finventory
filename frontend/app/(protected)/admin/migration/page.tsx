@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { PageHeader } from "@/components/ui/page-header"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -8,17 +8,26 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useToast } from "@/components/ui/use-toast"
 import { InlineErrorCallout } from "@/components/ui-kit/InlineErrorCallout"
+import { ConfirmDialog } from "@/components/ui-kit/ConfirmDialog"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { getCurrentUser } from "@/lib/users"
 import {
+  cancelFullSafePipeline,
   createMigrationRun,
   executeMigrationStage,
+  getFullSafePipelineProgress,
   listMigrationLogsForRun,
   listMigrationRuns,
   listMigrationStages,
   listMigrationStagesForRun,
   MigrationLogEntry,
+  MigrationPipelinePreset,
+  MigrationPipelineProgress,
   MigrationRun,
   MigrationStageExecution,
+  resumeFullSafePipeline,
+  retryFullSafeStage,
+  startFullSafePipeline,
 } from "@/lib/migration"
 
 function formatDateTime(value?: string | null) {
@@ -43,6 +52,39 @@ function prettyJson(value?: string | null) {
   }
 }
 
+type StageStats = {
+  reconciliation?: {
+    expectedTotal?: number | string | null
+    paymentsTotal?: number | string | null
+    difference?: number | string | null
+    mismatchedOrders?: number | string | null
+  } | null
+  fallbackUsage?: {
+    fallbackPartyUsed?: number | null
+    fallbackPartyCreated?: number | null
+    fallbackWarehouseCreated?: number | null
+  } | null
+  created?: number | null
+  updated?: number | null
+  wouldCreate?: number | null
+  wouldUpdate?: number | null
+  skippedOutOfScope?: number | null
+  skippedOverLimit?: number | null
+  warnings?: number | null
+  errors?: number | null
+}
+
+function parseJsonObject(value?: string | null): StageStats | null {
+  if (!value) return null
+  try {
+    const parsed: unknown = JSON.parse(value)
+    if (typeof parsed !== "object" || parsed === null) return null
+    return parsed as StageStats
+  } catch {
+    return null
+  }
+}
+
 export default function AdminMigrationPage() {
   const { toast } = useToast()
 
@@ -63,10 +105,23 @@ export default function AdminMigrationPage() {
   const [sourceIdMax, setSourceIdMax] = useState("")
   const [limit, setLimit] = useState("")
 
+  const [pipelineLoading, setPipelineLoading] = useState(false)
+  const [pipelineProgress, setPipelineProgress] = useState<MigrationPipelineProgress | null>(
+    null
+  )
+  const lastCompletedStagesRef = useRef<string[]>([])
+  const lastFailedStageRef = useRef<string | null>(null)
+  const lastActiveRef = useRef<boolean>(false)
+
   const selectedStats = useMemo(() => {
     const analyze = stageExecutions.find((s) => s.stageKey === "ANALYZE_SOURCE")
     return prettyJson(analyze?.statsJson ?? null)
   }, [stageExecutions])
+
+  const selectedPipelinePreset: MigrationPipelinePreset | null = useMemo(() => {
+    if (!selectedRun) return null
+    return selectedRun.dryRun ? "DRY_RUN_FULL_SAFE" : "REAL_PILOT_FULL_SAFE"
+  }, [selectedRun])
 
   const loadAll = useCallback(async () => {
     setLoading(true)
@@ -127,6 +182,58 @@ export default function AdminMigrationPage() {
     loadRun(selectedRunId)
   }, [selectedRunId])
 
+  const refreshPipeline = useCallback(
+    async (runId: string) => {
+      if (!selectedPipelinePreset) return
+      try {
+        const progress = await getFullSafePipelineProgress(runId, selectedPipelinePreset)
+        setPipelineProgress(progress)
+
+        const prevCompleted = new Set(lastCompletedStagesRef.current)
+        for (const s of progress.completedStages || []) {
+          if (!prevCompleted.has(s)) {
+            toast({ title: "Stage completed", description: s })
+          }
+        }
+        lastCompletedStagesRef.current = progress.completedStages || []
+
+        const prevFailed = lastFailedStageRef.current
+        if (progress.failedStage && progress.failedStage !== prevFailed) {
+          toast({
+            variant: "destructive",
+            title: "Stage failed",
+            description: progress.failedStage,
+          })
+        }
+        lastFailedStageRef.current = progress.failedStage || null
+
+        const prevActive = lastActiveRef.current
+        if (prevActive && !progress.active && progress.summary === "Finished") {
+          toast({ title: "Pipeline finished" })
+        }
+        lastActiveRef.current = progress.active
+      } catch {
+        setPipelineProgress((prev) => prev)
+      }
+    },
+    [selectedPipelinePreset, toast]
+  )
+
+  useEffect(() => {
+    if (!selectedRunId) return
+    refreshPipeline(selectedRunId)
+  }, [refreshPipeline, selectedRunId])
+
+  useEffect(() => {
+    if (!selectedRunId) return
+    if (!pipelineProgress?.active) return
+    const handle = setInterval(() => {
+      refreshPipeline(selectedRunId)
+      loadRun(selectedRunId)
+    }, 2000)
+    return () => clearInterval(handle)
+  }, [pipelineProgress?.active, refreshPipeline, selectedRunId])
+
   function parseOptionalNumber(value: string) {
     const trimmed = value.trim()
     if (!trimmed) return null
@@ -184,6 +291,103 @@ export default function AdminMigrationPage() {
       setLoading(false)
     }
   }
+
+  async function onRunFullPipeline(confirmed: boolean) {
+    if (!selectedRunId || !selectedRun) return
+    setPipelineLoading(true)
+    setError(null)
+    const preset: MigrationPipelinePreset = selectedRun.dryRun
+      ? "DRY_RUN_FULL_SAFE"
+      : "REAL_PILOT_FULL_SAFE"
+    try {
+      const res = await startFullSafePipeline(selectedRunId, preset, confirmed)
+      setPipelineProgress(res)
+      toast({
+        title: "Pipeline started",
+        description:
+          preset === "DRY_RUN_FULL_SAFE"
+            ? "Dry-run full safe pipeline"
+            : "Real pilot full safe pipeline",
+      })
+      await loadRun(selectedRunId)
+    } catch (err) {
+      toast({
+        variant: "destructive",
+        title: "Pipeline start failed",
+        description: err instanceof Error ? err.message : "Request failed",
+      })
+      await refreshPipeline(selectedRunId)
+    } finally {
+      setPipelineLoading(false)
+    }
+  }
+
+  async function onResumePipeline() {
+    if (!selectedRunId || !selectedPipelinePreset) return
+    setPipelineLoading(true)
+    setError(null)
+    try {
+      const res = await resumeFullSafePipeline(selectedRunId, selectedPipelinePreset)
+      setPipelineProgress(res)
+      toast({ title: "Pipeline resumed" })
+      await loadRun(selectedRunId)
+    } catch (err) {
+      toast({
+        variant: "destructive",
+        title: "Resume failed",
+        description: err instanceof Error ? err.message : "Request failed",
+      })
+    } finally {
+      setPipelineLoading(false)
+    }
+  }
+
+  async function onRetryFailedStage() {
+    if (!selectedRunId || !pipelineProgress?.failedStage || !selectedPipelinePreset) return
+    setPipelineLoading(true)
+    setError(null)
+    try {
+      const res = await retryFullSafeStage(
+        selectedRunId,
+        pipelineProgress.failedStage,
+        selectedPipelinePreset
+      )
+      setPipelineProgress(res)
+      toast({ title: "Retry started", description: pipelineProgress.failedStage })
+      await loadRun(selectedRunId)
+    } catch (err) {
+      toast({
+        variant: "destructive",
+        title: "Retry failed",
+        description: err instanceof Error ? err.message : "Request failed",
+      })
+    } finally {
+      setPipelineLoading(false)
+    }
+  }
+
+  async function onCancelPipeline() {
+    if (!selectedRunId) return
+    setPipelineLoading(true)
+    setError(null)
+    try {
+      const res = await cancelFullSafePipeline(selectedRunId)
+      setPipelineProgress(res)
+      toast({ title: "Cancel requested" })
+      await loadRun(selectedRunId)
+    } catch (err) {
+      toast({
+        variant: "destructive",
+        title: "Cancel failed",
+        description: err instanceof Error ? err.message : "Request failed",
+      })
+    } finally {
+      setPipelineLoading(false)
+    }
+  }
+
+  const runPipelineButtonDisabled =
+    loading || pipelineLoading || !selectedRunId || !!pipelineProgress?.active
 
   return (
     <div className="space-y-6">
@@ -350,16 +554,107 @@ export default function AdminMigrationPage() {
                   </div>
                 </div>
 
+                <div className="rounded-lg border border-border p-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="font-medium">Full Safe Pipeline</div>
+                    <div className="text-xs text-muted-foreground">
+                      {pipelineProgress?.summary ?? "-"}
+                      {pipelineProgress?.active ? " • running" : ""}
+                    </div>
+                  </div>
+                  <div className="mt-2 grid gap-1 text-sm">
+                    <div>
+                      <span className="text-muted-foreground">Preset: </span>
+                      <span>{selectedPipelinePreset ?? "-"}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Current stage: </span>
+                      <span>{pipelineProgress?.currentStage ?? "-"}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Completed: </span>
+                      <span>
+                        {pipelineProgress?.completedStages?.length ?? 0}/
+                        {pipelineProgress?.plannedStages?.length ?? 0}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Warnings: </span>
+                      <span>{pipelineProgress?.warningsCount ?? 0}</span>
+                      <span className="text-muted-foreground"> • Errors: </span>
+                      <span>{pipelineProgress?.errorsCount ?? 0}</span>
+                    </div>
+                    {pipelineProgress?.failedStage ? (
+                      <div className="text-destructive">Failed: {pipelineProgress.failedStage}</div>
+                    ) : null}
+                  </div>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {selectedRun?.dryRun ? (
+                      <Button
+                        onClick={() => onRunFullPipeline(false)}
+                        disabled={runPipelineButtonDisabled}
+                      >
+                        Run Full Safe Pipeline
+                      </Button>
+                    ) : (
+                      <ConfirmDialog
+                        title="Run real pilot pipeline?"
+                        description="This will write master data and sales pilot into the database."
+                        confirmText="Run Real Pipeline"
+                        cancelText="Cancel"
+                        onConfirm={() => onRunFullPipeline(true)}
+                        disabled={runPipelineButtonDisabled}
+                      >
+                        <Button disabled={runPipelineButtonDisabled} variant="destructive">
+                          Run Full Safe Pipeline
+                        </Button>
+                      </ConfirmDialog>
+                    )}
+                    <Button
+                      variant="outline"
+                      disabled={pipelineLoading || !selectedRunId || pipelineProgress?.active}
+                      onClick={onResumePipeline}
+                    >
+                      Resume
+                    </Button>
+                    <Button
+                      variant="outline"
+                      disabled={
+                        pipelineLoading ||
+                        !selectedRunId ||
+                        pipelineProgress?.active ||
+                        !pipelineProgress?.failedStage
+                      }
+                      onClick={onRetryFailedStage}
+                    >
+                      Retry Failed Stage
+                    </Button>
+                    <Button
+                      variant="outline"
+                      disabled={pipelineLoading || !selectedRunId || !pipelineProgress?.active}
+                      onClick={onCancelPipeline}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      variant="outline"
+                      disabled={pipelineLoading || !selectedRunId}
+                      onClick={() => selectedRunId && refreshPipeline(selectedRunId)}
+                    >
+                      Refresh Progress
+                    </Button>
+                  </div>
+                </div>
+
                 <div className="flex flex-wrap gap-2">
                   {stages.map((stage) => {
-                    const disabled = stage === "IMPORT_ITEMS"
                     return (
                       <Button
                         key={stage}
                         variant={stage === "ANALYZE_SOURCE" ? "default" : "outline"}
-                        disabled={loading || disabled}
+                        disabled={loading}
                         onClick={() => onExecuteStage(stage)}
-                        title={disabled ? "Not implemented yet" : `Execute ${stage}`}
+                        title={`Execute ${stage}`}
                       >
                         Execute {stage}
                       </Button>
@@ -367,35 +662,109 @@ export default function AdminMigrationPage() {
                   })}
                 </div>
 
-                <div className="space-y-2">
-                  <div className="text-sm font-medium">Stages</div>
-                  {stageExecutions.length === 0 ? (
-                    <div className="text-sm text-muted-foreground">
-                      No stages executed yet.
+                <Tabs defaultValue="results">
+                  <TabsList>
+                    <TabsTrigger value="results">Results</TabsTrigger>
+                    <TabsTrigger value="logs">Logs</TabsTrigger>
+                  </TabsList>
+                  <TabsContent value="results" className="space-y-2">
+                    <div className="text-sm font-medium">Stage Results</div>
+                    {stageExecutions.length === 0 ? (
+                      <div className="text-sm text-muted-foreground">No stages executed yet.</div>
+                    ) : (
+                      <div className="space-y-2">
+                        {stageExecutions.map((s) => {
+                          const statsObj = parseJsonObject(s.statsJson ?? null)
+                          const reconciliation = statsObj?.reconciliation ?? null
+                          const fallbackUsage = statsObj?.fallbackUsage ?? null
+                          const created = statsObj?.created ?? statsObj?.wouldCreate ?? null
+                          const updated = statsObj?.updated ?? statsObj?.wouldUpdate ?? null
+                          const skipped =
+                            (statsObj?.skippedOutOfScope ?? 0) + (statsObj?.skippedOverLimit ?? 0)
+                          const warnings = statsObj?.warnings ?? 0
+                          const errors = statsObj?.errors ?? 0
+
+                          return (
+                            <div
+                              key={s.id}
+                              className="rounded-lg border border-border px-3 py-2 text-sm"
+                            >
+                              <div className="flex items-center justify-between gap-2">
+                                <div className="font-medium">{s.stageKey}</div>
+                                <div className="text-xs text-muted-foreground">{s.status}</div>
+                              </div>
+                              <div className="text-xs text-muted-foreground">
+                                Started: {formatDateTime(s.startedAt)} • Finished:{" "}
+                                {formatDateTime(s.finishedAt ?? null)}
+                              </div>
+                              <div className="mt-1 text-xs text-muted-foreground">
+                                created={created ?? "-"} • updated={updated ?? "-"} • skipped={skipped} •
+                                warnings={warnings} • errors={errors}
+                              </div>
+                              {reconciliation ? (
+                                <div className="mt-1 text-xs text-muted-foreground">
+                                  reconciliation expectedTotal={String(reconciliation.expectedTotal ?? "-")} •
+                                  paymentsTotal={String(reconciliation.paymentsTotal ?? "-")} • difference=
+                                  {String(reconciliation.difference ?? "-")} • mismatchedOrders=
+                                  {String(reconciliation.mismatchedOrders ?? "-")}
+                                </div>
+                              ) : null}
+                              {fallbackUsage ? (
+                                <div className="mt-1 text-xs text-muted-foreground">
+                                  fallback partyUsed={String(fallbackUsage.fallbackPartyUsed ?? 0)} • partyCreated=
+                                  {String(fallbackUsage.fallbackPartyCreated ?? 0)} • warehouseCreated=
+                                  {String(fallbackUsage.fallbackWarehouseCreated ?? 0)}
+                                </div>
+                              ) : null}
+                              {s.errorMessage ? (
+                                <div className="text-xs text-destructive mt-1">{s.errorMessage}</div>
+                              ) : null}
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </TabsContent>
+                  <TabsContent value="logs" className="space-y-3">
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        disabled={loading || !selectedRunId}
+                        onClick={() => selectedRunId && loadRun(selectedRunId)}
+                      >
+                        Refresh Logs
+                      </Button>
                     </div>
-                  ) : (
-                    <div className="space-y-2">
-                      {stageExecutions.map((s) => (
-                        <div
-                          key={s.id}
-                          className="rounded-lg border border-border px-3 py-2 text-sm"
-                        >
-                          <div className="flex items-center justify-between gap-2">
-                            <div className="font-medium">{s.stageKey}</div>
-                            <div className="text-xs text-muted-foreground">{s.status}</div>
+                    {logs.length === 0 ? (
+                      <div className="text-sm text-muted-foreground">No logs yet.</div>
+                    ) : (
+                      <div className="space-y-2 max-h-[420px] overflow-auto">
+                        {logs.map((l) => (
+                          <div
+                            key={l.id}
+                            className="rounded-lg border border-border px-3 py-2 text-sm"
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="font-medium">
+                                {l.level}
+                                {l.stageKey ? ` • ${l.stageKey}` : ""}
+                              </div>
+                              <div className="text-xs text-muted-foreground">
+                                {formatDateTime(l.createdAt)}
+                              </div>
+                            </div>
+                            <div className="text-sm">{l.message}</div>
+                            {l.details ? (
+                              <pre className="text-xs whitespace-pre-wrap text-muted-foreground mt-1">
+                                {l.details}
+                              </pre>
+                            ) : null}
                           </div>
-                          <div className="text-xs text-muted-foreground">
-                            Started: {formatDateTime(s.startedAt)} • Finished:{" "}
-                            {formatDateTime(s.finishedAt ?? null)}
-                          </div>
-                          {s.errorMessage ? (
-                            <div className="text-xs text-destructive mt-1">{s.errorMessage}</div>
-                          ) : null}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
+                        ))}
+                      </div>
+                    )}
+                  </TabsContent>
+                </Tabs>
               </>
             )}
           </CardContent>
@@ -424,47 +793,18 @@ export default function AdminMigrationPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Logs</CardTitle>
+            <CardTitle>Most Recent Stage JSON</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                disabled={loading || !selectedRunId}
-                onClick={() => selectedRunId && loadRun(selectedRunId)}
-              >
-                Refresh Logs
-              </Button>
-            </div>
+          <CardContent>
             {!selectedRunId ? (
               <div className="text-sm text-muted-foreground">Select a run.</div>
-            ) : logs.length === 0 ? (
-              <div className="text-sm text-muted-foreground">No logs yet.</div>
+            ) : stageExecutions.length === 0 ? (
+              <div className="text-sm text-muted-foreground">Execute a stage to see stats.</div>
             ) : (
-              <div className="space-y-2 max-h-[420px] overflow-auto">
-                {logs.map((l) => (
-                  <div
-                    key={l.id}
-                    className="rounded-lg border border-border px-3 py-2 text-sm"
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="font-medium">
-                        {l.level}
-                        {l.stageKey ? ` • ${l.stageKey}` : ""}
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        {formatDateTime(l.createdAt)}
-                      </div>
-                    </div>
-                    <div className="text-sm">{l.message}</div>
-                    {l.details ? (
-                      <pre className="text-xs whitespace-pre-wrap text-muted-foreground mt-1">
-                        {l.details}
-                      </pre>
-                    ) : null}
-                  </div>
-                ))}
-              </div>
+              <pre className="text-xs whitespace-pre-wrap rounded-lg border border-border bg-muted/20 p-3 overflow-auto max-h-[420px]">
+                {prettyJson(stageExecutions[stageExecutions.length - 1]?.statsJson ?? null) ??
+                  "(no stats)"}
+              </pre>
             )}
           </CardContent>
         </Card>

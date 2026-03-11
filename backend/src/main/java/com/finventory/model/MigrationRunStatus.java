@@ -4,5 +4,6 @@ public enum MigrationRunStatus {
     CREATED,
     RUNNING,
     FAILED,
-    COMPLETED
+    COMPLETED,
+    CANCELLED
 }

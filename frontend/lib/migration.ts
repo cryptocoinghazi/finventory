@@ -1,6 +1,6 @@
 import { apiFetch } from "./api"
 
-export type MigrationRunStatus = "CREATED" | "RUNNING" | "FAILED" | "COMPLETED"
+export type MigrationRunStatus = "CREATED" | "RUNNING" | "FAILED" | "COMPLETED" | "CANCELLED"
 
 export interface MigrationRun {
   id: string
@@ -39,6 +39,24 @@ export interface MigrationLogEntry {
   message: string
   details?: string | null
   createdAt: string
+}
+
+export type MigrationPipelinePreset = "DRY_RUN_FULL_SAFE" | "REAL_PILOT_FULL_SAFE"
+
+export interface MigrationPipelineProgress {
+  runId: string
+  runStatus: MigrationRunStatus
+  preset: MigrationPipelinePreset
+  active: boolean
+  startedAt?: string | null
+  finishedAt?: string | null
+  currentStage?: string | null
+  plannedStages: string[]
+  completedStages: string[]
+  failedStage?: string | null
+  warningsCount: number
+  errorsCount: number
+  summary?: string | null
 }
 
 export interface CreateMigrationRunRequest {
@@ -113,6 +131,78 @@ export async function executeMigrationStage(
   if (!res.ok) {
     const text = await res.text()
     throw new Error(text || "Failed to execute migration stage")
+  }
+  return res.json()
+}
+
+export async function startFullSafePipeline(
+  runId: string,
+  preset?: MigrationPipelinePreset,
+  confirmed?: boolean
+): Promise<MigrationPipelineProgress> {
+  const res = await apiFetch(`/api/v1/admin/migration/runs/${runId}/pipeline/full-safe/start`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ preset, confirmed }),
+  })
+  if (!res.ok) {
+    const text = await res.text()
+    throw new Error(text || "Failed to start pipeline")
+  }
+  return res.json()
+}
+
+export async function getFullSafePipelineProgress(
+  runId: string,
+  preset?: MigrationPipelinePreset
+): Promise<MigrationPipelineProgress> {
+  const query = preset ? `?preset=${encodeURIComponent(preset)}` : ""
+  const res = await apiFetch(`/api/v1/admin/migration/runs/${runId}/pipeline/full-safe/progress${query}`)
+  if (!res.ok) throw new Error("Failed to fetch pipeline progress")
+  return res.json()
+}
+
+export async function resumeFullSafePipeline(
+  runId: string,
+  preset?: MigrationPipelinePreset
+): Promise<MigrationPipelineProgress> {
+  const query = preset ? `?preset=${encodeURIComponent(preset)}` : ""
+  const res = await apiFetch(`/api/v1/admin/migration/runs/${runId}/pipeline/full-safe/resume${query}`, {
+    method: "POST",
+  })
+  if (!res.ok) {
+    const text = await res.text()
+    throw new Error(text || "Failed to resume pipeline")
+  }
+  return res.json()
+}
+
+export async function retryFullSafeStage(
+  runId: string,
+  stageKey: string,
+  preset?: MigrationPipelinePreset
+): Promise<MigrationPipelineProgress> {
+  const query = preset ? `?preset=${encodeURIComponent(preset)}` : ""
+  const res = await apiFetch(
+    `/api/v1/admin/migration/runs/${runId}/pipeline/full-safe/retry/${encodeURIComponent(
+      stageKey
+    )}${query}`,
+    { method: "POST" }
+  )
+  if (!res.ok) {
+    const text = await res.text()
+    throw new Error(text || "Failed to retry stage")
+  }
+  return res.json()
+}
+
+export async function cancelFullSafePipeline(runId: string): Promise<MigrationPipelineProgress> {
+  const res = await apiFetch(`/api/v1/admin/migration/runs/${runId}/pipeline/full-safe/cancel`, {
+    method: "POST",
+  })
+  if (!res.ok) {
+    const text = await res.text()
+    throw new Error(text || "Failed to cancel pipeline")
   }
   return res.json()
 }

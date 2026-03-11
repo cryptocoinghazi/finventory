@@ -8,6 +8,7 @@ export function ConfirmDialog({
   cancelText = "Cancel",
   onConfirm,
   onCancel,
+  disabled,
   children,
 }: {
   title: React.ReactNode
@@ -16,12 +17,21 @@ export function ConfirmDialog({
   cancelText?: string
   onConfirm: () => void
   onCancel?: () => void
+  disabled?: boolean
   children?: React.ReactNode
 }) {
   const [open, setOpen] = React.useState(false)
   return (
     <>
-      <div onClick={() => setOpen(true)} className="inline-block cursor-pointer">
+      <div
+        onClick={() => {
+          if (disabled) return
+          setOpen(true)
+        }}
+        className={
+          "inline-block " + (disabled ? "cursor-not-allowed opacity-50" : "cursor-pointer")
+        }
+      >
         {children || (
           <Button variant="destructive">{confirmText}</Button>
         )}
@@ -60,4 +70,3 @@ export function ConfirmDialog({
     </>
   )
 }
-

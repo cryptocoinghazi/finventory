@@ -68,6 +68,29 @@ public class MigrationService {
     }
 
     @Transactional
+    public void updateRunStatus(UUID runId, MigrationRunStatus status, boolean clearFinishedAt) {
+        MigrationRun run =
+                runRepository.findById(runId).orElseThrow(() -> new IllegalArgumentException("Run not found"));
+        run.setStatus(status);
+        if (clearFinishedAt) {
+            run.setFinishedAt(null);
+        } else if (status == MigrationRunStatus.COMPLETED
+                || status == MigrationRunStatus.FAILED
+                || status == MigrationRunStatus.CANCELLED) {
+            run.setFinishedAt(OffsetDateTime.now());
+        }
+        runRepository.save(run);
+    }
+
+    @Transactional
+    public void logMessage(
+            UUID runId, MigrationStageKey stageKey, MigrationLogLevel level, String message, String details) {
+        MigrationRun run =
+                runRepository.findById(runId).orElseThrow(() -> new IllegalArgumentException("Run not found"));
+        log(run, stageKey, level, message, details);
+    }
+
+    @Transactional
     public MigrationRunDto createRun(CreateMigrationRunRequest request, String requestedBy) {
         String sourceSystem = normalizeSourceSystem(request.getSourceSystem());
         boolean dryRun = request.getDryRun() == null || request.getDryRun();

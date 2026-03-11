@@ -1,9 +1,13 @@
 package com.finventory.controller;
 
 import com.finventory.dto.CreateMigrationRunRequest;
+import com.finventory.dto.MigrationPipelinePreset;
+import com.finventory.dto.MigrationPipelineProgressDto;
+import com.finventory.dto.MigrationPipelineStartRequest;
 import com.finventory.dto.MigrationRunDto;
 import com.finventory.dto.MigrationStageExecutionDto;
 import com.finventory.model.MigrationStageKey;
+import com.finventory.service.MigrationOrchestrator;
 import com.finventory.service.MigrationService;
 import java.security.Principal;
 import java.util.Arrays;
@@ -26,6 +30,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class MigrationController {
 
     private final MigrationService migrationService;
+    private final MigrationOrchestrator migrationOrchestrator;
 
     @GetMapping("/stages")
     public ResponseEntity<List<String>> getStages() {
@@ -66,5 +71,38 @@ public class MigrationController {
             @PathVariable UUID id, @PathVariable String stageKey) {
         MigrationStageKey key = MigrationStageKey.valueOf(stageKey.toUpperCase(Locale.ROOT));
         return ResponseEntity.ok(migrationService.executeStage(id, key));
+    }
+
+    @PostMapping("/runs/{id}/pipeline/full-safe/start")
+    public ResponseEntity<MigrationPipelineProgressDto> startFullSafePipeline(
+            @PathVariable UUID id, @RequestBody(required = false) MigrationPipelineStartRequest request) {
+        return ResponseEntity.ok(migrationOrchestrator.startFullSafePipeline(id, request));
+    }
+
+    @GetMapping("/runs/{id}/pipeline/full-safe/progress")
+    public ResponseEntity<MigrationPipelineProgressDto> getFullSafePipelineProgress(
+            @PathVariable UUID id,
+            @RequestParam(name = "preset", required = false) MigrationPipelinePreset preset) {
+        return ResponseEntity.ok(migrationOrchestrator.getFullSafePipelineProgress(id, preset));
+    }
+
+    @PostMapping("/runs/{id}/pipeline/full-safe/resume")
+    public ResponseEntity<MigrationPipelineProgressDto> resumeFullSafePipeline(
+            @PathVariable UUID id,
+            @RequestParam(name = "preset", required = false) MigrationPipelinePreset preset) {
+        return ResponseEntity.ok(migrationOrchestrator.resumeFullSafePipeline(id, preset));
+    }
+
+    @PostMapping("/runs/{id}/pipeline/full-safe/retry/{stageKey}")
+    public ResponseEntity<MigrationPipelineProgressDto> retryFailedStage(
+            @PathVariable UUID id,
+            @PathVariable String stageKey,
+            @RequestParam(name = "preset", required = false) MigrationPipelinePreset preset) {
+        return ResponseEntity.ok(migrationOrchestrator.retryFailedStage(id, stageKey, preset));
+    }
+
+    @PostMapping("/runs/{id}/pipeline/full-safe/cancel")
+    public ResponseEntity<MigrationPipelineProgressDto> cancelPipeline(@PathVariable UUID id) {
+        return ResponseEntity.ok(migrationOrchestrator.cancelPipeline(id));
     }
 }

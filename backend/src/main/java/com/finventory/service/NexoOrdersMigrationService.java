@@ -86,7 +86,9 @@ public class NexoOrdersMigrationService {
             throw new IllegalArgumentException("Dump file not found: " + dumpPath);
         }
 
-        UUID warehouseId = resolveDefaultWarehouseId(run);
+        SalesPilotCounters counters = new SalesPilotCounters();
+
+        UUID warehouseId = resolveDefaultWarehouseId(run, counters);
         if (warehouseId == null) {
             Map<String, Object> stats = new LinkedHashMap<>();
             stats.put("implemented", true);
@@ -97,7 +99,6 @@ public class NexoOrdersMigrationService {
             return stats;
         }
 
-        SalesPilotCounters counters = new SalesPilotCounters();
         List<String> warningSamples = new ArrayList<>();
         List<String> errorSamples = new ArrayList<>();
         Map<Long, OrderHeader> eligibleOrdersById = new LinkedHashMap<>();
@@ -271,7 +272,7 @@ public class NexoOrdersMigrationService {
             return;
         }
 
-        UUID partyId = resolveCustomerPartyId(ctx.run, header.customerId, ctx.warningSamples);
+        UUID partyId = resolveCustomerPartyId(ctx.run, header.customerId, ctx.warningSamples, ctx.counters);
         if (partyId == null) {
             ctx.counters.skippedMissingParty.incrementAndGet();
             addSample(ctx.warningSamples, "orderId=" + header.orderId + " missing customer/party mapping");
@@ -417,6 +418,9 @@ public class NexoOrdersMigrationService {
         stats.put("warningSamples", ctx.warningSamples);
         stats.put("errors", ctx.counters.errors.get());
         stats.put("errorSamples", ctx.errorSamples);
+
+        stats.put("reconciliation", buildSalesPilotReconciliation(linesByOrderId, paymentsByOrderId));
+        stats.put("fallbackUsage", buildFallbackUsage(ctx.counters));
         return stats;
     }
 
@@ -441,6 +445,9 @@ public class NexoOrdersMigrationService {
         private final AtomicLong wouldCreate = new AtomicLong();
         private final AtomicLong markedPaid = new AtomicLong();
         private final AtomicLong errors = new AtomicLong();
+        private final AtomicLong fallbackWarehouseCreated = new AtomicLong();
+        private final AtomicLong fallbackPartyCreated = new AtomicLong();
+        private final AtomicLong fallbackPartyUsed = new AtomicLong();
     }
 
     private static final class SalesPilotContext {
@@ -480,7 +487,7 @@ public class NexoOrdersMigrationService {
         return null;
     }
 
-    private UUID resolveDefaultWarehouseId(MigrationRun run) {
+    private UUID resolveDefaultWarehouseId(MigrationRun run, SalesPilotCounters counters) {
         List<com.finventory.model.Warehouse> warehouses =
                 warehouseRepository.findAll(PageRequest.of(0, 1)).getContent();
         if (!warehouses.isEmpty()) {
@@ -492,10 +499,12 @@ public class NexoOrdersMigrationService {
         }
 
         WarehouseDto created = warehouseService.createWarehouse(WarehouseDto.builder().name("Main Warehouse").build());
+        counters.fallbackWarehouseCreated.incrementAndGet();
         return created.getId();
     }
 
-    private UUID resolveCustomerPartyId(MigrationRun run, Long customerSourceId, List<String> warningSamples) {
+    private UUID resolveCustomerPartyId(
+            MigrationRun run, Long customerSourceId, List<String> warningSamples, SalesPilotCounters counters) {
         if (customerSourceId != null) {
             Optional<MigrationIdMap> map =
                     idMapRepository.findBySourceSystemAndEntityTypeAndSourceId(
@@ -511,6 +520,7 @@ public class NexoOrdersMigrationService {
         List<Party> walkIns =
                 partyRepository.findByNameIgnoreCaseAndType("Walk-in Customer", Party.PartyType.CUSTOMER);
         if (!walkIns.isEmpty()) {
+            counters.fallbackPartyUsed.incrementAndGet();
             return walkIns.get(0).getId();
         }
 
@@ -521,7 +531,58 @@ public class NexoOrdersMigrationService {
         PartyDto created =
                 partyService.createParty(
                         PartyDto.builder().name("Walk-in Customer").type(Party.PartyType.CUSTOMER).build());
+        counters.fallbackPartyCreated.incrementAndGet();
+        counters.fallbackPartyUsed.incrementAndGet();
         return created.getId();
+    }
+
+    private Map<String, Object> buildFallbackUsage(SalesPilotCounters counters) {
+        Map<String, Object> fallback = new LinkedHashMap<>();
+        fallback.put("fallbackWarehouseCreated", counters.fallbackWarehouseCreated.get());
+        fallback.put("fallbackPartyCreated", counters.fallbackPartyCreated.get());
+        fallback.put("fallbackPartyUsed", counters.fallbackPartyUsed.get());
+        return fallback;
+    }
+
+    private Map<String, Object> buildSalesPilotReconciliation(
+            Map<Long, List<OrderLine>> linesByOrderId, Map<Long, BigDecimal> paymentsByOrderId) {
+        BigDecimal expectedTotal = BigDecimal.ZERO;
+        BigDecimal paidTotal = BigDecimal.ZERO;
+        long mismatchedOrders = 0;
+
+        for (Map.Entry<Long, List<OrderLine>> e : linesByOrderId.entrySet()) {
+            Long orderId = e.getKey();
+            BigDecimal expected = BigDecimal.ZERO;
+            for (OrderLine l : e.getValue()) {
+                if (l == null) {
+                    continue;
+                }
+                BigDecimal qty = l.quantity != null ? l.quantity : BigDecimal.ZERO;
+                if (qty.compareTo(BigDecimal.ZERO) <= 0) {
+                    continue;
+                }
+                if (l.totalPrice != null) {
+                    expected = expected.add(l.totalPrice);
+                    continue;
+                }
+                if (l.unitPrice != null) {
+                    expected = expected.add(l.unitPrice.multiply(qty));
+                }
+            }
+            BigDecimal paid = paymentsByOrderId.getOrDefault(orderId, BigDecimal.ZERO);
+            expectedTotal = expectedTotal.add(expected);
+            paidTotal = paidTotal.add(paid);
+            if (expected.compareTo(paid) != 0) {
+                mismatchedOrders++;
+            }
+        }
+
+        Map<String, Object> reconciliation = new LinkedHashMap<>();
+        reconciliation.put("expectedTotal", expectedTotal.setScale(MONEY_SCALE, RoundingMode.HALF_UP));
+        reconciliation.put("paymentsTotal", paidTotal.setScale(MONEY_SCALE, RoundingMode.HALF_UP));
+        reconciliation.put("difference", expectedTotal.subtract(paidTotal).setScale(MONEY_SCALE, RoundingMode.HALF_UP));
+        reconciliation.put("mismatchedOrders", mismatchedOrders);
+        return reconciliation;
     }
 
     private LocalDate parseLocalDateOrToday(String value) {
