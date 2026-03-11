@@ -53,6 +53,7 @@ public class NexoMigrationItemsStagesService {
     private static final String DEFAULT_UOM = "pcs";
     private static final int MAX_ERROR_SAMPLES = 25;
     private static final int MAX_UNSUPPORTED_SAMPLES = 10;
+    private static final int MAX_STATS_SAMPLES = 3;
 
     private final NexoDumpSqlService dumpSql;
     private final MigrationIdMapRepository idMapRepository;
@@ -73,6 +74,8 @@ public class NexoMigrationItemsStagesService {
 
         Map<Long, BigDecimal> avgOrderPriceByProductId =
                 resolveAverageOrderPriceByProductId(dumpPath);
+        Map<Long, BigDecimal> avgOrderCogsByProductId =
+                resolveAverageOrderCogsByProductId(dumpPath);
         Map<Long, BigDecimal> avgPurchasePriceByProductId =
                 resolveAveragePurchasePriceByProductId(dumpPath);
 
@@ -82,6 +85,7 @@ public class NexoMigrationItemsStagesService {
                         taxRateByTaxId,
                         taxRateByTaxGroupId,
                         avgOrderPriceByProductId,
+                        avgOrderCogsByProductId,
                         avgPurchasePriceByProductId);
 
         ImportItemsCounters counters = new ImportItemsCounters();
@@ -97,72 +101,9 @@ public class NexoMigrationItemsStagesService {
                 TABLE_PRODUCTS,
                 (columns, values) -> importItemRow(rowContext, columns, values));
 
-        Map<String, Object> stats = new LinkedHashMap<>();
-        stats.put("implemented", true);
-        stats.put("stage", MigrationStageKey.IMPORT_ITEMS.name());
-        stats.put("dumpPath", dumpPath.toAbsolutePath().normalize().toString());
-        stats.put("dryRun", run.isDryRun());
-        stats.put("sourceSystem", run.getSourceSystem());
-        stats.put("sourceReference", run.getSourceReference());
-        stats.put("scopeSourceIdMin", run.getScopeSourceIdMin());
-        stats.put("scopeSourceIdMax", run.getScopeSourceIdMax());
-        stats.put("scopeLimit", run.getScopeLimit());
-        stats.put("insertStatements", dumpSql.countInsertStatements(dumpPath, TABLE_PRODUCTS));
-        stats.put("found", counters.found.get());
-        stats.put("valid", counters.valid.get());
-        stats.put("skippedOutOfScope", counters.skippedOutOfScope.get());
-        stats.put("skippedOverLimit", counters.skippedOverLimit.get());
-        stats.put("alreadyMapped", counters.alreadyMapped.get());
-        stats.put("linkedExisting", counters.linkedExisting.get());
-        stats.put("created", counters.created.get());
-        stats.put("updated", counters.updated.get());
-        stats.put("wouldCreate", counters.wouldCreate.get());
-        stats.put("wouldUpdate", counters.wouldUpdate.get());
-        stats.put("itemsCreated", counters.created.get());
-        stats.put("itemsUpdated", counters.updated.get());
-        stats.put("itemsWouldCreate", counters.wouldCreate.get());
-        stats.put("itemsWouldUpdate", counters.wouldUpdate.get());
-        stats.put("warnings", warningSamples.size());
-        stats.put("warningSamples", warningSamples);
-        stats.put("errors", counters.errors.get());
-        stats.put("errorSamples", errorSamples);
-
-        Map<String, Object> priceSource = new LinkedHashMap<>();
-        priceSource.put("fromProductColumns", rowContext.priceFromProductColumns.get());
-        priceSource.put("fromOrders", rowContext.priceFromOrders.get());
-        priceSource.put("defaultedZero", rowContext.priceDefaultedZero.get());
-        stats.put("priceSource", priceSource);
-
-        Map<String, Object> cogsSource = new LinkedHashMap<>();
-        cogsSource.put("fromProductColumns", rowContext.cogsFromProductColumns.get());
-        cogsSource.put("fromProcurements", rowContext.cogsFromProcurements.get());
-        cogsSource.put("defaultedZero", rowContext.cogsDefaultedZero.get());
-        stats.put("cogsSource", cogsSource);
-
-        Map<String, Object> vendorLinkage = new LinkedHashMap<>();
-        vendorLinkage.put(
-                "productsWithCategoryId", rowContext.vendorLinkageProductsWithCategory.get());
-        vendorLinkage.put("vendorMapped", rowContext.vendorLinkageMapped.get());
-        vendorLinkage.put("vendorMissingMap", rowContext.vendorLinkageMissingMap.get());
-        vendorLinkage.put("missingCategoryId", rowContext.vendorLinkageMissingCategory.get());
-        stats.put("vendorLinkage", vendorLinkage);
-        stats.put("vendorMapped", rowContext.vendorLinkageMapped.get());
-        stats.put("vendorMissingMap", rowContext.vendorLinkageMissingMap.get());
-
-        Map<String, Object> unsupported = new LinkedHashMap<>();
-        unsupported.put("descriptionNonEmpty", rowContext.unsupportedDescriptionNonEmpty.get());
-        unsupported.put("statusPresent", rowContext.unsupportedStatusPresent.get());
-        unsupported.put("activePresent", rowContext.unsupportedStatusPresent.get());
-        unsupported.put("cogsCandidatesPresent", rowContext.unsupportedCogsCandidatesPresent.get());
-        unsupported.put("samples", unsupportedFieldSamples);
-        stats.put("unsupportedSourceFields", unsupported);
-        stats.put(
-                "unsupportedDescriptionNonEmpty", rowContext.unsupportedDescriptionNonEmpty.get());
-        stats.put("unsupportedStatusPresent", rowContext.unsupportedStatusPresent.get());
-        stats.put("unsupportedActivePresent", rowContext.unsupportedStatusPresent.get());
-        stats.put(
-                "unsupportedCogsCandidatesPresent",
-                rowContext.unsupportedCogsCandidatesPresent.get());
+        Map<String, Object> stats =
+                buildItemsStats(
+                        rowContext, dumpPath);
 
         log(
                 run,
@@ -200,6 +141,89 @@ public class NexoMigrationItemsStagesService {
                             + rowContext.unsupportedCogsCandidatesPresent.get());
         }
 
+        return stats;
+    }
+
+    private Map<String, Object> buildItemsStats(ItemRowContext ctx, Path dumpPath) throws Exception {
+        Map<String, Object> stats = new LinkedHashMap<>();
+        stats.put("implemented", true);
+        stats.put("stage", MigrationStageKey.IMPORT_ITEMS.name());
+        stats.put("dumpPath", dumpPath.toAbsolutePath().normalize().toString());
+        stats.put("dryRun", ctx.run.isDryRun());
+        stats.put("sourceSystem", ctx.run.getSourceSystem());
+        stats.put("sourceReference", ctx.run.getSourceReference());
+        stats.put("scopeSourceIdMin", ctx.run.getScopeSourceIdMin());
+        stats.put("scopeSourceIdMax", ctx.run.getScopeSourceIdMax());
+        stats.put("scopeLimit", ctx.run.getScopeLimit());
+        stats.put("insertStatements", dumpSql.countInsertStatements(dumpPath, TABLE_PRODUCTS));
+        stats.put("found", ctx.counters.found.get());
+        stats.put("valid", ctx.counters.valid.get());
+        stats.put("skippedOutOfScope", ctx.counters.skippedOutOfScope.get());
+        stats.put("skippedOverLimit", ctx.counters.skippedOverLimit.get());
+        stats.put("alreadyMapped", ctx.counters.alreadyMapped.get());
+        stats.put("linkedExisting", ctx.counters.linkedExisting.get());
+        stats.put("created", ctx.counters.created.get());
+        stats.put("updated", ctx.counters.updated.get());
+        stats.put("wouldCreate", ctx.counters.wouldCreate.get());
+        stats.put("wouldUpdate", ctx.counters.wouldUpdate.get());
+        stats.put("itemsCreated", ctx.counters.created.get());
+        stats.put("itemsUpdated", ctx.counters.updated.get());
+        stats.put("itemsWouldCreate", ctx.counters.wouldCreate.get());
+        stats.put("itemsWouldUpdate", ctx.counters.wouldUpdate.get());
+        stats.put("warnings", ctx.samples.warningSamples.size());
+        stats.put("warningSamples", ctx.samples.warningSamples);
+        stats.put("errors", ctx.counters.errors.get());
+        stats.put("errorSamples", ctx.samples.errorSamples);
+
+        Map<String, Object> priceSource = new LinkedHashMap<>();
+        priceSource.put("fromProductColumns", ctx.priceFromProductColumns.get());
+        priceSource.put("fromOrders", ctx.priceFromOrders.get());
+        priceSource.put("defaultedZero", ctx.priceDefaultedZero.get());
+        stats.put("priceSource", priceSource);
+        stats.put("avgOrderPriceByProductCount", ctx.lookups.avgOrderPriceByProductId.size());
+        stats.put(
+                "avgOrderPriceSample",
+                sampleProductValues(ctx.lookups.avgOrderPriceByProductId, MAX_STATS_SAMPLES));
+
+        Map<String, Object> cogsSource = new LinkedHashMap<>();
+        cogsSource.put("fromProductColumns", ctx.cogsFromProductColumns.get());
+        cogsSource.put("fromOrders", ctx.cogsFromOrders.get());
+        cogsSource.put("fromProcurements", ctx.cogsFromProcurements.get());
+        cogsSource.put("defaultedZero", ctx.cogsDefaultedZero.get());
+        stats.put("cogsSource", cogsSource);
+        stats.put("avgOrderCogsByProductCount", ctx.lookups.avgOrderCogsByProductId.size());
+        stats.put(
+                "avgOrderCogsSample",
+                sampleProductValues(ctx.lookups.avgOrderCogsByProductId, MAX_STATS_SAMPLES));
+        stats.put("avgPurchasePriceByProductCount", ctx.lookups.avgPurchasePriceByProductId.size());
+        stats.put(
+                "avgPurchasePriceSample",
+                sampleProductValues(ctx.lookups.avgPurchasePriceByProductId, MAX_STATS_SAMPLES));
+
+        Map<String, Object> vendorLinkage = new LinkedHashMap<>();
+        vendorLinkage.put(
+                "productsWithCategoryId", ctx.vendorLinkageProductsWithCategory.get());
+        vendorLinkage.put("vendorMapped", ctx.vendorLinkageMapped.get());
+        vendorLinkage.put("vendorMissingMap", ctx.vendorLinkageMissingMap.get());
+        vendorLinkage.put("missingCategoryId", ctx.vendorLinkageMissingCategory.get());
+        stats.put("vendorLinkage", vendorLinkage);
+        stats.put("vendorMapped", ctx.vendorLinkageMapped.get());
+        stats.put("vendorMissingMap", ctx.vendorLinkageMissingMap.get());
+
+        Map<String, Object> unsupported = new LinkedHashMap<>();
+        unsupported.put("descriptionNonEmpty", ctx.unsupportedDescriptionNonEmpty.get());
+        unsupported.put("statusPresent", ctx.unsupportedStatusPresent.get());
+        unsupported.put("activePresent", ctx.unsupportedStatusPresent.get());
+        unsupported.put("cogsCandidatesPresent", ctx.unsupportedCogsCandidatesPresent.get());
+        unsupported.put("samples", ctx.unsupportedFieldSamples);
+        stats.put("unsupportedSourceFields", unsupported);
+        stats.put(
+                "unsupportedDescriptionNonEmpty", ctx.unsupportedDescriptionNonEmpty.get());
+        stats.put("unsupportedStatusPresent", ctx.unsupportedStatusPresent.get());
+        stats.put("unsupportedActivePresent", ctx.unsupportedStatusPresent.get());
+        stats.put(
+                "unsupportedCogsCandidatesPresent",
+                ctx.unsupportedCogsCandidatesPresent.get());
         return stats;
     }
 
@@ -690,6 +714,11 @@ public class NexoMigrationItemsStagesService {
             ctx.cogsFromProductColumns.incrementAndGet();
             return fromProduct;
         }
+        BigDecimal fromOrders = ctx.lookups.avgOrderCogsByProductId.get(productId);
+        if (fromOrders != null && fromOrders.compareTo(BigDecimal.ZERO) > 0) {
+            ctx.cogsFromOrders.incrementAndGet();
+            return fromOrders;
+        }
         BigDecimal fromProcurements = ctx.lookups.avgPurchasePriceByProductId.get(productId);
         if (fromProcurements != null && fromProcurements.compareTo(BigDecimal.ZERO) > 0) {
             ctx.cogsFromProcurements.incrementAndGet();
@@ -708,11 +737,66 @@ public class NexoMigrationItemsStagesService {
                 TABLE_ORDERS_PRODUCTS,
                 (columns, values) -> {
                     Long productId = asLong(getByColumn(columns, values, "product_id"));
-                    BigDecimal price = asBigDecimal(getByColumn(columns, values, "price"), null);
-                    if (productId == null || price == null) {
+                    BigDecimal quantity = asBigDecimal(getByColumn(columns, values, "quantity"), null);
+                    String status = normalizeBlankToNull(getByColumn(columns, values, "status"));
+                    BigDecimal unitPrice =
+                            asBigDecimal(
+                                    firstNonBlank(columns, values, List.of("unit_price", "price", "rate")),
+                                    null);
+                    if (productId == null || unitPrice == null) {
                         return;
                     }
-                    sum.merge(productId, price, BigDecimal::add);
+                    if (quantity == null || quantity.compareTo(BigDecimal.ZERO) <= 0) {
+                        return;
+                    }
+                    if (status != null && !status.equalsIgnoreCase("sold")) {
+                        return;
+                    }
+                    if (unitPrice.compareTo(BigDecimal.ZERO) <= 0) {
+                        return;
+                    }
+                    sum.merge(productId, unitPrice, BigDecimal::add);
+                    count.put(productId, count.getOrDefault(productId, 0L) + 1L);
+                });
+        Map<Long, BigDecimal> avg = new HashMap<>();
+        for (Map.Entry<Long, BigDecimal> e : sum.entrySet()) {
+            Long pid = e.getKey();
+            BigDecimal total = e.getValue();
+            long n = count.getOrDefault(pid, 0L);
+            if (n > 0) {
+                avg.put(pid, total.divide(BigDecimal.valueOf(n), java.math.RoundingMode.HALF_UP));
+            }
+        }
+        return avg;
+    }
+
+    private Map<Long, BigDecimal> resolveAverageOrderCogsByProductId(Path dumpPath) throws Exception {
+        Map<Long, BigDecimal> sum = new HashMap<>();
+        Map<Long, Long> count = new HashMap<>();
+        dumpSql.forEachInsertRow(
+                dumpPath,
+                TABLE_ORDERS_PRODUCTS,
+                (columns, values) -> {
+                    Long productId = asLong(getByColumn(columns, values, "product_id"));
+                    BigDecimal quantity = asBigDecimal(getByColumn(columns, values, "quantity"), null);
+                    String status = normalizeBlankToNull(getByColumn(columns, values, "status"));
+                    BigDecimal unitCogs =
+                            asBigDecimal(
+                                    firstNonBlank(columns, values, List.of("total_purchase_price")),
+                                    null);
+                    if (productId == null || unitCogs == null) {
+                        return;
+                    }
+                    if (quantity == null || quantity.compareTo(BigDecimal.ZERO) <= 0) {
+                        return;
+                    }
+                    if (status != null && !status.equalsIgnoreCase("sold")) {
+                        return;
+                    }
+                    if (unitCogs.compareTo(BigDecimal.ZERO) <= 0) {
+                        return;
+                    }
+                    sum.merge(productId, unitCogs, BigDecimal::add);
                     count.put(productId, count.getOrDefault(productId, 0L) + 1L);
                 });
         Map<Long, BigDecimal> avg = new HashMap<>();
@@ -739,6 +823,9 @@ public class NexoMigrationItemsStagesService {
                     BigDecimal purchasePrice =
                             asBigDecimal(getByColumn(columns, values, "purchase_price"), null);
                     if (productId == null || purchasePrice == null) {
+                        return;
+                    }
+                    if (purchasePrice.compareTo(BigDecimal.ZERO) <= 0) {
                         return;
                     }
                     sum.merge(productId, purchasePrice, BigDecimal::add);
@@ -982,11 +1069,23 @@ public class NexoMigrationItemsStagesService {
         }
     }
 
+    private List<String> sampleProductValues(Map<Long, BigDecimal> valuesByProductId, int max) {
+        List<String> samples = new ArrayList<>();
+        for (Map.Entry<Long, BigDecimal> e : valuesByProductId.entrySet()) {
+            if (samples.size() >= max) {
+                break;
+            }
+            samples.add("productId=" + e.getKey() + ", value=" + e.getValue());
+        }
+        return samples;
+    }
+
     private static final class ItemImportLookups {
         private final Map<Long, String> uomByGroupId;
         private final Map<Long, BigDecimal> taxRateByTaxId;
         private final Map<Long, BigDecimal> taxRateByTaxGroupId;
         private final Map<Long, BigDecimal> avgOrderPriceByProductId;
+        private final Map<Long, BigDecimal> avgOrderCogsByProductId;
         private final Map<Long, BigDecimal> avgPurchasePriceByProductId;
 
         private ItemImportLookups(
@@ -994,11 +1093,13 @@ public class NexoMigrationItemsStagesService {
                 Map<Long, BigDecimal> taxRateByTaxId,
                 Map<Long, BigDecimal> taxRateByTaxGroupId,
                 Map<Long, BigDecimal> avgOrderPriceByProductId,
+                Map<Long, BigDecimal> avgOrderCogsByProductId,
                 Map<Long, BigDecimal> avgPurchasePriceByProductId) {
             this.uomByGroupId = uomByGroupId;
             this.taxRateByTaxId = taxRateByTaxId;
             this.taxRateByTaxGroupId = taxRateByTaxGroupId;
             this.avgOrderPriceByProductId = avgOrderPriceByProductId;
+            this.avgOrderCogsByProductId = avgOrderCogsByProductId;
             this.avgPurchasePriceByProductId = avgPurchasePriceByProductId;
         }
     }
@@ -1033,6 +1134,7 @@ public class NexoMigrationItemsStagesService {
         private final AtomicLong priceFromOrders = new AtomicLong();
         private final AtomicLong priceDefaultedZero = new AtomicLong();
         private final AtomicLong cogsFromProductColumns = new AtomicLong();
+        private final AtomicLong cogsFromOrders = new AtomicLong();
         private final AtomicLong cogsFromProcurements = new AtomicLong();
         private final AtomicLong cogsDefaultedZero = new AtomicLong();
 
