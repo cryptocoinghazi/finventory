@@ -28,4 +28,3 @@ public class MigrationPipelineProgressDto {
     private long errorsCount;
     private String summary;
 }
-

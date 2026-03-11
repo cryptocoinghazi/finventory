@@ -106,7 +106,13 @@ public class NexoOrdersMigrationService {
         List<String> errorSamples = new ArrayList<>();
         Map<Long, OrderHeader> eligibleOrdersById = new LinkedHashMap<>();
         SalesPilotContext ctx =
-                new SalesPilotContext(run, warehouseId, counters, warningSamples, errorSamples, eligibleOrdersById);
+                new SalesPilotContext(
+                        run,
+                        warehouseId,
+                        counters,
+                        warningSamples,
+                        errorSamples,
+                        eligibleOrdersById);
 
         Map<Long, String> productCategoryByProductId = collectProductCategoryNames(dumpPath);
         collectEligibleOrders(ctx, dumpPath);
@@ -118,7 +124,9 @@ public class NexoOrdersMigrationService {
             stats.put("dumpPath", dumpPath.toAbsolutePath().normalize().toString());
             stats.put("dryRun", run.isDryRun());
             stats.put("message", "No eligible orders found");
-            stats.put("insertStatements", dumpSqlService.countInsertStatements(dumpPath, TABLE_ORDERS));
+            stats.put(
+                    "insertStatements",
+                    dumpSqlService.countInsertStatements(dumpPath, TABLE_ORDERS));
             return stats;
         }
 
@@ -127,7 +135,8 @@ public class NexoOrdersMigrationService {
 
         importEligibleOrders(ctx, linesByOrderId, productCategoryByProductId);
 
-        Map<String, Object> stats = buildSalesPilotStats(ctx, dumpPath, linesByOrderId, paymentsByOrderId);
+        Map<String, Object> stats =
+                buildSalesPilotStats(ctx, dumpPath, linesByOrderId, paymentsByOrderId);
 
         log(
                 run,
@@ -199,18 +208,26 @@ public class NexoOrdersMigrationService {
                                     firstNonBlank(
                                             columns,
                                             values,
-                                            List.of("code", "order_code", "reference", "invoice_reference")));
-                    header.customerId = asLong(dumpSqlService.getByColumn(columns, values, "customer_id"));
+                                            List.of(
+                                                    "code",
+                                                    "order_code",
+                                                    "reference",
+                                                    "invoice_reference")));
+                    header.customerId =
+                            asLong(dumpSqlService.getByColumn(columns, values, "customer_id"));
                     header.createdAt =
                             normalizeBlankToNull(
-                                    firstNonBlank(columns, values, List.of("created_at", "date", "created")));
+                                    firstNonBlank(
+                                            columns,
+                                            values,
+                                            List.of("created_at", "date", "created")));
                     header.paymentStatus = paymentStatus;
                     ctx.eligibleOrdersById.put(orderId, header);
                 });
     }
 
-    private Map<Long, List<OrderLine>> collectOrderLines(Path dumpPath, Map<Long, OrderHeader> eligibleOrdersById)
-            throws Exception {
+    private Map<Long, List<OrderLine>> collectOrderLines(
+            Path dumpPath, Map<Long, OrderHeader> eligibleOrdersById) throws Exception {
         Map<Long, List<OrderLine>> linesByOrderId = new HashMap<>();
         dumpSqlService.forEachInsertRow(
                 dumpPath,
@@ -221,12 +238,19 @@ public class NexoOrdersMigrationService {
                         return;
                     }
 
-                    Long productId = asLong(dumpSqlService.getByColumn(columns, values, "product_id"));
+                    Long productId =
+                            asLong(dumpSqlService.getByColumn(columns, values, "product_id"));
                     BigDecimal quantity =
-                            asBigDecimal(dumpSqlService.getByColumn(columns, values, "quantity"), BigDecimal.ZERO);
-                    BigDecimal unitPrice = asBigDecimal(dumpSqlService.getByColumn(columns, values, "price"), null);
+                            asBigDecimal(
+                                    dumpSqlService.getByColumn(columns, values, "quantity"),
+                                    BigDecimal.ZERO);
+                    BigDecimal unitPrice =
+                            asBigDecimal(
+                                    dumpSqlService.getByColumn(columns, values, "price"), null);
                     BigDecimal totalPrice =
-                            asBigDecimal(dumpSqlService.getByColumn(columns, values, "total_price"), null);
+                            asBigDecimal(
+                                    dumpSqlService.getByColumn(columns, values, "total_price"),
+                                    null);
 
                     OrderLine line = new OrderLine();
                     line.productId = productId;
@@ -239,8 +263,8 @@ public class NexoOrdersMigrationService {
         return linesByOrderId;
     }
 
-    private Map<Long, BigDecimal> collectPayments(Path dumpPath, Map<Long, OrderHeader> eligibleOrdersById)
-            throws Exception {
+    private Map<Long, BigDecimal> collectPayments(
+            Path dumpPath, Map<Long, OrderHeader> eligibleOrdersById) throws Exception {
         Map<Long, BigDecimal> paymentsByOrderId = new HashMap<>();
         dumpSqlService.forEachInsertRow(
                 dumpPath,
@@ -252,7 +276,9 @@ public class NexoOrdersMigrationService {
                     }
 
                     BigDecimal value =
-                            asBigDecimal(dumpSqlService.getByColumn(columns, values, "value"), BigDecimal.ZERO);
+                            asBigDecimal(
+                                    dumpSqlService.getByColumn(columns, values, "value"),
+                                    BigDecimal.ZERO);
                     paymentsByOrderId.merge(orderId, value, BigDecimal::add);
                 });
         return paymentsByOrderId;
@@ -297,7 +323,8 @@ public class NexoOrdersMigrationService {
         }
 
         boolean hijabOrder = determineHijabOrder(orderLines, productCategoryByProductId);
-        UUID partyId = resolveCustomerPartyIdByRule(ctx.run, hijabOrder, ctx.warningSamples, ctx.counters);
+        UUID partyId =
+                resolveCustomerPartyIdByRule(ctx.run, hijabOrder, ctx.warningSamples, ctx.counters);
         if (partyId == null) {
             ctx.counters.skippedMissingParty.incrementAndGet();
             addSample(
@@ -436,11 +463,15 @@ public class NexoOrdersMigrationService {
         stats.put("ordersConsidered", ctx.eligibleOrdersById.size());
         stats.put("eligibleOrdersWithLines", linesByOrderId.size());
         stats.put("eligibleOrdersWithPayments", paymentsByOrderId.size());
-        stats.put("insertStatementsOrders", dumpSqlService.countInsertStatements(dumpPath, TABLE_ORDERS));
+        stats.put(
+                "insertStatementsOrders",
+                dumpSqlService.countInsertStatements(dumpPath, TABLE_ORDERS));
         stats.put(
                 "insertStatementsOrderLines",
                 dumpSqlService.countInsertStatements(dumpPath, TABLE_ORDERS_PRODUCTS));
-        stats.put("insertStatementsPayments", dumpSqlService.countInsertStatements(dumpPath, TABLE_ORDERS_PAYMENTS));
+        stats.put(
+                "insertStatementsPayments",
+                dumpSqlService.countInsertStatements(dumpPath, TABLE_ORDERS_PAYMENTS));
         stats.put("found", ctx.counters.found.get());
         stats.put("inScope", ctx.counters.inScope.get());
         stats.put("skippedOutOfScope", ctx.counters.skippedOutOfScope.get());
@@ -475,8 +506,8 @@ public class NexoOrdersMigrationService {
         stats.put("errors", ctx.counters.errors.get());
         stats.put("errorSamples", ctx.errorSamples);
 
-
-        stats.put("reconciliation", buildSalesPilotReconciliation(linesByOrderId, paymentsByOrderId));
+        stats.put(
+                "reconciliation", buildSalesPilotReconciliation(linesByOrderId, paymentsByOrderId));
         stats.put("fallbackUsage", buildFallbackUsage(ctx.counters));
         return stats;
     }
@@ -539,7 +570,8 @@ public class NexoOrdersMigrationService {
         }
     }
 
-    private String firstNonBlank(List<String> columns, List<String> values, List<String> candidateColumns) {
+    private String firstNonBlank(
+            List<String> columns, List<String> values, List<String> candidateColumns) {
         for (String col : candidateColumns) {
             if (!columns.contains(col)) {
                 continue;
@@ -563,15 +595,21 @@ public class NexoOrdersMigrationService {
             return null;
         }
 
-        WarehouseDto created = warehouseService.createWarehouse(WarehouseDto.builder().name("Main Warehouse").build());
+        WarehouseDto created =
+                warehouseService.createWarehouse(
+                        WarehouseDto.builder().name("Main Warehouse").build());
         counters.fallbackWarehouseCreated.incrementAndGet();
         return created.getId();
     }
 
     private UUID resolveCustomerPartyIdByRule(
-            MigrationRun run, boolean hijabOrder, List<String> warningSamples, SalesPilotCounters counters) {
+            MigrationRun run,
+            boolean hijabOrder,
+            List<String> warningSamples,
+            SalesPilotCounters counters) {
         String targetName = hijabOrder ? "Hijab Cust" : "Dress Customer";
-        List<Party> matches = partyRepository.findByNameIgnoreCaseAndType(targetName, Party.PartyType.CUSTOMER);
+        List<Party> matches =
+                partyRepository.findByNameIgnoreCaseAndType(targetName, Party.PartyType.CUSTOMER);
         if (!matches.isEmpty()) {
             counters.fallbackPartyUsed.incrementAndGet();
             return matches.get(0).getId();
@@ -580,13 +618,15 @@ public class NexoOrdersMigrationService {
             return null;
         }
         PartyDto created =
-                partyService.createParty(PartyDto.builder().name(targetName).type(Party.PartyType.CUSTOMER).build());
+                partyService.createParty(
+                        PartyDto.builder().name(targetName).type(Party.PartyType.CUSTOMER).build());
         counters.fallbackPartyCreated.incrementAndGet();
         counters.fallbackPartyUsed.incrementAndGet();
         return created.getId();
     }
 
-    private boolean determineHijabOrder(List<OrderLine> orderLines, Map<Long, String> productCategoryByProductId) {
+    private boolean determineHijabOrder(
+            List<OrderLine> orderLines, Map<Long, String> productCategoryByProductId) {
         for (OrderLine l : orderLines) {
             if (l.productId == null) {
                 continue;
@@ -606,7 +646,8 @@ public class NexoOrdersMigrationService {
                 TABLE_PRODUCTS,
                 (columns, values) -> {
                     Long productId = asLong(dumpSqlService.getByColumn(columns, values, "id"));
-                    Long categoryId = asLong(dumpSqlService.getByColumn(columns, values, "category_id"));
+                    Long categoryId =
+                            asLong(dumpSqlService.getByColumn(columns, values, "category_id"));
                     if (productId != null && categoryId != null) {
                         categoryIdByProductId.put(productId, categoryId);
                     }
@@ -618,7 +659,9 @@ public class NexoOrdersMigrationService {
                 TABLE_CATEGORIES,
                 (columns, values) -> {
                     Long categoryId = asLong(dumpSqlService.getByColumn(columns, values, "id"));
-                    String name = normalizeBlankToNull(dumpSqlService.getByColumn(columns, values, "name"));
+                    String name =
+                            normalizeBlankToNull(
+                                    dumpSqlService.getByColumn(columns, values, "name"));
                     if (categoryId != null && name != null) {
                         categoryNameById.put(categoryId, name);
                     }
@@ -678,9 +721,12 @@ public class NexoOrdersMigrationService {
         }
 
         Map<String, Object> reconciliation = new LinkedHashMap<>();
-        reconciliation.put("expectedTotal", expectedTotal.setScale(MONEY_SCALE, RoundingMode.HALF_UP));
+        reconciliation.put(
+                "expectedTotal", expectedTotal.setScale(MONEY_SCALE, RoundingMode.HALF_UP));
         reconciliation.put("paymentsTotal", paidTotal.setScale(MONEY_SCALE, RoundingMode.HALF_UP));
-        reconciliation.put("difference", expectedTotal.subtract(paidTotal).setScale(MONEY_SCALE, RoundingMode.HALF_UP));
+        reconciliation.put(
+                "difference",
+                expectedTotal.subtract(paidTotal).setScale(MONEY_SCALE, RoundingMode.HALF_UP));
         reconciliation.put("mismatchedOrders", mismatchedOrders);
         return reconciliation;
     }
@@ -784,7 +830,11 @@ public class NexoOrdersMigrationService {
     }
 
     private void log(
-            MigrationRun run, MigrationStageKey stageKey, MigrationLogLevel level, String message, String details) {
+            MigrationRun run,
+            MigrationStageKey stageKey,
+            MigrationLogLevel level,
+            String message,
+            String details) {
         MigrationLogEntry entry =
                 MigrationLogEntry.builder()
                         .run(run)

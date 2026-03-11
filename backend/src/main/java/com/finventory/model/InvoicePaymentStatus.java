@@ -5,4 +5,3 @@ public enum InvoicePaymentStatus {
     PARTIAL,
     PAID
 }
-

@@ -207,14 +207,17 @@ public class SalesInvoiceService {
     }
 
     @Transactional
-    public SalesInvoiceDto applyPayment(UUID id, InvoicePaymentStatus status, BigDecimal paymentAmount) {
+    public SalesInvoiceDto applyPayment(
+            UUID id, InvoicePaymentStatus status, BigDecimal paymentAmount) {
         SalesInvoice invoice =
                 salesInvoiceRepository
                         .findById(id)
                         .orElseThrow(() -> new EntityNotFoundException("Invoice not found"));
 
-        BigDecimal grandTotal = invoice.getGrandTotal() != null ? invoice.getGrandTotal() : BigDecimal.ZERO;
-        BigDecimal paidSoFar = invoice.getPaidAmount() != null ? invoice.getPaidAmount() : BigDecimal.ZERO;
+        BigDecimal grandTotal =
+                invoice.getGrandTotal() != null ? invoice.getGrandTotal() : BigDecimal.ZERO;
+        BigDecimal paidSoFar =
+                invoice.getPaidAmount() != null ? invoice.getPaidAmount() : BigDecimal.ZERO;
         BigDecimal balance = grandTotal.subtract(paidSoFar);
 
         if (status == null) {

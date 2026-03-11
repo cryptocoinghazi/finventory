@@ -25,7 +25,8 @@ public class OrganizationProfileController {
 
     @PutMapping
     @PreAuthorize("hasAuthority('ADMIN')")
-    public ResponseEntity<OrganizationProfileDto> updateProfile(@RequestBody OrganizationProfileDto dto) {
+    public ResponseEntity<OrganizationProfileDto> updateProfile(
+            @RequestBody OrganizationProfileDto dto) {
         return ResponseEntity.ok(service.updateOrganizationProfile(dto));
     }
 }

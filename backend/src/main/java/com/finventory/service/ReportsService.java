@@ -160,8 +160,8 @@ public class ReportsService {
 
         List<ActivityFeedEntryDto> entries = new ArrayList<>();
 
-        for (com.finventory.model.SalesInvoice inv
-                : salesInvoiceRepository.findAllByOrderByInvoiceDateDesc(page)) {
+        var salesInvoices = salesInvoiceRepository.findAllByOrderByInvoiceDateDesc(page);
+        for (var inv : salesInvoices) {
             entries.add(
                     ActivityFeedEntryDto.builder()
                             .kind("SALES_INVOICE")
@@ -174,8 +174,8 @@ public class ReportsService {
                             .build());
         }
 
-        for (com.finventory.model.PurchaseInvoice inv
-                : purchaseInvoiceRepository.findAllByOrderByInvoiceDateDesc(page)) {
+        var purchaseInvoices = purchaseInvoiceRepository.findAllByOrderByInvoiceDateDesc(page);
+        for (var inv : purchaseInvoices) {
             entries.add(
                     ActivityFeedEntryDto.builder()
                             .kind("PURCHASE_INVOICE")
@@ -188,8 +188,8 @@ public class ReportsService {
                             .build());
         }
 
-        for (com.finventory.model.SalesReturn ret
-                : salesReturnRepository.findAllByOrderByReturnDateDesc(page)) {
+        var salesReturns = salesReturnRepository.findAllByOrderByReturnDateDesc(page);
+        for (var ret : salesReturns) {
             entries.add(
                     ActivityFeedEntryDto.builder()
                             .kind("SALES_RETURN")
@@ -202,8 +202,8 @@ public class ReportsService {
                             .build());
         }
 
-        for (com.finventory.model.PurchaseReturn ret
-                : purchaseReturnRepository.findAllByOrderByReturnDateDesc(page)) {
+        var purchaseReturns = purchaseReturnRepository.findAllByOrderByReturnDateDesc(page);
+        for (var ret : purchaseReturns) {
             entries.add(
                     ActivityFeedEntryDto.builder()
                             .kind("PURCHASE_RETURN")
@@ -216,8 +216,8 @@ public class ReportsService {
                             .build());
         }
 
-        for (com.finventory.model.StockAdjustment adj
-                : stockAdjustmentRepository.findAllByOrderByAdjustmentDateDesc(page)) {
+        var stockAdjustments = stockAdjustmentRepository.findAllByOrderByAdjustmentDateDesc(page);
+        for (var adj : stockAdjustments) {
             String qty =
                     (adj.getQuantity() != null && adj.getQuantity().signum() > 0 ? "+" : "")
                             + (adj.getQuantity() != null ? adj.getQuantity().toPlainString() : "0");

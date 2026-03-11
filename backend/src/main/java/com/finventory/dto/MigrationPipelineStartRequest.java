@@ -13,4 +13,3 @@ public class MigrationPipelineStartRequest {
     private MigrationPipelinePreset preset;
     private Boolean confirmed;
 }
-

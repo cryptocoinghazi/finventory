@@ -13,9 +13,7 @@ public class OrganizationProfileService {
     private final OrganizationProfileRepository repository;
 
     public OrganizationProfileDto getOrganizationProfile() {
-        return repository.findById(1L)
-                .map(this::mapToDto)
-                .orElse(new OrganizationProfileDto());
+        return repository.findById(1L).map(this::mapToDto).orElse(new OrganizationProfileDto());
     }
 
     public OrganizationProfileDto updateOrganizationProfile(OrganizationProfileDto dto) {

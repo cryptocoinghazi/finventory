@@ -323,9 +323,7 @@ public class ReportsControllerTest {
                         .build();
         stockAdjustmentRepository.save(adjustment);
 
-        mockMvc.perform(
-                        get("/api/reports/activity?limit=5")
-                                .header("Authorization", jwtToken))
+        mockMvc.perform(get("/api/reports/activity?limit=5").header("Authorization", jwtToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].kind").value("SALES_INVOICE"))
                 .andExpect(jsonPath("$[0].title").value("Sales Invoice • INV-ACT-001"));

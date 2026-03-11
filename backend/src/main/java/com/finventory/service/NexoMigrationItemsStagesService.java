@@ -67,7 +67,8 @@ public class NexoMigrationItemsStagesService {
         Map<Long, BigDecimal> taxRateByTaxId = resolveTaxRateByTaxId(dumpPath);
         Map<Long, BigDecimal> taxRateByTaxGroupId = resolveTaxRateByTaxGroupId(dumpPath);
 
-        Map<Long, BigDecimal> avgOrderPriceByProductId = resolveAverageOrderPriceByProductId(dumpPath);
+        Map<Long, BigDecimal> avgOrderPriceByProductId =
+                resolveAverageOrderPriceByProductId(dumpPath);
         Map<Long, BigDecimal> avgPurchasePriceByProductId =
                 resolveAveragePurchasePriceByProductId(dumpPath);
 
@@ -88,7 +89,9 @@ public class NexoMigrationItemsStagesService {
                 new ItemRowContext(run, lookups, counters, samples, unsupportedFieldSamples);
 
         dumpSql.forEachInsertRow(
-                dumpPath, TABLE_PRODUCTS, (columns, values) -> importItemRow(rowContext, columns, values));
+                dumpPath,
+                TABLE_PRODUCTS,
+                (columns, values) -> importItemRow(rowContext, columns, values));
 
         Map<String, Object> stats = new LinkedHashMap<>();
         stats.put("implemented", true);
@@ -133,7 +136,8 @@ public class NexoMigrationItemsStagesService {
         stats.put("cogsSource", cogsSource);
 
         Map<String, Object> vendorLinkage = new LinkedHashMap<>();
-        vendorLinkage.put("productsWithCategoryId", rowContext.vendorLinkageProductsWithCategory.get());
+        vendorLinkage.put(
+                "productsWithCategoryId", rowContext.vendorLinkageProductsWithCategory.get());
         vendorLinkage.put("vendorMapped", rowContext.vendorLinkageMapped.get());
         vendorLinkage.put("vendorMissingMap", rowContext.vendorLinkageMissingMap.get());
         vendorLinkage.put("missingCategoryId", rowContext.vendorLinkageMissingCategory.get());
@@ -148,10 +152,13 @@ public class NexoMigrationItemsStagesService {
         unsupported.put("cogsCandidatesPresent", rowContext.unsupportedCogsCandidatesPresent.get());
         unsupported.put("samples", unsupportedFieldSamples);
         stats.put("unsupportedSourceFields", unsupported);
-        stats.put("unsupportedDescriptionNonEmpty", rowContext.unsupportedDescriptionNonEmpty.get());
+        stats.put(
+                "unsupportedDescriptionNonEmpty", rowContext.unsupportedDescriptionNonEmpty.get());
         stats.put("unsupportedStatusPresent", rowContext.unsupportedStatusPresent.get());
         stats.put("unsupportedActivePresent", rowContext.unsupportedStatusPresent.get());
-        stats.put("unsupportedCogsCandidatesPresent", rowContext.unsupportedCogsCandidatesPresent.get());
+        stats.put(
+                "unsupportedCogsCandidatesPresent",
+                rowContext.unsupportedCogsCandidatesPresent.get());
 
         log(
                 run,
@@ -192,7 +199,8 @@ public class NexoMigrationItemsStagesService {
         return stats;
     }
 
-    public Map<String, Object> importOpeningStock(MigrationRun run, Path dumpPath) throws Exception {
+    public Map<String, Object> importOpeningStock(MigrationRun run, Path dumpPath)
+            throws Exception {
         ensureDumpExists(dumpPath);
 
         UUID warehouseId = resolveDefaultWarehouseId(run);
@@ -209,13 +217,17 @@ public class NexoMigrationItemsStagesService {
         OpeningStockCounters counters = new OpeningStockCounters();
         List<String> warningSamples = new ArrayList<>();
         List<String> errorSamples = new ArrayList<>();
-        OpeningStockContext ctx = new OpeningStockContext(run, warehouseId, counters, warningSamples, errorSamples);
+        OpeningStockContext ctx =
+                new OpeningStockContext(run, warehouseId, counters, warningSamples, errorSamples);
 
         dumpSql.forEachInsertRow(
-                dumpPath, TABLE_PRODUCTS, (columns, values) -> importOpeningStockRow(ctx, columns, values));
+                dumpPath,
+                TABLE_PRODUCTS,
+                (columns, values) -> importOpeningStockRow(ctx, columns, values));
 
         Map<String, Object> stats =
-                buildOpeningStockStats(run, dumpPath, warehouseId, counters, warningSamples, errorSamples);
+                buildOpeningStockStats(
+                        run, dumpPath, warehouseId, counters, warningSamples, errorSamples);
 
         log(
                 run,
@@ -234,7 +246,8 @@ public class NexoMigrationItemsStagesService {
         return stats;
     }
 
-    private void importOpeningStockRow(OpeningStockContext ctx, List<String> columns, List<String> values) {
+    private void importOpeningStockRow(
+            OpeningStockContext ctx, List<String> columns, List<String> values) {
         Long productId = asLong(getByColumn(columns, values, "id"));
         if (productId == null) {
             return;
@@ -275,7 +288,11 @@ public class NexoMigrationItemsStagesService {
                         firstNonBlank(
                                 columns,
                                 values,
-                                List.of("quantity", "available_quantity", "stock", "stock_quantity")),
+                                List.of(
+                                        "quantity",
+                                        "available_quantity",
+                                        "stock",
+                                        "stock_quantity")),
                         null);
         if (quantity == null) {
             ctx.counters.skippedMissingQuantity.incrementAndGet();
@@ -302,7 +319,11 @@ public class NexoMigrationItemsStagesService {
                             .build();
             StockAdjustmentDto createdAdj = stockAdjustmentService.createAdjustment(dto);
             ctx.counters.created.incrementAndGet();
-            saveIdMap(ctx.run.getSourceSystem(), ENTITY_TYPE_STOCK_ADJUSTMENT, productId, createdAdj.getId());
+            saveIdMap(
+                    ctx.run.getSourceSystem(),
+                    ENTITY_TYPE_STOCK_ADJUSTMENT,
+                    productId,
+                    createdAdj.getId());
         } catch (Exception e) {
             ctx.counters.errors.incrementAndGet();
             addSample(ctx.errorSamples, "productId=" + productId + ": " + e.getMessage());
@@ -349,7 +370,8 @@ public class NexoMigrationItemsStagesService {
     }
 
     private UUID resolveDefaultWarehouseId(MigrationRun run) {
-        List<com.finventory.model.Warehouse> warehouses = warehouseRepository.findAll().stream().limit(1).toList();
+        List<com.finventory.model.Warehouse> warehouses =
+                warehouseRepository.findAll().stream().limit(1).toList();
         if (!warehouses.isEmpty()) {
             return warehouses.get(0).getId();
         }
@@ -359,7 +381,8 @@ public class NexoMigrationItemsStagesService {
         }
 
         WarehouseDto created =
-                warehouseService.createWarehouse(WarehouseDto.builder().name("Main Warehouse").build());
+                warehouseService.createWarehouse(
+                        WarehouseDto.builder().name("Main Warehouse").build());
         return created.getId();
     }
 
@@ -406,7 +429,11 @@ public class NexoMigrationItemsStagesService {
                     ctx.counters.linkedExisting.incrementAndGet();
                     targetItem = existingByCode.get();
                     if (!ctx.run.isDryRun()) {
-                        saveIdMap(ctx.run.getSourceSystem(), ENTITY_TYPE_ITEM, sourceId, targetItem.getId());
+                        saveIdMap(
+                                ctx.run.getSourceSystem(),
+                                ENTITY_TYPE_ITEM,
+                                sourceId,
+                                targetItem.getId());
                     }
                 }
             }
@@ -423,7 +450,11 @@ public class NexoMigrationItemsStagesService {
                 itemRepository.save(targetItem);
                 ctx.counters.updated.incrementAndGet();
                 if (existingMap.isEmpty()) {
-                    saveIdMap(ctx.run.getSourceSystem(), ENTITY_TYPE_ITEM, sourceId, targetItem.getId());
+                    saveIdMap(
+                            ctx.run.getSourceSystem(),
+                            ENTITY_TYPE_ITEM,
+                            sourceId,
+                            targetItem.getId());
                 }
                 return;
             }
@@ -446,7 +477,8 @@ public class NexoMigrationItemsStagesService {
         boolean changed = false;
 
         if (upsert.vendorId != null
-                && (targetItem.getVendor() == null || !upsert.vendorId.equals(targetItem.getVendor().getId()))) {
+                && (targetItem.getVendor() == null
+                        || !upsert.vendorId.equals(targetItem.getVendor().getId()))) {
             Party vendor = partyRepository.findById(upsert.vendorId).orElse(null);
             if (vendor != null) {
                 targetItem.setVendor(vendor);
@@ -474,7 +506,8 @@ public class NexoMigrationItemsStagesService {
         }
 
         if (upsert.cogs != null
-                && (targetItem.getCogs() == null || upsert.cogs.compareTo(targetItem.getCogs()) != 0)) {
+                && (targetItem.getCogs() == null
+                        || upsert.cogs.compareTo(targetItem.getCogs()) != 0)) {
             targetItem.setCogs(upsert.cogs);
             changed = true;
         }
@@ -490,7 +523,8 @@ public class NexoMigrationItemsStagesService {
         return changed;
     }
 
-    private ItemUpsert parseItemUpsert(ItemRowContext ctx, Long sourceId, List<String> columns, List<String> values) {
+    private ItemUpsert parseItemUpsert(
+            ItemRowContext ctx, Long sourceId, List<String> columns, List<String> values) {
         String name = normalizeBlankToNull(getByColumn(columns, values, "name"));
         if (name == null) {
             addSample(ctx.samples.warningSamples, "productId=" + sourceId + " missing name");
@@ -500,12 +534,14 @@ public class NexoMigrationItemsStagesService {
         String description = normalizeBlankToNull(getByColumn(columns, values, "description"));
         if (description != null) {
             ctx.unsupportedDescriptionNonEmpty.incrementAndGet();
-            addUnsupportedSample(ctx.unsupportedFieldSamples, "productId=" + sourceId + " has description");
+            addUnsupportedSample(
+                    ctx.unsupportedFieldSamples, "productId=" + sourceId + " has description");
         }
         String status = normalizeBlankToNull(getByColumn(columns, values, "status"));
         if (status != null) {
             ctx.unsupportedStatusPresent.incrementAndGet();
-            addUnsupportedSample(ctx.unsupportedFieldSamples, "productId=" + sourceId + " has status=" + status);
+            addUnsupportedSample(
+                    ctx.unsupportedFieldSamples, "productId=" + sourceId + " has status=" + status);
         }
         String cogsCandidate =
                 firstNonBlank(
@@ -569,7 +605,10 @@ public class NexoMigrationItemsStagesService {
                 ItemDto.builder()
                         .name(name)
                         .code(code)
-                        .barcode(barcode != null && itemRepository.existsByBarcode(barcode) ? null : barcode)
+                        .barcode(
+                                barcode != null && itemRepository.existsByBarcode(barcode)
+                                        ? null
+                                        : barcode)
                         .uom(uom)
                         .unitPrice(unitPrice)
                         .taxRate(taxRate)
@@ -592,7 +631,8 @@ public class NexoMigrationItemsStagesService {
             ItemRowContext ctx, Long productId, List<String> columns, List<String> values) {
         BigDecimal fromProduct =
                 asBigDecimal(
-                        firstNonBlank(columns, values, List.of("sale_price", "selling_price", "price")),
+                        firstNonBlank(
+                                columns, values, List.of("sale_price", "selling_price", "price")),
                         null);
         if (fromProduct != null && fromProduct.compareTo(BigDecimal.ZERO) > 0) {
             ctx.priceFromProductColumns.incrementAndGet();
@@ -614,7 +654,12 @@ public class NexoMigrationItemsStagesService {
                         firstNonBlank(
                                 columns,
                                 values,
-                                List.of("purchase_price", "purchase_cost", "cost_price", "cost", "buying_price")),
+                                List.of(
+                                        "purchase_price",
+                                        "purchase_cost",
+                                        "cost_price",
+                                        "cost",
+                                        "buying_price")),
                         null);
         if (fromProduct != null && fromProduct.compareTo(BigDecimal.ZERO) > 0) {
             ctx.cogsFromProductColumns.incrementAndGet();
@@ -629,7 +674,8 @@ public class NexoMigrationItemsStagesService {
         return BigDecimal.ZERO;
     }
 
-    private Map<Long, BigDecimal> resolveAverageOrderPriceByProductId(Path dumpPath) throws Exception {
+    private Map<Long, BigDecimal> resolveAverageOrderPriceByProductId(Path dumpPath)
+            throws Exception {
         Map<Long, BigDecimal> sum = new HashMap<>();
         Map<Long, Long> count = new HashMap<>();
         dumpSql.forEachInsertRow(
@@ -656,7 +702,8 @@ public class NexoMigrationItemsStagesService {
         return avg;
     }
 
-    private Map<Long, BigDecimal> resolveAveragePurchasePriceByProductId(Path dumpPath) throws Exception {
+    private Map<Long, BigDecimal> resolveAveragePurchasePriceByProductId(Path dumpPath)
+            throws Exception {
         Map<Long, BigDecimal> sum = new HashMap<>();
         Map<Long, Long> count = new HashMap<>();
         dumpSql.forEachInsertRow(
@@ -664,7 +711,8 @@ public class NexoMigrationItemsStagesService {
                 TABLE_PROCUREMENTS_PRODUCTS,
                 (columns, values) -> {
                     Long productId = asLong(getByColumn(columns, values, "product_id"));
-                    BigDecimal purchasePrice = asBigDecimal(getByColumn(columns, values, "purchase_price"), null);
+                    BigDecimal purchasePrice =
+                            asBigDecimal(getByColumn(columns, values, "purchase_price"), null);
                     if (productId == null || purchasePrice == null) {
                         return;
                     }
@@ -750,7 +798,8 @@ public class NexoMigrationItemsStagesService {
                 TABLE_UNITS,
                 (columns, values) -> {
                     Long groupId = asLong(getByColumn(columns, values, "group_id"));
-                    String identifier = normalizeBlankToNull(getByColumn(columns, values, "identifier"));
+                    String identifier =
+                            normalizeBlankToNull(getByColumn(columns, values, "identifier"));
                     String name = normalizeBlankToNull(getByColumn(columns, values, "name"));
                     Long baseUnit = asLong(getByColumn(columns, values, "base_unit"));
 
@@ -804,7 +853,8 @@ public class NexoMigrationItemsStagesService {
         return "NEXO-" + sourceId;
     }
 
-    private String firstNonBlank(List<String> columns, List<String> values, List<String> candidateColumns) {
+    private String firstNonBlank(
+            List<String> columns, List<String> values, List<String> candidateColumns) {
         for (String col : candidateColumns) {
             if (!columns.contains(col)) {
                 continue;

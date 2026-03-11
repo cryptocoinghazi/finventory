@@ -62,11 +62,12 @@ public class ItemService {
             if (!vendors.isEmpty()) {
                 defaultVendor = vendors.get(0);
             } else {
-                defaultVendor = Party.builder()
-                        .name("General Vendor")
-                        .type(Party.PartyType.VENDOR)
-                        .address("Default Address")
-                        .build();
+                defaultVendor =
+                        Party.builder()
+                                .name("General Vendor")
+                                .type(Party.PartyType.VENDOR)
+                                .address("Default Address")
+                                .build();
                 partyRepository.save(defaultVendor);
             }
 
@@ -133,8 +134,10 @@ public class ItemService {
 
         Party vendor;
         if (dto.getVendorId() != null) {
-            vendor = partyRepository.findById(dto.getVendorId())
-                    .orElseThrow(() -> new IllegalArgumentException("Vendor not found"));
+            vendor =
+                    partyRepository
+                            .findById(dto.getVendorId())
+                            .orElseThrow(() -> new IllegalArgumentException("Vendor not found"));
             if (vendor.getType() != Party.PartyType.VENDOR) {
                 throw new IllegalArgumentException("Selected party is not a vendor");
             }
@@ -200,8 +203,10 @@ public class ItemService {
         }
 
         if (dto.getVendorId() != null) {
-            Party vendor = partyRepository.findById(dto.getVendorId())
-                    .orElseThrow(() -> new IllegalArgumentException("Vendor not found"));
+            Party vendor =
+                    partyRepository
+                            .findById(dto.getVendorId())
+                            .orElseThrow(() -> new IllegalArgumentException("Vendor not found"));
             if (vendor.getType() != Party.PartyType.VENDOR) {
                 throw new IllegalArgumentException("Selected party is not a vendor");
             }
@@ -247,10 +252,18 @@ public class ItemService {
         Item item =
                 itemRepository
                         .findById(id)
-                        .orElseThrow(() -> new IllegalArgumentException("Item not found with id: " + id));
+                        .orElseThrow(
+                                () ->
+                                        new IllegalArgumentException(
+                                                "Item not found with id: " + id));
 
         try {
-            Path itemDir = Path.of(uploadsDir).toAbsolutePath().normalize().resolve("items").resolve(id.toString());
+            Path itemDir =
+                    Path.of(uploadsDir)
+                            .toAbsolutePath()
+                            .normalize()
+                            .resolve("items")
+                            .resolve(id.toString());
             Files.createDirectories(itemDir);
 
             String extension = safeFileExtension(file.getOriginalFilename());
@@ -275,11 +288,12 @@ public class ItemService {
         if (!vendors.isEmpty()) {
             return vendors.get(0);
         }
-        Party defaultVendor = Party.builder()
-                .name("General Vendor")
-                .type(Party.PartyType.VENDOR)
-                .address("Default Address")
-                .build();
+        Party defaultVendor =
+                Party.builder()
+                        .name("General Vendor")
+                        .type(Party.PartyType.VENDOR)
+                        .address("Default Address")
+                        .build();
         return partyRepository.save(defaultVendor);
     }
 
@@ -327,7 +341,9 @@ public class ItemService {
             return "";
         }
         String ext = name.substring(dot + 1).trim().toLowerCase(Locale.ROOT);
-        if (ext.isEmpty() || ext.length() > SAFE_EXTENSION_MAX_LENGTH || !ext.matches("[a-z0-9]+")) {
+        if (ext.isEmpty()
+                || ext.length() > SAFE_EXTENSION_MAX_LENGTH
+                || !ext.matches("[a-z0-9]+")) {
             return "";
         }
         return "." + ext;

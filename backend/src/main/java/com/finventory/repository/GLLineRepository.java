@@ -9,6 +9,7 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public interface GLLineRepository extends JpaRepository<GLLine, UUID> {
-    @Query("SELECT SUM(l.debit - l.credit) FROM GLLine l WHERE l.accountHead = 'ACCOUNTS_RECEIVABLE'")
+    @Query(
+            "SELECT SUM(l.debit - l.credit) FROM GLLine l WHERE l.accountHead = 'ACCOUNTS_RECEIVABLE'")
     BigDecimal findTotalReceivables();
 }

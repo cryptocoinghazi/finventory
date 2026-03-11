@@ -18,9 +18,7 @@ public class UserService {
     private final PasswordEncoder passwordEncoder;
 
     public List<UserDto> getAllUsers() {
-        return userRepository.findAll().stream()
-                .map(this::mapToDto)
-                .toList();
+        return userRepository.findAll().stream().map(this::mapToDto).toList();
     }
 
     public UserDto createUser(UserDto dto) {
@@ -31,12 +29,13 @@ public class UserService {
             throw new IllegalArgumentException("Email already exists");
         }
 
-        var user = User.builder()
-                .username(dto.getUsername())
-                .email(dto.getEmail())
-                .role(Role.valueOf(dto.getRole().toUpperCase()))
-                .password(passwordEncoder.encode(dto.getPassword()))
-                .build();
+        var user =
+                User.builder()
+                        .username(dto.getUsername())
+                        .email(dto.getEmail())
+                        .role(Role.valueOf(dto.getRole().toUpperCase()))
+                        .password(passwordEncoder.encode(dto.getPassword()))
+                        .build();
         userRepository.save(user);
         return mapToDto(user);
     }
@@ -46,14 +45,17 @@ public class UserService {
     }
 
     public UserDto getUserByUsername(String username) {
-        return userRepository.findByUsername(username)
+        return userRepository
+                .findByUsername(username)
                 .map(this::mapToDto)
                 .orElseThrow(() -> new IllegalArgumentException("User not found"));
     }
 
     public void updatePassword(String username, com.finventory.dto.ChangePasswordRequest request) {
-        var user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+        var user =
+                userRepository
+                        .findByUsername(username)
+                        .orElseThrow(() -> new IllegalArgumentException("User not found"));
 
         if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPassword())) {
             throw new IllegalArgumentException("Invalid current password");

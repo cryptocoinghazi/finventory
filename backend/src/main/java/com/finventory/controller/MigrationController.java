@@ -20,8 +20,8 @@ import java.util.Locale;
 import java.util.Set;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.http.ResponseEntity;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -83,7 +83,8 @@ public class MigrationController {
 
     @PostMapping("/runs/{id}/pipeline/full-safe/start")
     public ResponseEntity<MigrationPipelineProgressDto> startFullSafePipeline(
-            @PathVariable UUID id, @RequestBody(required = false) MigrationPipelineStartRequest request) {
+            @PathVariable UUID id,
+            @RequestBody(required = false) MigrationPipelineStartRequest request) {
         return ResponseEntity.ok(migrationOrchestrator.startFullSafePipeline(id, request));
     }
 
@@ -144,7 +145,9 @@ public class MigrationController {
     public ResponseEntity<TruncateDatabaseResponse> truncateDatabase(
             @RequestBody(required = false) TruncateDatabaseRequest request) {
         boolean keepUsers =
-                request == null || request.getKeepUsers() == null || Boolean.TRUE.equals(request.getKeepUsers());
+                request == null
+                        || request.getKeepUsers() == null
+                        || Boolean.TRUE.equals(request.getKeepUsers());
         String confirmText = request == null ? null : request.getConfirmText();
 
         String expected = keepUsers ? "TRUNCATE_DATA" : "TRUNCATE_ALL";
@@ -191,10 +194,7 @@ public class MigrationController {
 
     private void tryPostgresTruncate(Set<String> tables) {
         List<String> quotedTables =
-                tables.stream()
-                        .sorted()
-                        .map(t -> "\"" + t.replace("\"", "\"\"") + "\"")
-                        .toList();
+                tables.stream().sorted().map(t -> "\"" + t.replace("\"", "\"\"") + "\"").toList();
         String joined = String.join(", ", quotedTables);
         try {
             jdbcTemplate.execute("TRUNCATE TABLE " + joined + " RESTART IDENTITY CASCADE");

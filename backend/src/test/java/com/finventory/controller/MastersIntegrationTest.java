@@ -6,9 +6,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.finventory.dto.CreateMigrationRunRequest;
 import com.finventory.dto.AuthenticationRequest;
 import com.finventory.dto.AuthenticationResponse;
+import com.finventory.dto.CreateMigrationRunRequest;
 import com.finventory.dto.ItemDto;
 import com.finventory.dto.MigrationPipelinePreset;
 import com.finventory.dto.MigrationPipelineProgressDto;
@@ -34,8 +34,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -188,7 +188,9 @@ class MastersIntegrationTest {
         UUID runId = UUID.fromString(objectMapper.readTree(createResponse).get("id").asText());
 
         MigrationPipelineStartRequest startRequest =
-                MigrationPipelineStartRequest.builder().preset(MigrationPipelinePreset.DRY_RUN_FULL_SAFE).build();
+                MigrationPipelineStartRequest.builder()
+                        .preset(MigrationPipelinePreset.DRY_RUN_FULL_SAFE)
+                        .build();
 
         mockMvc.perform(
                         post("/api/v1/admin/migration/runs/" + runId + "/pipeline/full-safe/start")
@@ -202,7 +204,9 @@ class MastersIntegrationTest {
         while (System.currentTimeMillis() < deadline) {
             String progressJson =
                     mockMvc.perform(
-                                    get("/api/v1/admin/migration/runs/" + runId + "/pipeline/full-safe/progress")
+                                    get("/api/v1/admin/migration/runs/"
+                                                    + runId
+                                                    + "/pipeline/full-safe/progress")
                                             .header("Authorization", jwtToken)
                                             .param("preset", "DRY_RUN_FULL_SAFE"))
                             .andExpect(status().isOk())
@@ -234,7 +238,8 @@ class MastersIntegrationTest {
                         .getContentAsString();
 
         List<MigrationStageExecutionDto> stages =
-                Arrays.asList(objectMapper.readValue(stagesJson, MigrationStageExecutionDto[].class));
+                Arrays.asList(
+                        objectMapper.readValue(stagesJson, MigrationStageExecutionDto[].class));
 
         Map<String, Object> stageSummaries = new LinkedHashMap<>();
         for (MigrationStageExecutionDto e : stages) {
@@ -281,7 +286,9 @@ class MastersIntegrationTest {
 
         Map<String, Object> summary = new LinkedHashMap<>();
         summary.put("runId", runId.toString());
-        summary.put("runStatus", progress.getRunStatus() == null ? null : progress.getRunStatus().name());
+        summary.put(
+                "runStatus",
+                progress.getRunStatus() == null ? null : progress.getRunStatus().name());
         summary.put("warningsCount", progress.getWarningsCount());
         summary.put("errorsCount", progress.getErrorsCount());
         summary.put("pipelineSummary", progress.getSummary());

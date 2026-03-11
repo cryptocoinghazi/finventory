@@ -3,8 +3,8 @@ package com.finventory.service;
 import com.finventory.dto.WarehouseDto;
 import com.finventory.model.Warehouse;
 import com.finventory.repository.WarehouseRepository;
-import java.util.Locale;
 import java.util.List;
+import java.util.Locale;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
@@ -107,7 +107,8 @@ public class WarehouseService {
             }
         }
 
-        return prefix + String.format(Locale.ROOT, "%02d", Math.abs(name.hashCode()) % HASH_SUFFIX_MOD);
+        return prefix
+                + String.format(Locale.ROOT, "%02d", Math.abs(name.hashCode()) % HASH_SUFFIX_MOD);
     }
 
     public void deleteWarehouse(UUID id) {

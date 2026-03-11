@@ -36,11 +36,14 @@ public class MigrationOrchestrator {
     private final ObjectMapper objectMapper;
     private final Executor migrationPipelineExecutor;
 
-    private final ConcurrentHashMap<UUID, PipelineState> activePipelines = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<UUID, PipelineState> activePipelines =
+            new ConcurrentHashMap<>();
 
-    public MigrationPipelineProgressDto startFullSafePipeline(UUID runId, MigrationPipelineStartRequest request) {
+    public MigrationPipelineProgressDto startFullSafePipeline(
+            UUID runId, MigrationPipelineStartRequest request) {
         MigrationRunDto run = migrationService.getRun(runId);
-        MigrationPipelinePreset preset = resolvePreset(run, request == null ? null : request.getPreset());
+        MigrationPipelinePreset preset =
+                resolvePreset(run, request == null ? null : request.getPreset());
         validateStartRequest(run, preset, request);
 
         PipelineState existing = activePipelines.get(runId);
@@ -56,7 +59,8 @@ public class MigrationOrchestrator {
         }
 
         migrationService.updateRunStatus(runId, MigrationRunStatus.RUNNING, true);
-        migrationService.logMessage(runId, null, MigrationLogLevel.INFO, "Pipeline started", preset.name());
+        migrationService.logMessage(
+                runId, null, MigrationLogLevel.INFO, "Pipeline started", preset.name());
 
         migrationPipelineExecutor.execute(
                 () -> {
@@ -64,7 +68,11 @@ public class MigrationOrchestrator {
                         runPipeline(runId, preset, null);
                     } catch (Exception e) {
                         migrationService.logMessage(
-                                runId, null, MigrationLogLevel.ERROR, "Pipeline crashed", e.getMessage());
+                                runId,
+                                null,
+                                MigrationLogLevel.ERROR,
+                                "Pipeline crashed",
+                                e.getMessage());
                         migrationService.updateRunStatus(runId, MigrationRunStatus.FAILED, false);
                     } finally {
                         PipelineState s = activePipelines.get(runId);
@@ -78,7 +86,8 @@ public class MigrationOrchestrator {
         return getFullSafePipelineProgress(runId, preset);
     }
 
-    public MigrationPipelineProgressDto resumeFullSafePipeline(UUID runId, MigrationPipelinePreset preset) {
+    public MigrationPipelineProgressDto resumeFullSafePipeline(
+            UUID runId, MigrationPipelinePreset preset) {
         MigrationRunDto run = migrationService.getRun(runId);
         MigrationPipelinePreset resolvedPreset = resolvePreset(run, preset);
 
@@ -91,7 +100,8 @@ public class MigrationOrchestrator {
         activePipelines.put(runId, state);
 
         migrationService.updateRunStatus(runId, MigrationRunStatus.RUNNING, true);
-        migrationService.logMessage(runId, null, MigrationLogLevel.INFO, "Pipeline resumed", resolvedPreset.name());
+        migrationService.logMessage(
+                runId, null, MigrationLogLevel.INFO, "Pipeline resumed", resolvedPreset.name());
 
         migrationPipelineExecutor.execute(
                 () -> {
@@ -99,7 +109,11 @@ public class MigrationOrchestrator {
                         runPipeline(runId, resolvedPreset, null);
                     } catch (Exception e) {
                         migrationService.logMessage(
-                                runId, null, MigrationLogLevel.ERROR, "Pipeline crashed", e.getMessage());
+                                runId,
+                                null,
+                                MigrationLogLevel.ERROR,
+                                "Pipeline crashed",
+                                e.getMessage());
                         migrationService.updateRunStatus(runId, MigrationRunStatus.FAILED, false);
                     } finally {
                         PipelineState s = activePipelines.get(runId);
@@ -113,7 +127,8 @@ public class MigrationOrchestrator {
         return getFullSafePipelineProgress(runId, resolvedPreset);
     }
 
-    public MigrationPipelineProgressDto retryFailedStage(UUID runId, String stageKey, MigrationPipelinePreset preset) {
+    public MigrationPipelineProgressDto retryFailedStage(
+            UUID runId, String stageKey, MigrationPipelinePreset preset) {
         MigrationRunDto run = migrationService.getRun(runId);
         MigrationPipelinePreset resolvedPreset = resolvePreset(run, preset);
 
@@ -128,7 +143,11 @@ public class MigrationOrchestrator {
 
         migrationService.updateRunStatus(runId, MigrationRunStatus.RUNNING, true);
         migrationService.logMessage(
-                runId, key, MigrationLogLevel.INFO, "Retrying stage and continuing pipeline", resolvedPreset.name());
+                runId,
+                key,
+                MigrationLogLevel.INFO,
+                "Retrying stage and continuing pipeline",
+                resolvedPreset.name());
 
         migrationPipelineExecutor.execute(
                 () -> {
@@ -136,7 +155,11 @@ public class MigrationOrchestrator {
                         runPipeline(runId, resolvedPreset, key);
                     } catch (Exception e) {
                         migrationService.logMessage(
-                                runId, null, MigrationLogLevel.ERROR, "Pipeline crashed", e.getMessage());
+                                runId,
+                                null,
+                                MigrationLogLevel.ERROR,
+                                "Pipeline crashed",
+                                e.getMessage());
                         migrationService.updateRunStatus(runId, MigrationRunStatus.FAILED, false);
                     } finally {
                         PipelineState s = activePipelines.get(runId);
@@ -165,11 +188,13 @@ public class MigrationOrchestrator {
         return getFullSafePipelineProgress(runId, state.preset);
     }
 
-    public MigrationPipelineProgressDto getFullSafePipelineProgress(UUID runId, MigrationPipelinePreset preset) {
+    public MigrationPipelineProgressDto getFullSafePipelineProgress(
+            UUID runId, MigrationPipelinePreset preset) {
         MigrationRunDto run = migrationService.getRun(runId);
         MigrationPipelinePreset resolvedPreset = resolvePreset(run, preset);
 
-        List<String> plannedStages = getPresetStages(resolvedPreset).stream().map(Enum::name).toList();
+        List<String> plannedStages =
+                getPresetStages(resolvedPreset).stream().map(Enum::name).toList();
         List<MigrationStageExecutionDto> executions = migrationService.listStageExecutions(runId);
 
         LinkedHashSet<String> completed = new LinkedHashSet<>();
@@ -249,7 +274,8 @@ public class MigrationOrchestrator {
                 .build();
     }
 
-    void runPipeline(UUID runId, MigrationPipelinePreset preset, MigrationStageKey forceStartStage) throws Exception {
+    void runPipeline(UUID runId, MigrationPipelinePreset preset, MigrationStageKey forceStartStage)
+            throws Exception {
         PipelineState state = activePipelines.get(runId);
         if (state == null) {
             return;
@@ -269,7 +295,8 @@ public class MigrationOrchestrator {
             }
 
             if (state.cancelRequested.get()) {
-                migrationService.logMessage(runId, null, MigrationLogLevel.WARN, "Pipeline cancelled", preset.name());
+                migrationService.logMessage(
+                        runId, null, MigrationLogLevel.WARN, "Pipeline cancelled", preset.name());
                 migrationService.updateRunStatus(runId, MigrationRunStatus.CANCELLED, false);
                 return;
             }
@@ -277,7 +304,11 @@ public class MigrationOrchestrator {
             MigrationStageStatus status = existing.get(stageKey);
             if (status == MigrationStageStatus.RUNNING) {
                 migrationService.logMessage(
-                        runId, stageKey, MigrationLogLevel.ERROR, "Stage already RUNNING; cannot continue", null);
+                        runId,
+                        stageKey,
+                        MigrationLogLevel.ERROR,
+                        "Stage already RUNNING; cannot continue",
+                        null);
                 migrationService.updateRunStatus(runId, MigrationRunStatus.FAILED, false);
                 return;
             }
@@ -320,13 +351,15 @@ public class MigrationOrchestrator {
             }
         }
 
-        migrationService.logMessage(runId, null, MigrationLogLevel.INFO, "Pipeline finished", preset.name());
+        migrationService.logMessage(
+                runId, null, MigrationLogLevel.INFO, "Pipeline finished", preset.name());
         migrationService.updateRunStatus(runId, MigrationRunStatus.COMPLETED, false);
     }
 
     private Map<MigrationStageKey, MigrationStageStatus> loadExistingStageStatuses(UUID runId) {
         List<MigrationStageExecutionDto> executions = migrationService.listStageExecutions(runId);
-        EnumMap<MigrationStageKey, MigrationStageStatus> result = new EnumMap<>(MigrationStageKey.class);
+        EnumMap<MigrationStageKey, MigrationStageStatus> result =
+                new EnumMap<>(MigrationStageKey.class);
         for (MigrationStageExecutionDto e : executions) {
             if (e.getStageKey() == null) {
                 continue;
@@ -340,7 +373,8 @@ public class MigrationOrchestrator {
         return result;
     }
 
-    private MigrationPipelinePreset resolvePreset(MigrationRunDto run, MigrationPipelinePreset preset) {
+    private MigrationPipelinePreset resolvePreset(
+            MigrationRunDto run, MigrationPipelinePreset preset) {
         if (preset != null) {
             return preset;
         }
@@ -351,12 +385,15 @@ public class MigrationOrchestrator {
     }
 
     private void validateStartRequest(
-            MigrationRunDto run, MigrationPipelinePreset preset, MigrationPipelineStartRequest request) {
+            MigrationRunDto run,
+            MigrationPipelinePreset preset,
+            MigrationPipelineStartRequest request) {
         if (preset == MigrationPipelinePreset.DRY_RUN_FULL_SAFE && !run.isDryRun()) {
             throw new IllegalArgumentException("Dry-run pipeline requires a dry-run run");
         }
         if (preset == MigrationPipelinePreset.REAL_PILOT_FULL_SAFE && run.isDryRun()) {
-            throw new IllegalArgumentException("Real pilot pipeline requires a write-enabled run (dryRun=false)");
+            throw new IllegalArgumentException(
+                    "Real pilot pipeline requires a write-enabled run (dryRun=false)");
         }
         if (preset == MigrationPipelinePreset.REAL_PILOT_FULL_SAFE) {
             boolean confirmed = request != null && Boolean.TRUE.equals(request.getConfirmed());
@@ -389,7 +426,8 @@ public class MigrationOrchestrator {
                 MigrationStageKey.FINALIZE);
     }
 
-    private Optional<String> detectBlockingIssue(MigrationStageKey stageKey, Map<String, Object> stats) {
+    private Optional<String> detectBlockingIssue(
+            MigrationStageKey stageKey, Map<String, Object> stats) {
         if (stats == null || stats.isEmpty()) {
             return Optional.empty();
         }
@@ -416,7 +454,10 @@ public class MigrationOrchestrator {
             long skippedMissingParty = safeLong(stats.get("skippedMissingParty"));
             if (skippedMissingItems > 0 || skippedMissingParty > 0) {
                 return Optional.of(
-                        "skippedMissingItems=" + skippedMissingItems + ", skippedMissingParty=" + skippedMissingParty);
+                        "skippedMissingItems="
+                                + skippedMissingItems
+                                + ", skippedMissingParty="
+                                + skippedMissingParty);
             }
         }
 
@@ -456,8 +497,8 @@ public class MigrationOrchestrator {
             return null;
         }
         Map<String, Object> summary = new java.util.LinkedHashMap<>();
-        for (String key
-                : List.of(
+        List<String> summaryKeys =
+                List.of(
                         "implemented",
                         "found",
                         "valid",
@@ -498,7 +539,8 @@ public class MigrationOrchestrator {
                         "markedPaid",
                         "eligiblePaidOrders",
                         "reconciliation",
-                        "fallbackUsage")) {
+                        "fallbackUsage");
+        for (String key : summaryKeys) {
             if (stats.containsKey(key)) {
                 summary.put(key, stats.get(key));
             }

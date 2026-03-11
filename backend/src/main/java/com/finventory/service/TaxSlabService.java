@@ -34,16 +34,15 @@ public class TaxSlabService {
         } else {
             slabs = taxSlabRepository.findByDescriptionContainingIgnoreCase(search);
         }
-        return slabs.stream()
-                .map(this::mapToDto)
-                .collect(Collectors.toList());
+        return slabs.stream().map(this::mapToDto).collect(Collectors.toList());
     }
 
     public TaxSlabDto getTaxSlabById(UUID id) {
         return taxSlabRepository
                 .findById(id)
                 .map(this::mapToDto)
-                .orElseThrow(() -> new IllegalArgumentException("Tax slab not found with id: " + id));
+                .orElseThrow(
+                        () -> new IllegalArgumentException("Tax slab not found with id: " + id));
     }
 
     public TaxSlabDto updateTaxSlab(UUID id, TaxSlabDto dto) {

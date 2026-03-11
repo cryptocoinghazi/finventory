@@ -51,7 +51,13 @@ public class NexoDumpAnalysisService {
                 analyzeTable(
                         dumpPath,
                         TABLE_PROVIDERS,
-                        List.of("first_name", "last_name", "email", "phone", "amount_due", "amount_paid"),
+                        List.of(
+                                "first_name",
+                                "last_name",
+                                "email",
+                                "phone",
+                                "amount_due",
+                                "amount_paid"),
                         List.of()));
 
         stats.put(
@@ -82,7 +88,8 @@ public class NexoDumpAnalysisService {
 
         stats.put(
                 TABLE_TAXES,
-                analyzeTable(dumpPath, TABLE_TAXES, List.of("name", "rate", "tax_group_id"), List.of()));
+                analyzeTable(
+                        dumpPath, TABLE_TAXES, List.of("name", "rate", "tax_group_id"), List.of()));
 
         stats.put(
                 TABLE_UNITS,
@@ -189,8 +196,8 @@ public class NexoDumpAnalysisService {
         return new java.util.HashSet<>(safe * 2);
     }
 
-    private Map<String, Object> analyzeOrdersTable(MigrationRun run, Path dumpPath, Set<Long> capturedOrderIds)
-            throws Exception {
+    private Map<String, Object> analyzeOrdersTable(
+            MigrationRun run, Path dumpPath, Set<Long> capturedOrderIds) throws Exception {
         AtomicLong found = new AtomicLong();
         AtomicLong inScope = new AtomicLong();
         AtomicLong skippedOutOfScope = new AtomicLong();
@@ -204,10 +211,7 @@ public class NexoDumpAnalysisService {
         BigDecimal[] sumTax = {BigDecimal.ZERO};
 
         String[] minCreatedAtMaxCreatedAt = {null, null};
-        Map<String, Map<String, AtomicLong>> statuses = new LinkedHashMap<>();
-        for (String col : List.of("payment_status", "process_status", "delivery_status", "type")) {
-            statuses.put(col, new LinkedHashMap<>());
-        }
+        Map<String, Map<String, AtomicLong>> statuses = initOrderStatuses();
 
         List<Map<String, Object>> sampleRows = new ArrayList<>();
 
@@ -246,16 +250,24 @@ public class NexoDumpAnalysisService {
                     }
 
                     BigDecimal subtotal =
-                            asBigDecimal(dumpSqlService.getByColumn(columns, values, "subtotal"), BigDecimal.ZERO);
+                            asBigDecimal(
+                                    dumpSqlService.getByColumn(columns, values, "subtotal"),
+                                    BigDecimal.ZERO);
                     BigDecimal total =
-                            asBigDecimal(dumpSqlService.getByColumn(columns, values, "total"), BigDecimal.ZERO);
+                            asBigDecimal(
+                                    dumpSqlService.getByColumn(columns, values, "total"),
+                                    BigDecimal.ZERO);
                     BigDecimal tax =
-                            asBigDecimal(dumpSqlService.getByColumn(columns, values, "tax_value"), BigDecimal.ZERO);
+                            asBigDecimal(
+                                    dumpSqlService.getByColumn(columns, values, "tax_value"),
+                                    BigDecimal.ZERO);
                     sumSubtotal[0] = sumSubtotal[0].add(subtotal);
                     sumTotal[0] = sumTotal[0].add(total);
                     sumTax[0] = sumTax[0].add(tax);
 
-                    String createdAt = normalizeBlankToNull(dumpSqlService.getByColumn(columns, values, "created_at"));
+                    String createdAt =
+                            normalizeBlankToNull(
+                                    dumpSqlService.getByColumn(columns, values, "created_at"));
                     if (createdAt != null) {
                         if (minCreatedAtMaxCreatedAt[0] == null
                                 || createdAt.compareTo(minCreatedAtMaxCreatedAt[0]) < 0) {
@@ -267,25 +279,8 @@ public class NexoDumpAnalysisService {
                         }
                     }
 
-                    for (Map.Entry<String, Map<String, AtomicLong>> e : statuses.entrySet()) {
-                        String col = e.getKey();
-                        if (!columns.contains(col)) {
-                            continue;
-                        }
-                        String v = normalizeBlankToNull(dumpSqlService.getByColumn(columns, values, col));
-                        String key = v == null ? "<NULL>" : v;
-                        e.getValue().computeIfAbsent(key, ignored -> new AtomicLong()).incrementAndGet();
-                    }
-
-                    if (sampleRows.size() < ANALYZE_SAMPLE_ROWS) {
-                        Map<String, Object> row = new LinkedHashMap<>();
-                        for (String col : List.of("id", "code", "customer_id", "total", "tax_value", "created_at")) {
-                            if (columns.contains(col)) {
-                                row.put(col, normalizeBlankToNull(dumpSqlService.getByColumn(columns, values, col)));
-                            }
-                        }
-                        sampleRows.add(row);
-                    }
+                    bumpOrderStatuses(columns, values, statuses);
+                    maybeAddOrderSampleRow(columns, values, sampleRows);
                 });
 
         Map<String, Object> stats = new LinkedHashMap<>();
@@ -321,8 +316,53 @@ public class NexoDumpAnalysisService {
         return stats;
     }
 
-    private Map<String, Object> analyzeOrdersProducts(MigrationRun run, Path dumpPath, Set<Long> capturedOrderIds)
-            throws Exception {
+    private static final List<String> ORDER_STATUS_COLUMNS =
+            List.of("payment_status", "process_status", "delivery_status", "type");
+
+    private static final List<String> ORDER_SAMPLE_COLUMNS =
+            List.of("id", "code", "customer_id", "total", "tax_value", "created_at");
+
+    private Map<String, Map<String, AtomicLong>> initOrderStatuses() {
+        Map<String, Map<String, AtomicLong>> statuses = new LinkedHashMap<>();
+        for (String col : ORDER_STATUS_COLUMNS) {
+            statuses.put(col, new LinkedHashMap<>());
+        }
+        return statuses;
+    }
+
+    private void bumpOrderStatuses(
+            List<String> columns,
+            List<String> values,
+            Map<String, Map<String, AtomicLong>> statuses) {
+        for (Map.Entry<String, Map<String, AtomicLong>> e : statuses.entrySet()) {
+            String col = e.getKey();
+            if (!columns.contains(col)) {
+                continue;
+            }
+            String v = normalizeBlankToNull(dumpSqlService.getByColumn(columns, values, col));
+            String key = v == null ? "<NULL>" : v;
+            e.getValue().computeIfAbsent(key, ignored -> new AtomicLong()).incrementAndGet();
+        }
+    }
+
+    private void maybeAddOrderSampleRow(
+            List<String> columns, List<String> values, List<Map<String, Object>> sampleRows) {
+        if (sampleRows.size() >= ANALYZE_SAMPLE_ROWS) {
+            return;
+        }
+        Map<String, Object> row = new LinkedHashMap<>();
+        for (String col : ORDER_SAMPLE_COLUMNS) {
+            if (columns.contains(col)) {
+                row.put(
+                        col,
+                        normalizeBlankToNull(dumpSqlService.getByColumn(columns, values, col)));
+            }
+        }
+        sampleRows.add(row);
+    }
+
+    private Map<String, Object> analyzeOrdersProducts(
+            MigrationRun run, Path dumpPath, Set<Long> capturedOrderIds) throws Exception {
         AtomicLong found = new AtomicLong();
         AtomicLong matched = new AtomicLong();
         AtomicLong skippedOutOfScope = new AtomicLong();
@@ -353,15 +393,21 @@ public class NexoDumpAnalysisService {
 
                     matched.incrementAndGet();
                     BigDecimal qty =
-                            asBigDecimal(dumpSqlService.getByColumn(columns, values, "quantity"), BigDecimal.ZERO);
+                            asBigDecimal(
+                                    dumpSqlService.getByColumn(columns, values, "quantity"),
+                                    BigDecimal.ZERO);
                     BigDecimal total =
-                            asBigDecimal(dumpSqlService.getByColumn(columns, values, "total_price"), BigDecimal.ZERO);
+                            asBigDecimal(
+                                    dumpSqlService.getByColumn(columns, values, "total_price"),
+                                    BigDecimal.ZERO);
                     sumQuantity[0] = sumQuantity[0].add(qty);
                     sumTotalPrice[0] = sumTotalPrice[0].add(total);
                 });
 
         Map<String, Object> stats = new LinkedHashMap<>();
-        stats.put("insertStatements", dumpSqlService.countInsertStatements(dumpPath, TABLE_ORDERS_PRODUCTS));
+        stats.put(
+                "insertStatements",
+                dumpSqlService.countInsertStatements(dumpPath, TABLE_ORDERS_PRODUCTS));
         stats.put("found", found.get());
         stats.put("matched", matched.get());
         stats.put("skippedOutOfScope", skippedOutOfScope.get());
@@ -372,8 +418,8 @@ public class NexoDumpAnalysisService {
         return stats;
     }
 
-    private Map<String, Object> analyzeOrdersPayments(MigrationRun run, Path dumpPath, Set<Long> capturedOrderIds)
-            throws Exception {
+    private Map<String, Object> analyzeOrdersPayments(
+            MigrationRun run, Path dumpPath, Set<Long> capturedOrderIds) throws Exception {
         AtomicLong found = new AtomicLong();
         AtomicLong matched = new AtomicLong();
         AtomicLong skippedOutOfScope = new AtomicLong();
@@ -404,16 +450,22 @@ public class NexoDumpAnalysisService {
 
                     matched.incrementAndGet();
                     BigDecimal value =
-                            asBigDecimal(dumpSqlService.getByColumn(columns, values, "value"), BigDecimal.ZERO);
+                            asBigDecimal(
+                                    dumpSqlService.getByColumn(columns, values, "value"),
+                                    BigDecimal.ZERO);
                     sumValue[0] = sumValue[0].add(value);
 
-                    String identifier = normalizeBlankToNull(dumpSqlService.getByColumn(columns, values, "identifier"));
+                    String identifier =
+                            normalizeBlankToNull(
+                                    dumpSqlService.getByColumn(columns, values, "identifier"));
                     String key = identifier == null ? "<NULL>" : identifier;
                     identifiers.computeIfAbsent(key, ignored -> new AtomicLong()).incrementAndGet();
                 });
 
         Map<String, Object> stats = new LinkedHashMap<>();
-        stats.put("insertStatements", dumpSqlService.countInsertStatements(dumpPath, TABLE_ORDERS_PAYMENTS));
+        stats.put(
+                "insertStatements",
+                dumpSqlService.countInsertStatements(dumpPath, TABLE_ORDERS_PAYMENTS));
         stats.put("found", found.get());
         stats.put("matched", matched.get());
         stats.put("skippedOutOfScope", skippedOutOfScope.get());
@@ -430,7 +482,10 @@ public class NexoDumpAnalysisService {
     }
 
     private Map<String, Object> analyzeTable(
-            Path dumpPath, String tableName, List<String> importantColumns, List<String> statusColumns)
+            Path dumpPath,
+            String tableName,
+            List<String> importantColumns,
+            List<String> statusColumns)
             throws Exception {
         long insertStatements = dumpSqlService.countInsertStatements(dumpPath, tableName);
 
@@ -488,7 +543,9 @@ public class NexoDumpAnalysisService {
                         if (!columns.contains(col)) {
                             continue;
                         }
-                        String v = normalizeBlankToNull(dumpSqlService.getByColumn(columns, values, col));
+                        String v =
+                                normalizeBlankToNull(
+                                        dumpSqlService.getByColumn(columns, values, col));
                         if (v == null) {
                             nullCounts.get(col).incrementAndGet();
                         }
@@ -498,7 +555,9 @@ public class NexoDumpAnalysisService {
                         if (!columns.contains(col)) {
                             continue;
                         }
-                        String v = normalizeBlankToNull(dumpSqlService.getByColumn(columns, values, col));
+                        String v =
+                                normalizeBlankToNull(
+                                        dumpSqlService.getByColumn(columns, values, col));
                         String key = v == null ? "<NULL>" : v;
                         distinctStatuses
                                 .get(col)
@@ -510,7 +569,10 @@ public class NexoDumpAnalysisService {
                         Map<String, Object> row = new LinkedHashMap<>();
                         for (String col : sampleColumns) {
                             if (columns.contains(col)) {
-                                row.put(col, normalizeBlankToNull(dumpSqlService.getByColumn(columns, values, col)));
+                                row.put(
+                                        col,
+                                        normalizeBlankToNull(
+                                                dumpSqlService.getByColumn(columns, values, col)));
                             }
                         }
                         sampleRows.add(row);

@@ -57,20 +57,27 @@ public class MigrationService {
 
     public List<MigrationLogEntryDto> listLogs(UUID runId, int limit) {
         int safeLimit = Math.max(1, Math.min(limit, MAX_LOG_LIMIT));
-        return logEntryRepository.findByRunIdOrderByCreatedAtDesc(runId, PageRequest.of(0, safeLimit)).getContent()
+        return logEntryRepository
+                .findByRunIdOrderByCreatedAtDesc(runId, PageRequest.of(0, safeLimit))
+                .getContent()
                 .stream()
                 .map(this::mapToDto)
                 .toList();
     }
 
     public MigrationRunDto getRun(UUID id) {
-        return mapToDto(runRepository.findById(id).orElseThrow(() -> new IllegalArgumentException("Run not found")));
+        return mapToDto(
+                runRepository
+                        .findById(id)
+                        .orElseThrow(() -> new IllegalArgumentException("Run not found")));
     }
 
     @Transactional
     public void updateRunStatus(UUID runId, MigrationRunStatus status, boolean clearFinishedAt) {
         MigrationRun run =
-                runRepository.findById(runId).orElseThrow(() -> new IllegalArgumentException("Run not found"));
+                runRepository
+                        .findById(runId)
+                        .orElseThrow(() -> new IllegalArgumentException("Run not found"));
         run.setStatus(status);
         if (clearFinishedAt) {
             run.setFinishedAt(null);
@@ -84,9 +91,15 @@ public class MigrationService {
 
     @Transactional
     public void logMessage(
-            UUID runId, MigrationStageKey stageKey, MigrationLogLevel level, String message, String details) {
+            UUID runId,
+            MigrationStageKey stageKey,
+            MigrationLogLevel level,
+            String message,
+            String details) {
         MigrationRun run =
-                runRepository.findById(runId).orElseThrow(() -> new IllegalArgumentException("Run not found"));
+                runRepository
+                        .findById(runId)
+                        .orElseThrow(() -> new IllegalArgumentException("Run not found"));
         log(run, stageKey, level, message, details);
     }
 
@@ -128,7 +141,9 @@ public class MigrationService {
     @Transactional
     public MigrationStageExecutionDto executeStage(UUID runId, MigrationStageKey stageKey) {
         MigrationRun run =
-                runRepository.findById(runId).orElseThrow(() -> new IllegalArgumentException("Run not found"));
+                runRepository
+                        .findById(runId)
+                        .orElseThrow(() -> new IllegalArgumentException("Run not found"));
 
         MigrationStageExecution stageExecution =
                 stageExecutionRepository
@@ -159,20 +174,24 @@ public class MigrationService {
         try {
             Path dumpPath = Path.of(run.getSourceReference());
             switch (stageKey) {
-                case ANALYZE_SOURCE ->
-                        setStats(stageExecution, dumpAnalysisService.analyzeSource(dumpPath));
-                case IMPORT_UNITS -> setStats(stageExecution, masterDataStagesService.importUnits(run, dumpPath));
-                case IMPORT_TAX_SLABS ->
-                        setStats(stageExecution, masterDataStagesService.importTaxSlabs(run, dumpPath));
-                case IMPORT_WAREHOUSES ->
-                        setStats(stageExecution, masterDataStagesService.importWarehouses(run, dumpPath));
-                case IMPORT_PARTIES -> setStats(stageExecution, masterDataStagesService.importParties(run, dumpPath));
-                case IMPORT_ITEMS -> setStats(stageExecution, masterDataStagesService.importItems(run, dumpPath));
-                case IMPORT_OPENING_STOCK ->
-                        setStats(stageExecution, masterDataStagesService.importOpeningStock(run, dumpPath));
-                case ANALYZE_ORDERS -> setStats(stageExecution, dumpAnalysisService.analyzeOrders(run, dumpPath));
-                case IMPORT_SALES_PILOT ->
-                        setStats(stageExecution, ordersMigrationService.importSalesPilot(run, dumpPath));
+                case ANALYZE_SOURCE -> setStats(
+                        stageExecution, dumpAnalysisService.analyzeSource(dumpPath));
+                case IMPORT_UNITS -> setStats(
+                        stageExecution, masterDataStagesService.importUnits(run, dumpPath));
+                case IMPORT_TAX_SLABS -> setStats(
+                        stageExecution, masterDataStagesService.importTaxSlabs(run, dumpPath));
+                case IMPORT_WAREHOUSES -> setStats(
+                        stageExecution, masterDataStagesService.importWarehouses(run, dumpPath));
+                case IMPORT_PARTIES -> setStats(
+                        stageExecution, masterDataStagesService.importParties(run, dumpPath));
+                case IMPORT_ITEMS -> setStats(
+                        stageExecution, masterDataStagesService.importItems(run, dumpPath));
+                case IMPORT_OPENING_STOCK -> setStats(
+                        stageExecution, masterDataStagesService.importOpeningStock(run, dumpPath));
+                case ANALYZE_ORDERS -> setStats(
+                        stageExecution, dumpAnalysisService.analyzeOrders(run, dumpPath));
+                case IMPORT_SALES_PILOT -> setStats(
+                        stageExecution, ordersMigrationService.importSalesPilot(run, dumpPath));
                 case FINALIZE -> finalizeRun(run);
                 default -> setStats(stageExecution, stageNotImplemented(run, stageKey));
             }
@@ -194,7 +213,8 @@ public class MigrationService {
         }
     }
 
-    private void setStats(MigrationStageExecution stageExecution, Map<String, Object> stats) throws Exception {
+    private void setStats(MigrationStageExecution stageExecution, Map<String, Object> stats)
+            throws Exception {
         stageExecution.setStatsJson(objectMapper.writeValueAsString(stats));
     }
 
@@ -291,4 +311,3 @@ public class MigrationService {
                 .build();
     }
 }
-

@@ -194,7 +194,9 @@ public class PurchaseInvoiceService {
 
     public List<PurchaseInvoiceDto> getAllPurchaseInvoices(
             InvoicePaymentStatus paymentStatus, LocalDate fromDate, LocalDate toDate) {
-        return purchaseInvoiceRepository.findAllWithFilters(paymentStatus, fromDate, toDate).stream()
+        return purchaseInvoiceRepository
+                .findAllWithFilters(paymentStatus, fromDate, toDate)
+                .stream()
                 .map(this::mapToDto)
                 .collect(Collectors.toList());
     }
@@ -217,8 +219,10 @@ public class PurchaseInvoiceService {
                         .findById(id)
                         .orElseThrow(() -> new EntityNotFoundException("Invoice not found"));
 
-        BigDecimal grandTotal = invoice.getGrandTotal() != null ? invoice.getGrandTotal() : BigDecimal.ZERO;
-        BigDecimal paidSoFar = invoice.getPaidAmount() != null ? invoice.getPaidAmount() : BigDecimal.ZERO;
+        BigDecimal grandTotal =
+                invoice.getGrandTotal() != null ? invoice.getGrandTotal() : BigDecimal.ZERO;
+        BigDecimal paidSoFar =
+                invoice.getPaidAmount() != null ? invoice.getPaidAmount() : BigDecimal.ZERO;
         BigDecimal balance = grandTotal.subtract(paidSoFar);
 
         if (status == null) {

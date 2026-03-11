@@ -27,10 +27,12 @@ public class SalesReturnDto {
 
     @NotNull(message = "Party ID is required")
     private UUID partyId;
+
     private String partyName;
 
     @NotNull(message = "Warehouse ID is required")
     private UUID warehouseId;
+
     private String warehouseName;
 
     private BigDecimal totalTaxableAmount;

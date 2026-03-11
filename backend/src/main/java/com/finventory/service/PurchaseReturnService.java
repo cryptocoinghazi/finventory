@@ -5,6 +5,7 @@ import com.finventory.dto.PurchaseReturnLineDto;
 import com.finventory.model.Item;
 import com.finventory.model.Party;
 import com.finventory.model.PurchaseInvoice;
+import com.finventory.model.PurchaseInvoiceLine;
 import com.finventory.model.PurchaseReturn;
 import com.finventory.model.PurchaseReturnLine;
 import com.finventory.model.StockLedgerEntry;
@@ -17,7 +18,6 @@ import com.finventory.repository.WarehouseRepository;
 import jakarta.persistence.EntityNotFoundException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import com.finventory.model.PurchaseInvoiceLine;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -90,11 +90,9 @@ public class PurchaseReturnService {
 
             for (PurchaseReturnLineDto lineDto : dto.getLines()) {
                 BigDecimal originalQuantity =
-                        invoiceItemQuantities.getOrDefault(
-                                lineDto.getItemId(), BigDecimal.ZERO);
+                        invoiceItemQuantities.getOrDefault(lineDto.getItemId(), BigDecimal.ZERO);
                 BigDecimal alreadyReturned =
-                        returnedItemQuantities.getOrDefault(
-                                lineDto.getItemId(), BigDecimal.ZERO);
+                        returnedItemQuantities.getOrDefault(lineDto.getItemId(), BigDecimal.ZERO);
                 BigDecimal currentReturn = lineDto.getQuantity();
 
                 if (alreadyReturned.add(currentReturn).compareTo(originalQuantity) > 0) {

@@ -92,7 +92,13 @@ public class NexoMigrationMasterDataStagesService {
                 analyzeTable(
                         dumpPath,
                         TABLE_PROVIDERS,
-                        List.of("first_name", "last_name", "email", "phone", "amount_due", "amount_paid"),
+                        List.of(
+                                "first_name",
+                                "last_name",
+                                "email",
+                                "phone",
+                                "amount_due",
+                                "amount_paid"),
                         List.of()));
 
         stats.put(
@@ -115,7 +121,8 @@ public class NexoMigrationMasterDataStagesService {
 
         stats.put(
                 TABLE_TAXES,
-                analyzeTable(dumpPath, TABLE_TAXES, List.of("name", "rate", "tax_group_id"), List.of()));
+                analyzeTable(
+                        dumpPath, TABLE_TAXES, List.of("name", "rate", "tax_group_id"), List.of()));
 
         stats.put(
                 TABLE_UNITS,
@@ -139,10 +146,22 @@ public class NexoMigrationMasterDataStagesService {
         Map<String, AtomicLong> uomCounts = new LinkedHashMap<>();
 
         applyUomFromProductsToItems(
-                run, dumpPath, uomByGroupId, counters, uomCounts, missingUnitGroupMappingSamples, errorSamples);
+                run,
+                dumpPath,
+                uomByGroupId,
+                counters,
+                uomCounts,
+                missingUnitGroupMappingSamples,
+                errorSamples);
 
         return buildImportUnitsStats(
-                run, dumpPath, uomByGroupId, counters, uomCounts, missingUnitGroupMappingSamples, errorSamples);
+                run,
+                dumpPath,
+                uomByGroupId,
+                counters,
+                uomCounts,
+                missingUnitGroupMappingSamples,
+                errorSamples);
     }
 
     public Map<String, Object> importTaxSlabs(MigrationRun run, Path dumpPath) throws Exception {
@@ -155,7 +174,9 @@ public class NexoMigrationMasterDataStagesService {
         dumpSql.forEachInsertRow(
                 dumpPath,
                 TABLE_TAXES,
-                (columns, values) -> importTaxSlabRow(run, counters, warningSamples, errorSamples, columns, values));
+                (columns, values) ->
+                        importTaxSlabRow(
+                                run, counters, warningSamples, errorSamples, columns, values));
 
         Map<String, Object> stats = new LinkedHashMap<>();
         stats.put("implemented", true);
@@ -220,7 +241,8 @@ public class NexoMigrationMasterDataStagesService {
         List<String> errorSamples = new ArrayList<>();
 
         if (selectedTable == null) {
-            return buildNoWarehouseSourceStats(run, dumpPath, counters, warningSamples, errorSamples);
+            return buildNoWarehouseSourceStats(
+                    run, dumpPath, counters, warningSamples, errorSamples);
         }
 
         String tableName = selectedTable;
@@ -229,9 +251,16 @@ public class NexoMigrationMasterDataStagesService {
                 tableName,
                 (columns, values) ->
                         importWarehouseRow(
-                                run, tableName, counters, warningSamples, errorSamples, columns, values));
+                                run,
+                                tableName,
+                                counters,
+                                warningSamples,
+                                errorSamples,
+                                columns,
+                                values));
 
-        return buildWarehouseStats(run, dumpPath, tableName, counters, warningSamples, errorSamples);
+        return buildWarehouseStats(
+                run, dumpPath, tableName, counters, warningSamples, errorSamples);
     }
 
     public Map<String, Object> importParties(MigrationRun run, Path dumpPath) throws Exception {
@@ -297,8 +326,12 @@ public class NexoMigrationMasterDataStagesService {
         long wouldCreateCustomers = 0L;
         long wouldMapExistingCustomers = 0L;
         for (String name : List.of("Hijab Cust", "Dress Customer")) {
-            long sourceId = name.equals("Hijab Cust") ? FIXED_CUSTOMER_SOURCE_ID_HIJAB : FIXED_CUSTOMER_SOURCE_ID_DRESS;
-            List<Party> existing = partyRepository.findByNameIgnoreCaseAndType(name, Party.PartyType.CUSTOMER);
+            long sourceId =
+                    name.equals("Hijab Cust")
+                            ? FIXED_CUSTOMER_SOURCE_ID_HIJAB
+                            : FIXED_CUSTOMER_SOURCE_ID_DRESS;
+            List<Party> existing =
+                    partyRepository.findByNameIgnoreCaseAndType(name, Party.PartyType.CUSTOMER);
             Optional<MigrationIdMap> existingMap =
                     idMapRepository.findBySourceSystemAndEntityTypeAndSourceId(
                             run.getSourceSystem(), ENTITY_TYPE_PARTY_CUSTOMER, sourceId);
@@ -308,7 +341,11 @@ public class NexoMigrationMasterDataStagesService {
                     if (run.isDryRun()) {
                         wouldMapExistingCustomers++;
                     } else {
-                        saveIdMap(run.getSourceSystem(), ENTITY_TYPE_PARTY_CUSTOMER, sourceId, existing.get(0).getId());
+                        saveIdMap(
+                                run.getSourceSystem(),
+                                ENTITY_TYPE_PARTY_CUSTOMER,
+                                sourceId,
+                                existing.get(0).getId());
                         mappedExistingCustomers++;
                     }
                 }
@@ -319,10 +356,15 @@ public class NexoMigrationMasterDataStagesService {
                 continue;
             }
             PartyDto created =
-                    partyService.createParty(PartyDto.builder().name(name).type(Party.PartyType.CUSTOMER).build());
+                    partyService.createParty(
+                            PartyDto.builder().name(name).type(Party.PartyType.CUSTOMER).build());
             createdCustomers++;
             if (existingMap.isEmpty()) {
-                saveIdMap(run.getSourceSystem(), ENTITY_TYPE_PARTY_CUSTOMER, sourceId, created.getId());
+                saveIdMap(
+                        run.getSourceSystem(),
+                        ENTITY_TYPE_PARTY_CUSTOMER,
+                        sourceId,
+                        created.getId());
             }
         }
         customers.put("created", createdCustomers);
@@ -334,7 +376,8 @@ public class NexoMigrationMasterDataStagesService {
         return customers;
     }
 
-    private Map<String, Object> importVendorsFromCategories(MigrationRun run, Path dumpPath) throws Exception {
+    private Map<String, Object> importVendorsFromCategories(MigrationRun run, Path dumpPath)
+            throws Exception {
         Map<String, Object> vendors = new LinkedHashMap<>();
         vendors.put("mode", "categories-to-vendors");
         ImportPartiesCounters counters = new ImportPartiesCounters();
@@ -345,7 +388,8 @@ public class NexoMigrationMasterDataStagesService {
                 TABLE_CATEGORIES,
                 (columns, values) -> {
                     Long categoryId = asLong(getByColumn(columns, values, "id"));
-                    String categoryName = normalizeBlankToNull(getByColumn(columns, values, "name"));
+                    String categoryName =
+                            normalizeBlankToNull(getByColumn(columns, values, "name"));
                     if (categoryId == null || categoryName == null) {
                         return;
                     }
@@ -367,7 +411,8 @@ public class NexoMigrationMasterDataStagesService {
                         return;
                     }
                     List<Party> existingByName =
-                            partyRepository.findByNameIgnoreCaseAndType(categoryName, Party.PartyType.VENDOR);
+                            partyRepository.findByNameIgnoreCaseAndType(
+                                    categoryName, Party.PartyType.VENDOR);
                     if (!existingByName.isEmpty()) {
                         counters.linkedExisting.incrementAndGet();
                         if (!run.isDryRun()) {
@@ -386,9 +431,16 @@ public class NexoMigrationMasterDataStagesService {
                     try {
                         PartyDto created =
                                 partyService.createParty(
-                                        PartyDto.builder().name(categoryName).type(Party.PartyType.VENDOR).build());
+                                        PartyDto.builder()
+                                                .name(categoryName)
+                                                .type(Party.PartyType.VENDOR)
+                                                .build());
                         counters.created.incrementAndGet();
-                        saveIdMap(run.getSourceSystem(), ENTITY_TYPE_PARTY_VENDOR, categoryId, created.getId());
+                        saveIdMap(
+                                run.getSourceSystem(),
+                                ENTITY_TYPE_PARTY_VENDOR,
+                                categoryId,
+                                created.getId());
                     } catch (Exception e) {
                         counters.errors.incrementAndGet();
                         addSample(errorSamples, "categoryId=" + categoryId + ": " + e.getMessage());
@@ -414,7 +466,8 @@ public class NexoMigrationMasterDataStagesService {
         return itemsStagesService.importItems(run, dumpPath);
     }
 
-    public Map<String, Object> importOpeningStock(MigrationRun run, Path dumpPath) throws Exception {
+    public Map<String, Object> importOpeningStock(MigrationRun run, Path dumpPath)
+            throws Exception {
         return itemsStagesService.importOpeningStock(run, dumpPath);
     }
 
@@ -425,7 +478,10 @@ public class NexoMigrationMasterDataStagesService {
     }
 
     private Map<String, Object> analyzeTable(
-            Path dumpPath, String tableName, List<String> importantColumns, List<String> statusColumns)
+            Path dumpPath,
+            String tableName,
+            List<String> importantColumns,
+            List<String> statusColumns)
             throws Exception {
         long insertStatements = dumpSql.countInsertStatements(dumpPath, tableName);
 
@@ -506,7 +562,9 @@ public class NexoMigrationMasterDataStagesService {
                         Map<String, Object> row = new LinkedHashMap<>();
                         for (String col : sampleColumns) {
                             if (columns.contains(col)) {
-                                row.put(col, normalizeBlankToNull(getByColumn(columns, values, col)));
+                                row.put(
+                                        col,
+                                        normalizeBlankToNull(getByColumn(columns, values, col)));
                             }
                         }
                         sampleRows.add(row);
@@ -609,7 +667,11 @@ public class NexoMigrationMasterDataStagesService {
             if (existingByRate.isPresent()) {
                 counters.linkedExisting.incrementAndGet();
                 if (!run.isDryRun()) {
-                    saveIdMap(run.getSourceSystem(), ENTITY_TYPE_TAX_SLAB, sourceId, existingByRate.get().getId());
+                    saveIdMap(
+                            run.getSourceSystem(),
+                            ENTITY_TYPE_TAX_SLAB,
+                            sourceId,
+                            existingByRate.get().getId());
                 }
                 return;
             }
@@ -711,27 +773,45 @@ public class NexoMigrationMasterDataStagesService {
         try {
             String name =
                     normalizeBlankToNull(
-                            firstNonBlank(columns, values, List.of("name", "title", "label", "description")));
+                            firstNonBlank(
+                                    columns,
+                                    values,
+                                    List.of("name", "title", "label", "description")));
             if (name == null) {
                 name = "Warehouse-" + sourceId;
             }
 
             String location =
                     normalizeBlankToNull(
-                            firstNonBlank(columns, values, List.of("location", "address", "city", "country")));
+                            firstNonBlank(
+                                    columns,
+                                    values,
+                                    List.of("location", "address", "city", "country")));
             String stateCode =
-                    normalizeStateCode(firstNonBlank(columns, values, List.of("state_code", "state", "state_id")));
+                    normalizeStateCode(
+                            firstNonBlank(
+                                    columns, values, List.of("state_code", "state", "state_id")));
 
-            Optional<com.finventory.model.Warehouse> existingByName = warehouseRepository.findByName(name);
+            Optional<com.finventory.model.Warehouse> existingByName =
+                    warehouseRepository.findByName(name);
             if (existingByName.isPresent()) {
                 counters.linkedExisting.incrementAndGet();
                 if (!run.isDryRun()) {
-                    saveIdMap(run.getSourceSystem(), ENTITY_TYPE_WAREHOUSE, sourceId, existingByName.get().getId());
+                    saveIdMap(
+                            run.getSourceSystem(),
+                            ENTITY_TYPE_WAREHOUSE,
+                            sourceId,
+                            existingByName.get().getId());
                 }
                 return;
             }
 
-            WarehouseDto dto = WarehouseDto.builder().name(name).location(location).stateCode(stateCode).build();
+            WarehouseDto dto =
+                    WarehouseDto.builder()
+                            .name(name)
+                            .location(location)
+                            .stateCode(stateCode)
+                            .build();
 
             if (run.isDryRun()) {
                 counters.wouldCreate.incrementAndGet();
@@ -802,13 +882,18 @@ public class NexoMigrationMasterDataStagesService {
     }
 
     private Map<String, Object> importPartyTable(
-            MigrationRun run, Path dumpPath, String tableName, String entityType, Party.PartyType partyType)
+            MigrationRun run,
+            Path dumpPath,
+            String tableName,
+            String entityType,
+            Party.PartyType partyType)
             throws Exception {
         ImportPartiesCounters counters = new ImportPartiesCounters();
         List<String> warningSamples = new ArrayList<>();
         List<String> errorSamples = new ArrayList<>();
         PartyRowContext rowContext =
-                new PartyRowContext(run, entityType, partyType, counters, warningSamples, errorSamples);
+                new PartyRowContext(
+                        run, entityType, partyType, counters, warningSamples, errorSamples);
 
         dumpSql.forEachInsertRow(
                 dumpPath,
@@ -946,7 +1031,9 @@ public class NexoMigrationMasterDataStagesService {
                 fullName != null
                         ? fullName
                         : normalizeBlankToNull(
-                                (firstName == null ? "" : firstName) + " " + (lastName == null ? "" : lastName));
+                                (firstName == null ? "" : firstName)
+                                        + " "
+                                        + (lastName == null ? "" : lastName));
         if (name == null) {
             name = (partyType == Party.PartyType.CUSTOMER ? "Customer-" : "Vendor-") + sourceId;
         }
@@ -968,7 +1055,8 @@ public class NexoMigrationMasterDataStagesService {
         }
 
         String email = normalizeBlankToNull(getByColumn(columns, values, "email"));
-        String phone = normalizeBlankToNull(firstNonBlank(columns, values, List.of("phone", "mobile")));
+        String phone =
+                normalizeBlankToNull(firstNonBlank(columns, values, List.of("phone", "mobile")));
         String address =
                 normalizeBlankToNull(
                         firstNonBlank(
@@ -977,7 +1065,8 @@ public class NexoMigrationMasterDataStagesService {
                                 List.of("address", "billing_address", "shipping_address")));
 
         String stateCode =
-                normalizeStateCode(firstNonBlank(columns, values, List.of("state_code", "state", "state_id")));
+                normalizeStateCode(
+                        firstNonBlank(columns, values, List.of("state_code", "state", "state_id")));
         if (stateCode == null && gstin != null && gstin.length() >= 2) {
             stateCode = normalizeStateCode(gstin.substring(0, 2));
         }
@@ -1007,30 +1096,42 @@ public class NexoMigrationMasterDataStagesService {
             if (existingByGstin.isPresent()) {
                 counters.linkedExisting.incrementAndGet();
                 if (!run.isDryRun()) {
-                    saveIdMap(run.getSourceSystem(), entityType, sourceId, existingByGstin.get().getId());
+                    saveIdMap(
+                            run.getSourceSystem(),
+                            entityType,
+                            sourceId,
+                            existingByGstin.get().getId());
                 }
                 return Optional.of(existingByGstin.get().getId());
             }
         }
 
-        List<Party> existingByName = partyRepository.findByNameIgnoreCaseAndType(dto.getName(), partyType);
+        List<Party> existingByName =
+                partyRepository.findByNameIgnoreCaseAndType(dto.getName(), partyType);
         if (existingByName.size() == 1) {
             counters.linkedExisting.incrementAndGet();
             if (!run.isDryRun()) {
-                saveIdMap(run.getSourceSystem(), entityType, sourceId, existingByName.get(0).getId());
+                saveIdMap(
+                        run.getSourceSystem(), entityType, sourceId, existingByName.get(0).getId());
             }
             return Optional.of(existingByName.get(0).getId());
         }
         if (existingByName.size() > 1) {
             counters.ambiguousExisting.incrementAndGet();
-            addSample(warningSamples, "partyId=" + sourceId + " ambiguous existing matches for name=" + dto.getName());
+            addSample(
+                    warningSamples,
+                    "partyId="
+                            + sourceId
+                            + " ambiguous existing matches for name="
+                            + dto.getName());
             return Optional.of(existingByName.get(0).getId());
         }
 
         return Optional.empty();
     }
 
-    private String firstNonBlank(List<String> columns, List<String> values, List<String> candidateColumns) {
+    private String firstNonBlank(
+            List<String> columns, List<String> values, List<String> candidateColumns) {
         for (String col : candidateColumns) {
             if (!columns.contains(col)) {
                 continue;
@@ -1084,7 +1185,8 @@ public class NexoMigrationMasterDataStagesService {
                 TABLE_UNITS,
                 (columns, values) -> {
                     Long groupId = asLong(getByColumn(columns, values, "group_id"));
-                    String identifier = normalizeBlankToNull(getByColumn(columns, values, "identifier"));
+                    String identifier =
+                            normalizeBlankToNull(getByColumn(columns, values, "identifier"));
                     String name = normalizeBlankToNull(getByColumn(columns, values, "name"));
                     Long baseUnit = asLong(getByColumn(columns, values, "base_unit"));
 
@@ -1253,7 +1355,8 @@ public class NexoMigrationMasterDataStagesService {
                         counters.missingUnitGroupValue.incrementAndGet();
                     } else if (!uomByGroupId.containsKey(unitGroupId)) {
                         counters.missingUnitGroupMapping.incrementAndGet();
-                        if (missingUnitGroupMappingSamples.size() < MAX_MISSING_UNIT_GROUP_SAMPLES) {
+                        if (missingUnitGroupMappingSamples.size()
+                                < MAX_MISSING_UNIT_GROUP_SAMPLES) {
                             missingUnitGroupMappingSamples.add(unitGroupId);
                         }
                     }
@@ -1263,7 +1366,9 @@ public class NexoMigrationMasterDataStagesService {
                                     ? DEFAULT_UOM
                                     : uomByGroupId.getOrDefault(unitGroupId, DEFAULT_UOM);
                     String uomKey = uom == null ? "<NULL>" : uom;
-                    uomCounts.computeIfAbsent(uomKey, ignored -> new AtomicLong()).incrementAndGet();
+                    uomCounts
+                            .computeIfAbsent(uomKey, ignored -> new AtomicLong())
+                            .incrementAndGet();
 
                     Optional<MigrationIdMap> existingMap =
                             idMapRepository.findBySourceSystemAndEntityTypeAndSourceId(
@@ -1364,7 +1469,8 @@ public class NexoMigrationMasterDataStagesService {
         return stats;
     }
 
-    private String selectFirstTableWithInserts(Path dumpPath, List<String> candidates) throws Exception {
+    private String selectFirstTableWithInserts(Path dumpPath, List<String> candidates)
+            throws Exception {
         for (String t : candidates) {
             if (dumpSql.countInsertStatements(dumpPath, t) > 0) {
                 return t;

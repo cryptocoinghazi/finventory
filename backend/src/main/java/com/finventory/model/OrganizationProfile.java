@@ -17,8 +17,7 @@ import lombok.NoArgsConstructor;
 @Table(name = "organization_profile")
 public class OrganizationProfile {
 
-    @Id
-    private Long id; // Always 1
+    @Id private Long id; // Always 1
 
     @Column(nullable = false)
     private String companyName;

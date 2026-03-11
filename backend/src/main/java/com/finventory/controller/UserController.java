@@ -2,6 +2,7 @@ package com.finventory.controller;
 
 import com.finventory.dto.UserDto;
 import com.finventory.service.UserService;
+import java.security.Principal;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -13,7 +14,6 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-import java.security.Principal;
 
 @RestController
 @RequestMapping("/api/v1/users")
@@ -29,8 +29,7 @@ public class UserController {
 
     @PutMapping("/me/password")
     public ResponseEntity<Void> updatePassword(
-            @RequestBody com.finventory.dto.ChangePasswordRequest request,
-            Principal principal) {
+            @RequestBody com.finventory.dto.ChangePasswordRequest request, Principal principal) {
         userService.updatePassword(principal.getName(), request);
         return ResponseEntity.ok().build();
     }
