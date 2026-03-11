@@ -272,6 +272,7 @@ export function LabelPrintDialog({
   const [preparing, setPreparing] = useState(false)
   const [prepared, setPrepared] = useState<LabelPrintPrepareResponse | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [statusSyncMessage, setStatusSyncMessage] = useState<string | null>(null)
   const [zoom, setZoom] = useState(1)
   const [orgName, setOrgName] = useState("")
 
@@ -288,6 +289,7 @@ export function LabelPrintDialog({
     setA4Columns(4)
     setPrepared(null)
     setError(null)
+    setStatusSyncMessage(null)
     setZoom(1)
 
     getOrganizationProfile()
@@ -520,6 +522,7 @@ export function LabelPrintDialog({
 
   async function onPrepare() {
     setError(null)
+    setStatusSyncMessage(null)
     setPreparing(true)
     setPrepared(null)
     try {
@@ -540,15 +543,21 @@ export function LabelPrintDialog({
   async function onPrint() {
     if (!prepared?.jobId) return
     setError(null)
+    setStatusSyncMessage(null)
     try {
       await updateLabelPrintJobStatus(prepared.jobId, "PRINT_DIALOG_OPENED")
     } catch {}
     try {
       await printPreparedInIframe()
-      await updateLabelPrintJobStatus(prepared.jobId, "PRINTED")
       setPrepared((p) => (p ? { ...p, status: "PRINTED" } : p))
     } catch (e) {
       setError(e instanceof Error ? e.message : "Print failed")
+      return
+    }
+    try {
+      await updateLabelPrintJobStatus(prepared.jobId, "PRINTED")
+    } catch {
+      setStatusSyncMessage("Print dialog closed, but status sync failed.")
     }
   }
 
@@ -566,6 +575,9 @@ export function LabelPrintDialog({
           <div className="grid flex-1 min-h-0 gap-5 overflow-hidden lg:grid-cols-2">
             <div className="flex min-h-0 flex-col gap-4">
               {error ? <div className="text-sm text-destructive">{error}</div> : null}
+              {statusSyncMessage ? (
+                <div className="text-sm text-muted-foreground">{statusSyncMessage}</div>
+              ) : null}
 
               {prepared && invalidCount > 0 ? (
                 <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm">
