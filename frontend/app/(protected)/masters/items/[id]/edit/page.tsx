@@ -7,6 +7,7 @@ import { PageHeader } from "@/components/ui/page-header"
 import { Button } from "@/components/ui/button"
 import { getItem, updateItem, Item, ItemInput, uploadItemImage } from "@/lib/items"
 import Link from "next/link"
+import { LabelPrintDialog } from "@/components/items/LabelPrintDialog"
 
 export default function EditItemPage() {
   const params = useParams()
@@ -16,6 +17,7 @@ export default function EditItemPage() {
   const [item, setItem] = useState<Item | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [printOpen, setPrintOpen] = useState(false)
 
   useEffect(() => {
     async function load() {
@@ -64,9 +66,14 @@ export default function EditItemPage() {
         title="Edit Item"
         description={`Edit details for ${item.name}`}
         actions={
-          <Link href="/masters/items">
-            <Button variant="outline">Back</Button>
-          </Link>
+          <div className="flex gap-2">
+            <Button variant="secondary" onClick={() => setPrintOpen(true)}>
+              Print Labels
+            </Button>
+            <Link href="/masters/items">
+              <Button variant="outline">Back</Button>
+            </Link>
+          </div>
         }
       />
       <ItemForm 
@@ -74,6 +81,8 @@ export default function EditItemPage() {
         initialValue={item}
         onSubmit={onSubmit} 
       />
+
+      <LabelPrintDialog open={printOpen} onOpenChange={setPrintOpen} selectedItems={[item]} />
     </div>
   )
 }

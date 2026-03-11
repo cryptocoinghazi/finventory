@@ -13,12 +13,15 @@ import { Input } from "@/components/ui/input"
 import { ChevronDown, ChevronRight, Search } from "lucide-react"
 import { useDebounce } from "@/hooks/use-debounce"
 import { API_BASE } from "@/lib/api"
+import { LabelPrintDialog } from "@/components/items/LabelPrintDialog"
 
 export default function ItemsListPage() {
   const [rows, setRows] = useState<Item[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [query, setQuery] = useState("")
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [printOpen, setPrintOpen] = useState(false)
   const [collapsedByVendor, setCollapsedByVendor] = useState<Record<string, boolean>>({})
   const [pageByVendor, setPageByVendor] = useState<Record<string, number>>({})
   const debouncedQuery = useDebounce(query, 300)
@@ -96,6 +99,11 @@ export default function ItemsListPage() {
             try {
               await deleteItem(it.id)
               setRows((prev) => prev.filter((x) => x.id !== it.id))
+              setSelectedIds((prev) => {
+                const next = new Set(prev)
+                next.delete(it.id)
+                return next
+              })
             } catch (err) {
               setError(err instanceof Error ? err.message : "Delete failed")
             }
@@ -105,49 +113,102 @@ export default function ItemsListPage() {
     )
   }
 
-  const columns = [
-    {
-      key: "image",
-      header: "Image",
-      cell: (row: Item) =>
-        row.imageUrl ? (
-          <div className="h-10 w-10 rounded-md overflow-hidden border bg-muted">
-            <img
-              src={row.imageUrl.startsWith("http") ? row.imageUrl : `${API_BASE}${row.imageUrl}`}
-              alt={row.name}
-              className="h-full w-full object-cover"
-            />
-          </div>
-        ) : (
-          <div className="h-10 w-10 rounded-md border bg-muted" />
+  const selectedItems = useMemo(
+    () => rows.filter((r) => selectedIds.has(r.id)),
+    [rows, selectedIds]
+  )
+
+  function columnsFor(visible: Item[]) {
+    const allVisibleSelected = visible.length > 0 && visible.every((r) => selectedIds.has(r.id))
+    const someVisibleSelected = visible.some((r) => selectedIds.has(r.id))
+    return [
+      {
+        key: "select",
+        header: (
+          <input
+            aria-label="Select all"
+            type="checkbox"
+            checked={allVisibleSelected}
+            ref={(el) => {
+              if (!el) return
+              el.indeterminate = !allVisibleSelected && someVisibleSelected
+            }}
+            onChange={(e) => {
+              const checked = e.target.checked
+              setSelectedIds((prev) => {
+                const next = new Set(prev)
+                visible.forEach((it) => {
+                  if (checked) next.add(it.id)
+                  else next.delete(it.id)
+                })
+                return next
+              })
+            }}
+            onClick={(e) => e.stopPropagation()}
+          />
         ),
-      className: "w-[70px]",
-    },
-    { key: "name", header: "Name", sortable: true },
-    { key: "code", header: "Code", sortable: true },
-    { key: "barcode", header: "Barcode" },
-    { key: "hsnCode", header: "HSN" },
-    { key: "uom", header: "UOM" },
-    { 
-      key: "unitPrice", 
-      header: "Unit Price", 
-      cell: (row: Item) => <MoneyText value={row.unitPrice} />,
-      className: "text-right"
-    },
-    { 
-      key: "cogs", 
-      header: "COGS", 
-      cell: (row: Item) => <MoneyText value={row.cogs} />,
-      className: "text-right"
-    },
-    { 
-      key: "taxRate", 
-      header: "Tax %", 
-      cell: (row: Item) => `${row.taxRate}%`,
-      className: "text-right"
-    },
-    { key: "actions", header: "Actions", cell: renderActions, className: "w-[150px]" },
-  ]
+        cell: (row: Item) => (
+          <input
+            aria-label={`Select ${row.name}`}
+            type="checkbox"
+            checked={selectedIds.has(row.id)}
+            onChange={(e) => {
+              const checked = e.target.checked
+              setSelectedIds((prev) => {
+                const next = new Set(prev)
+                if (checked) next.add(row.id)
+                else next.delete(row.id)
+                return next
+              })
+            }}
+            onClick={(e) => e.stopPropagation()}
+          />
+        ),
+        className: "w-[40px]",
+      },
+      {
+        key: "image",
+        header: "Image",
+        cell: (row: Item) =>
+          row.imageUrl ? (
+            <div className="h-10 w-10 rounded-md overflow-hidden border bg-muted">
+              <img
+                src={row.imageUrl.startsWith("http") ? row.imageUrl : `${API_BASE}${row.imageUrl}`}
+                alt={row.name}
+                className="h-full w-full object-cover"
+              />
+            </div>
+          ) : (
+            <div className="h-10 w-10 rounded-md border bg-muted" />
+          ),
+        className: "w-[70px]",
+      },
+      { key: "name", header: "Name", sortable: true },
+      { key: "code", header: "Code", sortable: true },
+      { key: "barcode", header: "Barcode" },
+      { key: "hsnCode", header: "HSN" },
+      { key: "uom", header: "UOM" },
+      {
+        key: "unitPrice",
+        header: "Unit Price",
+        cell: (row: Item) => <MoneyText value={row.unitPrice} />,
+        className: "text-right",
+      },
+      {
+        key: "cogs",
+        header: "COGS",
+        cell: (row: Item) => <MoneyText value={row.cogs} />,
+        className: "text-right",
+      },
+      {
+        key: "taxRate",
+        header: "Tax %",
+        cell: (row: Item) => `${row.taxRate}%`,
+        className: "text-right",
+      },
+      { key: "actions", header: "Actions", cell: renderActions, className: "w-[150px]" },
+    ]
+  }
 
   return (
     <div className="space-y-6">
@@ -156,6 +217,20 @@ export default function ItemsListPage() {
         description="Manage inventory items grouped by vendor."
         actions={
           <div className="flex gap-2">
+            <Button
+              variant="secondary"
+              disabled={selectedItems.length === 0}
+              onClick={() => setPrintOpen(true)}
+            >
+              Print Labels{selectedItems.length ? ` (${selectedItems.length})` : ""}
+            </Button>
+            <Button
+              variant="outline"
+              disabled={selectedIds.size === 0}
+              onClick={() => setSelectedIds(new Set())}
+            >
+              Clear Selection
+            </Button>
             <ItemUploadDialog onUpload={load} />
             <Link href="/masters/items/new">
               <Button>Add Item</Button>
@@ -178,10 +253,10 @@ export default function ItemsListPage() {
       </div>
 
       {loading ? (
-        <DataTablePro columns={columns} data={[]} loading={true} />
+        <DataTablePro columns={columnsFor([])} data={[]} loading={true} />
       ) : sortedVendorNames.length === 0 ? (
         <DataTablePro 
-          columns={columns} 
+          columns={columnsFor([])} 
           data={[]} 
           empty={{ 
             title: "No items found", 
@@ -216,31 +291,36 @@ export default function ItemsListPage() {
             </div>
 
             {(collapsedByVendor[vendorName] ?? false) ? null : (
-              <DataTablePro
-                columns={columns}
-                data={(() => {
-                  const total = grouped[vendorName].length
-                  const totalPages = Math.max(1, Math.ceil(total / pageSize))
-                  const page = Math.min(pageByVendor[vendorName] ?? 1, totalPages)
-                  const start = (page - 1) * pageSize
-                  return grouped[vendorName].slice(start, start + pageSize)
-                })()}
-                loading={false}
-                page={(() => {
-                  const total = grouped[vendorName].length
-                  const totalPages = Math.max(1, Math.ceil(total / pageSize))
-                  return Math.min(pageByVendor[vendorName] ?? 1, totalPages)
-                })()}
-                pageSize={pageSize}
-                total={grouped[vendorName].length}
-                onPageChange={(nextPage) =>
-                  setPageByVendor((prev) => ({ ...prev, [vendorName]: nextPage }))
-                }
-              />
+              (() => {
+                const total = grouped[vendorName].length
+                const totalPages = Math.max(1, Math.ceil(total / pageSize))
+                const page = Math.min(pageByVendor[vendorName] ?? 1, totalPages)
+                const start = (page - 1) * pageSize
+                const visible = grouped[vendorName].slice(start, start + pageSize)
+                return (
+                  <DataTablePro
+                    columns={columnsFor(visible)}
+                    data={visible}
+                    loading={false}
+                    page={page}
+                    pageSize={pageSize}
+                    total={total}
+                    onPageChange={(nextPage) =>
+                      setPageByVendor((prev) => ({ ...prev, [vendorName]: nextPage }))
+                    }
+                  />
+                )
+              })()
             )}
           </div>
         ))
       )}
+
+      <LabelPrintDialog
+        open={printOpen}
+        onOpenChange={setPrintOpen}
+        selectedItems={selectedItems}
+      />
     </div>
   )
 }
