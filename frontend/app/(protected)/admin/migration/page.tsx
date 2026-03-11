@@ -77,6 +77,14 @@ type StageStats = {
     fallbackPartyCreated?: number | null
     fallbackWarehouseCreated?: number | null
   } | null
+  vendorsCreatedFromCategories?: number | null
+  vendorsLinkedExisting?: number | null
+  vendorsAlreadyMapped?: number | null
+  vendors?: {
+    created?: number | null
+    linkedExisting?: number | null
+    alreadyMapped?: number | null
+  } | null
   created?: number | null
   updated?: number | null
   wouldCreate?: number | null
@@ -533,6 +541,39 @@ export default function AdminMigrationPage() {
   const retryRelevant = !!pipelineProgress?.failedStage
   const cancelRelevant = !!pipelineProgress?.active
 
+  const runVendorMappingDisabled =
+    loading || pipelineLoading || !selectedRunId || !!pipelineProgress?.active
+
+  const runVendorMappingButton = !selectedRunId || !selectedRun ? (
+    <Button disabled>Map Vendors (Categories → Vendors)</Button>
+  ) : selectedRun?.dryRun ? (
+    <Button
+      variant="outline"
+      disabled={runVendorMappingDisabled}
+      onClick={() => onExecuteStage("IMPORT_PARTIES")}
+      title="Runs IMPORT_PARTIES (includes vendor mapping from categories)"
+    >
+      Map Vendors (Categories → Vendors)
+    </Button>
+  ) : (
+    <ConfirmDialog
+      title="Run vendor mapping (write to DB)?"
+      description="This executes IMPORT_PARTIES and will create/link vendor parties from categories."
+      confirmText="Run Vendor Mapping"
+      cancelText="Cancel"
+      onConfirm={() => onExecuteStage("IMPORT_PARTIES")}
+      disabled={runVendorMappingDisabled}
+    >
+      <Button
+        variant="outline"
+        disabled={runVendorMappingDisabled}
+        title="Runs IMPORT_PARTIES (includes vendor mapping from categories)"
+      >
+        Map Vendors (Categories → Vendors)
+      </Button>
+    </ConfirmDialog>
+  )
+
   const runFullSafePipelineButton = !canRunPipeline ? (
     <Button disabled>Run Full Safe Pipeline</Button>
   ) : selectedRun.dryRun ? (
@@ -562,6 +603,7 @@ export default function AdminMigrationPage() {
         actions={
           <>
             {runFullSafePipelineButton}
+            {runVendorMappingButton}
             <Button
               variant="outline"
               disabled={pipelineLoading || !selectedRunId}
@@ -1037,6 +1079,12 @@ export default function AdminMigrationPage() {
                     (statsObj?.skippedOutOfScope ?? 0) + (statsObj?.skippedOverLimit ?? 0)
                   const warnings = statsObj?.warnings ?? 0
                   const errors = statsObj?.errors ?? 0
+                  const vendorsCreatedFromCategories =
+                    statsObj?.vendorsCreatedFromCategories ?? statsObj?.vendors?.created ?? null
+                  const vendorsLinkedExisting =
+                    statsObj?.vendorsLinkedExisting ?? statsObj?.vendors?.linkedExisting ?? null
+                  const vendorsAlreadyMapped =
+                    statsObj?.vendorsAlreadyMapped ?? statsObj?.vendors?.alreadyMapped ?? null
 
                   return (
                     <div key={s.id} className="rounded-lg border border-border px-3 py-2 text-sm">
@@ -1052,6 +1100,16 @@ export default function AdminMigrationPage() {
                         created={created ?? "-"} • updated={updated ?? "-"} • skipped={skipped} •
                         warnings={warnings} • errors={errors}
                       </div>
+                      {(s.stageKey === "IMPORT_PARTIES" || s.stageKey === "IMPORT_ITEMS") &&
+                      (vendorsCreatedFromCategories !== null ||
+                        vendorsLinkedExisting !== null ||
+                        vendorsAlreadyMapped !== null) ? (
+                        <div className="mt-1 text-xs text-muted-foreground">
+                          vendors created={String(vendorsCreatedFromCategories ?? "-")} • linkedExisting=
+                          {String(vendorsLinkedExisting ?? "-")} • alreadyMapped=
+                          {String(vendorsAlreadyMapped ?? "-")}
+                        </div>
+                      ) : null}
                       {reconciliation ? (
                         <div className="mt-1 text-xs text-muted-foreground">
                           reconciliation expectedTotal={String(reconciliation.expectedTotal ?? "-")} •

@@ -135,6 +135,12 @@ export default function ItemsListPage() {
       className: "text-right"
     },
     { 
+      key: "cogs", 
+      header: "COGS", 
+      cell: (row: Item) => <MoneyText value={row.cogs} />,
+      className: "text-right"
+    },
+    { 
       key: "taxRate", 
       header: "Tax %", 
       cell: (row: Item) => `${row.taxRate}%`,

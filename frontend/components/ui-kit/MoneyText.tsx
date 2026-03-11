@@ -2,11 +2,19 @@ import * as React from "react"
 import { cn } from "@/lib/utils"
 
 interface MoneyTextProps extends React.HTMLAttributes<HTMLSpanElement> {
-  value: number
+  value?: number | null
   currency?: string
 }
 
 export function MoneyText({ value, currency = "INR", className, ...props }: MoneyTextProps) {
+  if (value === null || value === undefined || !Number.isFinite(value)) {
+    return (
+      <span className={cn("font-mono", className)} {...props}>
+        -
+      </span>
+    )
+  }
+
   const formatted = new Intl.NumberFormat("en-IN", {
     style: "currency",
     currency: currency,

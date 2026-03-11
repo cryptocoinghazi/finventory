@@ -29,6 +29,8 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -39,6 +41,8 @@ public class NexoMigrationItemsStagesService {
     private static final String ENTITY_TYPE_STOCK_ADJUSTMENT = "STOCK_ADJUSTMENT";
 
     private static final String TABLE_PRODUCTS = "ns_nexopos_products";
+    private static final String TABLE_PRODUCTS_UNIT_QUANTITIES =
+            "ns_nexopos_products_unit_quantities";
     private static final String TABLE_TAXES = "ns_nexopos_taxes";
     private static final String TABLE_UNIT_GROUPS = "ns_nexopos_units_groups";
     private static final String TABLE_UNITS = "ns_nexopos_units";
@@ -220,10 +224,50 @@ public class NexoMigrationItemsStagesService {
         OpeningStockContext ctx =
                 new OpeningStockContext(run, warehouseId, counters, warningSamples, errorSamples);
 
+        java.util.HashSet<Long> seenProductIds = new java.util.HashSet<>();
+        java.util.LinkedHashSet<Long> eligibleProductIds = new java.util.LinkedHashSet<>();
+        Map<Long, BigDecimal> quantityByProductId = new HashMap<>();
         dumpSql.forEachInsertRow(
                 dumpPath,
-                TABLE_PRODUCTS,
-                (columns, values) -> importOpeningStockRow(ctx, columns, values));
+                TABLE_PRODUCTS_UNIT_QUANTITIES,
+                (columns, values) -> {
+                    Long productId = asLong(getByColumn(columns, values, "product_id"));
+                    if (productId == null) {
+                        return;
+                    }
+
+                    boolean firstSeen = seenProductIds.add(productId);
+                    if (firstSeen) {
+                        ctx.counters.found.incrementAndGet();
+
+                        if (!isInScope(ctx.run, productId)) {
+                            ctx.counters.skippedOutOfScope.incrementAndGet();
+                            return;
+                        }
+
+                        if (isOverLimit(ctx.run, ctx.counters.inScope)) {
+                            ctx.counters.skippedOverLimit.incrementAndGet();
+                            return;
+                        }
+                        ctx.counters.inScope.incrementAndGet();
+                        eligibleProductIds.add(productId);
+                    }
+
+                    if (!eligibleProductIds.contains(productId)) {
+                        return;
+                    }
+
+                    BigDecimal quantity =
+                            asBigDecimal(getByColumn(columns, values, "quantity"), null);
+                    if (quantity == null) {
+                        return;
+                    }
+                    quantityByProductId.merge(productId, quantity, BigDecimal::add);
+                });
+
+        for (Long productId : eligibleProductIds) {
+            importOpeningStockByProductId(ctx, productId, quantityByProductId.get(productId));
+        }
 
         Map<String, Object> stats =
                 buildOpeningStockStats(
@@ -246,26 +290,8 @@ public class NexoMigrationItemsStagesService {
         return stats;
     }
 
-    private void importOpeningStockRow(
-            OpeningStockContext ctx, List<String> columns, List<String> values) {
-        Long productId = asLong(getByColumn(columns, values, "id"));
-        if (productId == null) {
-            return;
-        }
-
-        ctx.counters.found.incrementAndGet();
-
-        if (!isInScope(ctx.run, productId)) {
-            ctx.counters.skippedOutOfScope.incrementAndGet();
-            return;
-        }
-
-        if (isOverLimit(ctx.run, ctx.counters.inScope)) {
-            ctx.counters.skippedOverLimit.incrementAndGet();
-            return;
-        }
-        ctx.counters.inScope.incrementAndGet();
-
+    private void importOpeningStockByProductId(
+            OpeningStockContext ctx, Long productId, BigDecimal quantity) {
         Optional<MigrationIdMap> existingMap =
                 idMapRepository.findBySourceSystemAndEntityTypeAndSourceId(
                         ctx.run.getSourceSystem(), ENTITY_TYPE_STOCK_ADJUSTMENT, productId);
@@ -283,17 +309,6 @@ public class NexoMigrationItemsStagesService {
             return;
         }
 
-        BigDecimal quantity =
-                asBigDecimal(
-                        firstNonBlank(
-                                columns,
-                                values,
-                                List.of(
-                                        "quantity",
-                                        "available_quantity",
-                                        "stock",
-                                        "stock_quantity")),
-                        null);
         if (quantity == null) {
             ctx.counters.skippedMissingQuantity.incrementAndGet();
             return;
@@ -349,7 +364,9 @@ public class NexoMigrationItemsStagesService {
         stats.put("scopeSourceIdMax", run.getScopeSourceIdMax());
         stats.put("scopeLimit", run.getScopeLimit());
         stats.put("warehouseId", warehouseId);
-        stats.put("insertStatements", dumpSql.countInsertStatements(dumpPath, TABLE_PRODUCTS));
+        stats.put(
+                "insertStatements",
+                dumpSql.countInsertStatements(dumpPath, TABLE_PRODUCTS_UNIT_QUANTITIES));
         stats.put("found", counters.found.get());
         stats.put("inScope", counters.inScope.get());
         stats.put("skippedOutOfScope", counters.skippedOutOfScope.get());
@@ -370,8 +387,16 @@ public class NexoMigrationItemsStagesService {
     }
 
     private UUID resolveDefaultWarehouseId(MigrationRun run) {
+        Optional<com.finventory.model.Warehouse> main =
+                warehouseRepository.findByName("Main Warehouse");
+        if (main.isPresent()) {
+            return main.get().getId();
+        }
+
         List<com.finventory.model.Warehouse> warehouses =
-                warehouseRepository.findAll().stream().limit(1).toList();
+                warehouseRepository
+                        .findAll(PageRequest.of(0, 1, Sort.by("name").ascending()))
+                        .getContent();
         if (!warehouses.isEmpty()) {
             return warehouses.get(0).getId();
         }

@@ -3,10 +3,10 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "node ./node_modules/next/dist/bin/next dev",
-    "build": "node ./node_modules/next/dist/bin/next build",
-    "start": "node ./node_modules/next/dist/bin/next start",
-    "lint": "node ./node_modules/next/dist/bin/next lint"
+    "dev": "..\\\\tools\\\\node-v20.11.1-win-x64\\\\node.exe .\\\\node_modules\\\\next\\\\dist\\\\bin\\\\next dev",
+    "build": "..\\\\tools\\\\node-v20.11.1-win-x64\\\\node.exe .\\\\node_modules\\\\next\\\\dist\\\\bin\\\\next build",
+    "start": "..\\\\tools\\\\node-v20.11.1-win-x64\\\\node.exe .\\\\node_modules\\\\next\\\\dist\\\\bin\\\\next start",
+    "lint": "..\\\\tools\\\\node-v20.11.1-win-x64\\\\node.exe .\\\\node_modules\\\\next\\\\dist\\\\bin\\\\next lint"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",

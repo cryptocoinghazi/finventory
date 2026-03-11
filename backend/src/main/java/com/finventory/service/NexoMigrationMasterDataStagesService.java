@@ -43,7 +43,7 @@ public class NexoMigrationMasterDataStagesService {
     private static final String ENTITY_TYPE_STOCK_ADJUSTMENT = "STOCK_ADJUSTMENT";
 
     private static final String TABLE_PRODUCTS = "ns_nexopos_products";
-    private static final String TABLE_CATEGORIES = "ns_nexopos_categories";
+    private static final String TABLE_CATEGORIES = "ns_nexopos_products_categories";
     private static final String TABLE_UNITS = "ns_nexopos_units";
     private static final String TABLE_UNIT_GROUPS = "ns_nexopos_units_groups";
     private static final String TABLE_CUSTOMERS = "ns_nexopos_customers";
@@ -463,12 +463,170 @@ public class NexoMigrationMasterDataStagesService {
     }
 
     public Map<String, Object> importItems(MigrationRun run, Path dumpPath) throws Exception {
-        return itemsStagesService.importItems(run, dumpPath);
+        ensureDumpExists(dumpPath);
+
+        Map<String, Object> vendorMapping =
+                ensureVendorsForReferencedProductCategories(run, dumpPath);
+        Map<String, Object> stats = itemsStagesService.importItems(run, dumpPath);
+
+        stats.put("vendorMappingPreflight", vendorMapping);
+        stats.put("vendorsCreatedFromCategories", safeLong(vendorMapping.get("created")));
+        stats.put("vendorsLinkedExisting", safeLong(vendorMapping.get("linkedExisting")));
+        stats.put("vendorsAlreadyMapped", safeLong(vendorMapping.get("alreadyMapped")));
+        stats.put("vendorsWouldCreateFromCategories", safeLong(vendorMapping.get("wouldCreate")));
+
+        return stats;
     }
 
     public Map<String, Object> importOpeningStock(MigrationRun run, Path dumpPath)
             throws Exception {
         return itemsStagesService.importOpeningStock(run, dumpPath);
+    }
+
+    private Map<String, Object> ensureVendorsForReferencedProductCategories(
+            MigrationRun run, Path dumpPath) throws Exception {
+        Map<String, Object> vendors = new LinkedHashMap<>();
+        vendors.put("mode", "product-categories-to-vendors");
+        vendors.put("dryRun", run.isDryRun());
+        vendors.put("sourceSystem", run.getSourceSystem());
+
+        java.util.LinkedHashSet<Long> referencedCategoryIds = new java.util.LinkedHashSet<>();
+        AtomicLong foundProducts = new AtomicLong();
+        AtomicLong inScopeProducts = new AtomicLong();
+        AtomicLong skippedOutOfScopeProducts = new AtomicLong();
+        AtomicLong skippedOverLimitProducts = new AtomicLong();
+
+        dumpSql.forEachInsertRow(
+                dumpPath,
+                TABLE_PRODUCTS,
+                (columns, values) -> {
+                    Long productId = asLong(getByColumn(columns, values, "id"));
+                    if (productId == null) {
+                        return;
+                    }
+                    foundProducts.incrementAndGet();
+                    if (!isInScope(run, productId)) {
+                        skippedOutOfScopeProducts.incrementAndGet();
+                        return;
+                    }
+                    if (isOverLimit(run, inScopeProducts)) {
+                        skippedOverLimitProducts.incrementAndGet();
+                        return;
+                    }
+                    inScopeProducts.incrementAndGet();
+                    Long categoryId = asLong(getByColumn(columns, values, "category_id"));
+                    if (categoryId != null) {
+                        referencedCategoryIds.add(categoryId);
+                    }
+                });
+
+        Map<Long, String> categoryNameById = new HashMap<>();
+        dumpSql.forEachInsertRow(
+                dumpPath,
+                TABLE_CATEGORIES,
+                (columns, values) -> {
+                    Long categoryId = asLong(getByColumn(columns, values, "id"));
+                    String categoryName =
+                            normalizeBlankToNull(getByColumn(columns, values, "name"));
+                    if (categoryId != null && categoryName != null) {
+                        categoryNameById.put(categoryId, categoryName);
+                    }
+                });
+
+        AtomicLong referencedCategories = new AtomicLong();
+        AtomicLong missingCategoryName = new AtomicLong();
+        AtomicLong alreadyMapped = new AtomicLong();
+        AtomicLong linkedExisting = new AtomicLong();
+        AtomicLong created = new AtomicLong();
+        AtomicLong wouldCreate = new AtomicLong();
+        AtomicLong errors = new AtomicLong();
+        List<String> errorSamples = new ArrayList<>();
+
+        for (Long categoryId : referencedCategoryIds) {
+            referencedCategories.incrementAndGet();
+            String categoryName = categoryNameById.get(categoryId);
+            if (categoryName == null) {
+                missingCategoryName.incrementAndGet();
+                continue;
+            }
+
+            Optional<MigrationIdMap> existingMap =
+                    idMapRepository.findBySourceSystemAndEntityTypeAndSourceId(
+                            run.getSourceSystem(), ENTITY_TYPE_PARTY_VENDOR, categoryId);
+            if (existingMap.isPresent()) {
+                alreadyMapped.incrementAndGet();
+                continue;
+            }
+
+            List<Party> existingByName =
+                    partyRepository.findByNameIgnoreCaseAndType(
+                            categoryName, Party.PartyType.VENDOR);
+            if (!existingByName.isEmpty()) {
+                linkedExisting.incrementAndGet();
+                if (!run.isDryRun()) {
+                    saveIdMap(
+                            run.getSourceSystem(),
+                            ENTITY_TYPE_PARTY_VENDOR,
+                            categoryId,
+                            existingByName.get(0).getId());
+                }
+                continue;
+            }
+
+            if (run.isDryRun()) {
+                wouldCreate.incrementAndGet();
+                continue;
+            }
+
+            try {
+                PartyDto createdVendor =
+                        partyService.createParty(
+                                PartyDto.builder()
+                                        .name(categoryName)
+                                        .type(Party.PartyType.VENDOR)
+                                        .build());
+                created.incrementAndGet();
+                saveIdMap(
+                        run.getSourceSystem(),
+                        ENTITY_TYPE_PARTY_VENDOR,
+                        categoryId,
+                        createdVendor.getId());
+            } catch (Exception e) {
+                errors.incrementAndGet();
+                addSample(errorSamples, "categoryId=" + categoryId + ": " + e.getMessage());
+            }
+        }
+
+        vendors.put("foundProducts", foundProducts.get());
+        vendors.put("inScopeProducts", inScopeProducts.get());
+        vendors.put("skippedOutOfScopeProducts", skippedOutOfScopeProducts.get());
+        vendors.put("skippedOverLimitProducts", skippedOverLimitProducts.get());
+        vendors.put("referencedCategories", referencedCategories.get());
+        vendors.put("missingCategoryName", missingCategoryName.get());
+        vendors.put("alreadyMapped", alreadyMapped.get());
+        vendors.put("linkedExisting", linkedExisting.get());
+        vendors.put("created", created.get());
+        vendors.put("wouldCreate", wouldCreate.get());
+        vendors.put("errors", errors.get());
+        vendors.put("errorSamples", errorSamples);
+        return vendors;
+    }
+
+    private long safeLong(Object value) {
+        if (value == null) {
+            return 0L;
+        }
+        if (value instanceof Number n) {
+            return n.longValue();
+        }
+        if (value instanceof String s) {
+            try {
+                return Long.parseLong(s.trim());
+            } catch (Exception ignored) {
+                return 0L;
+            }
+        }
+        return 0L;
     }
 
     private void ensureDumpExists(Path dumpPath) {

@@ -33,6 +33,7 @@ import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -44,7 +45,7 @@ public class NexoOrdersMigrationService {
     private static final String ENTITY_TYPE_SALES_INVOICE = "SALES_INVOICE";
 
     private static final String TABLE_PRODUCTS = "ns_nexopos_products";
-    private static final String TABLE_CATEGORIES = "ns_nexopos_categories";
+    private static final String TABLE_CATEGORIES = "ns_nexopos_products_categories";
     private static final String TABLE_ORDERS = "ns_nexopos_orders";
     private static final String TABLE_ORDERS_PRODUCTS = "ns_nexopos_orders_products";
     private static final String TABLE_ORDERS_PAYMENTS = "ns_nexopos_orders_payments";
@@ -585,8 +586,16 @@ public class NexoOrdersMigrationService {
     }
 
     private UUID resolveDefaultWarehouseId(MigrationRun run, SalesPilotCounters counters) {
+        Optional<com.finventory.model.Warehouse> main =
+                warehouseRepository.findByName("Main Warehouse");
+        if (main.isPresent()) {
+            return main.get().getId();
+        }
+
         List<com.finventory.model.Warehouse> warehouses =
-                warehouseRepository.findAll(PageRequest.of(0, 1)).getContent();
+                warehouseRepository
+                        .findAll(PageRequest.of(0, 1, Sort.by("name").ascending()))
+                        .getContent();
         if (!warehouses.isEmpty()) {
             return warehouses.get(0).getId();
         }

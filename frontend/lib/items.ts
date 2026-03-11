@@ -8,6 +8,7 @@ export type Item = {
   hsnCode?: string | null
   taxRate: number
   unitPrice: number
+  cogs?: number | null
   uom: string
   imageUrl?: string | null
   vendorId?: string | null
