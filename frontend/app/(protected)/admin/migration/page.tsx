@@ -16,10 +16,12 @@ import {
   createMigrationRun,
   executeMigrationStage,
   getFullSafePipelineProgress,
+  listMigrationDbTables,
   listMigrationLogsForRun,
   listMigrationRuns,
   listMigrationStages,
   listMigrationStagesForRun,
+  MigrationDbTable,
   MigrationLogEntry,
   MigrationPipelinePreset,
   MigrationPipelineProgress,
@@ -28,6 +30,7 @@ import {
   resumeFullSafePipeline,
   retryFullSafeStage,
   startFullSafePipeline,
+  truncateDatabase,
 } from "@/lib/migration"
 
 function formatDateTime(value?: string | null) {
@@ -113,6 +116,14 @@ export default function AdminMigrationPage() {
   const lastFailedStageRef = useRef<string | null>(null)
   const lastActiveRef = useRef<boolean>(false)
 
+  const [dbTablesLoading, setDbTablesLoading] = useState(false)
+  const [dbTablesError, setDbTablesError] = useState<string | null>(null)
+  const [dbTables, setDbTables] = useState<MigrationDbTable[]>([])
+
+  const [truncateLoading, setTruncateLoading] = useState(false)
+  const [truncateKeepUsers, setTruncateKeepUsers] = useState(true)
+  const [truncateConfirmText, setTruncateConfirmText] = useState("")
+
   const selectedStats = useMemo(() => {
     const analyze = stageExecutions.find((s) => s.stageKey === "ANALYZE_SOURCE")
     return prettyJson(analyze?.statsJson ?? null)
@@ -138,6 +149,19 @@ export default function AdminMigrationPage() {
       setError(err instanceof Error ? err.message : "Failed to load migration data")
     } finally {
       setLoading(false)
+    }
+  }, [])
+
+  const loadDbTables = useCallback(async () => {
+    setDbTablesLoading(true)
+    setDbTablesError(null)
+    try {
+      const res = await listMigrationDbTables()
+      setDbTables(res)
+    } catch (err) {
+      setDbTablesError(err instanceof Error ? err.message : "Failed to load DB tables")
+    } finally {
+      setDbTablesLoading(false)
     }
   }, [])
 
@@ -176,6 +200,11 @@ export default function AdminMigrationPage() {
   useEffect(() => {
     loadAll()
   }, [loadAll])
+
+  useEffect(() => {
+    if (!isAdmin) return
+    loadDbTables()
+  }, [isAdmin, loadDbTables])
 
   useEffect(() => {
     if (!selectedRunId) return
@@ -240,6 +269,41 @@ export default function AdminMigrationPage() {
     const n = Number(trimmed)
     if (!Number.isFinite(n) || n < 0) return null
     return n
+  }
+
+  const truncateExpected = useMemo(() => {
+    return truncateKeepUsers ? "TRUNCATE_DATA" : "TRUNCATE_ALL"
+  }, [truncateKeepUsers])
+
+  const truncateEnabled = useMemo(() => {
+    return truncateConfirmText.trim().toUpperCase() === truncateExpected
+  }, [truncateConfirmText, truncateExpected])
+
+  async function onTruncateDatabase() {
+    setTruncateLoading(true)
+    try {
+      const res = await truncateDatabase({
+        keepUsers: truncateKeepUsers,
+        confirmText: truncateConfirmText,
+      })
+      toast({
+        title: "Database truncated",
+        description: `Truncated ${res.truncatedTables.length} tables`,
+      })
+      setTruncateConfirmText("")
+      loadDbTables()
+      if (selectedRunId) {
+        loadRun(selectedRunId)
+      }
+    } catch (err) {
+      toast({
+        variant: "destructive",
+        title: "Truncate failed",
+        description: err instanceof Error ? err.message : "Failed to truncate database",
+      })
+    } finally {
+      setTruncateLoading(false)
+    }
   }
 
   async function onCreateRun() {
@@ -809,6 +873,72 @@ export default function AdminMigrationPage() {
           </CardContent>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between gap-2">
+          <CardTitle>Database</CardTitle>
+          <Button variant="outline" onClick={loadDbTables} disabled={dbTablesLoading || !isAdmin}>
+            Refresh Tables
+          </Button>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {dbTablesError ? <InlineErrorCallout message={dbTablesError} /> : null}
+
+          <div className="space-y-2">
+            <div className="text-sm font-medium">Migration Tables</div>
+            {dbTablesLoading ? (
+              <div className="text-sm text-muted-foreground">Loading…</div>
+            ) : dbTables.length === 0 ? (
+              <div className="text-sm text-muted-foreground">No migration tables found.</div>
+            ) : (
+              <div className="rounded-lg border border-border overflow-hidden">
+                <div className="grid grid-cols-2 gap-0 border-b border-border bg-muted/20 text-xs font-medium">
+                  <div className="px-3 py-2">Table</div>
+                  <div className="px-3 py-2">Rows</div>
+                </div>
+                {dbTables.map((t) => (
+                  <div key={t.table} className="grid grid-cols-2 gap-0 border-b border-border text-sm">
+                    <div className="px-3 py-2 font-mono">{t.table}</div>
+                    <div className="px-3 py-2">{t.rowCount}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="space-y-3">
+            <div className="text-sm font-medium text-destructive">Truncate All Data</div>
+            <div className="flex items-center gap-3">
+              <input
+                id="truncateKeepUsers"
+                type="checkbox"
+                className="h-4 w-4"
+                checked={truncateKeepUsers}
+                onChange={(e) => setTruncateKeepUsers(e.target.checked)}
+              />
+              <Label htmlFor="truncateKeepUsers">Keep users (recommended)</Label>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="truncateConfirm">
+                Type <span className="font-mono">{truncateExpected}</span> to enable
+              </Label>
+              <Input
+                id="truncateConfirm"
+                value={truncateConfirmText}
+                onChange={(e) => setTruncateConfirmText(e.target.value)}
+                placeholder={truncateExpected}
+              />
+            </div>
+            <Button
+              variant="destructive"
+              disabled={!isAdmin || truncateLoading || !truncateEnabled}
+              onClick={onTruncateDatabase}
+            >
+              {truncateLoading ? "Truncating…" : "Truncate Database"}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   )
 }

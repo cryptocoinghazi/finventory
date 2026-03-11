@@ -59,6 +59,21 @@ export interface MigrationPipelineProgress {
   summary?: string | null
 }
 
+export interface MigrationDbTable {
+  table: string
+  rowCount: number
+}
+
+export interface TruncateDatabaseRequest {
+  keepUsers?: boolean
+  confirmText: string
+}
+
+export interface TruncateDatabaseResponse {
+  truncatedTables: string[]
+  keepUsers: boolean
+}
+
 export interface CreateMigrationRunRequest {
   sourceSystem?: string
   sourceReference?: string
@@ -203,6 +218,27 @@ export async function cancelFullSafePipeline(runId: string): Promise<MigrationPi
   if (!res.ok) {
     const text = await res.text()
     throw new Error(text || "Failed to cancel pipeline")
+  }
+  return res.json()
+}
+
+export async function listMigrationDbTables(): Promise<MigrationDbTable[]> {
+  const res = await apiFetch("/api/v1/admin/migration/db/migration-tables")
+  if (!res.ok) throw new Error("Failed to fetch migration tables")
+  return res.json()
+}
+
+export async function truncateDatabase(
+  req: TruncateDatabaseRequest
+): Promise<TruncateDatabaseResponse> {
+  const res = await apiFetch("/api/v1/admin/migration/db/truncate", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(req),
+  })
+  if (!res.ok) {
+    const text = await res.text()
+    throw new Error(text || "Failed to truncate database")
   }
   return res.json()
 }
