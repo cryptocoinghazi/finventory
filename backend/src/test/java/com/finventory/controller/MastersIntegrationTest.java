@@ -14,11 +14,17 @@ import com.finventory.dto.MigrationPipelinePreset;
 import com.finventory.dto.MigrationPipelineProgressDto;
 import com.finventory.dto.MigrationPipelineStartRequest;
 import com.finventory.dto.MigrationStageExecutionDto;
+import com.finventory.model.MigrationRun;
+import com.finventory.model.MigrationRunStatus;
 import com.finventory.model.Role;
 import com.finventory.model.User;
 import com.finventory.repository.GLLineRepository;
 import com.finventory.repository.GLTransactionRepository;
 import com.finventory.repository.ItemRepository;
+import com.finventory.repository.MigrationIdMapRepository;
+import com.finventory.repository.MigrationLogEntryRepository;
+import com.finventory.repository.MigrationRunRepository;
+import com.finventory.repository.MigrationStageExecutionRepository;
 import com.finventory.repository.PartyRepository;
 import com.finventory.repository.PurchaseInvoiceRepository;
 import com.finventory.repository.PurchaseReturnRepository;
@@ -27,12 +33,18 @@ import com.finventory.repository.SalesReturnRepository;
 import com.finventory.repository.StockLedgerRepository;
 import com.finventory.repository.UserRepository;
 import com.finventory.repository.WarehouseRepository;
+import com.finventory.service.NexoDumpSqlService;
+import com.finventory.service.NexoMigrationItemsStagesService;
 import java.math.BigDecimal;
 import java.nio.file.Path;
+import java.time.OffsetDateTime;
 import java.util.Arrays;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -63,12 +75,22 @@ class MastersIntegrationTest {
     @Autowired private StockLedgerRepository stockLedgerRepository;
     @Autowired private GLLineRepository glLineRepository;
     @Autowired private GLTransactionRepository glTransactionRepository;
+    @Autowired private MigrationRunRepository migrationRunRepository;
+    @Autowired private MigrationStageExecutionRepository migrationStageExecutionRepository;
+    @Autowired private MigrationLogEntryRepository migrationLogEntryRepository;
+    @Autowired private MigrationIdMapRepository migrationIdMapRepository;
     @Autowired private PasswordEncoder passwordEncoder;
+    @Autowired private NexoMigrationItemsStagesService itemsStagesService;
+    @Autowired private NexoDumpSqlService dumpSql;
 
     private String jwtToken;
 
     @BeforeEach
     void setUp() throws Exception {
+        migrationStageExecutionRepository.deleteAll();
+        migrationLogEntryRepository.deleteAll();
+        migrationIdMapRepository.deleteAll();
+        migrationRunRepository.deleteAll();
         stockLedgerRepository.deleteAll();
         glLineRepository.deleteAll();
         glTransactionRepository.deleteAll();
@@ -136,6 +158,75 @@ class MastersIntegrationTest {
         mockMvc.perform(get("/api/v1/items").header("Authorization", jwtToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].code").value("TP-001"));
+    }
+
+    @Test
+    void testImportItems_UsesUnitQuantitiesForMissingPriceAndCogs() throws Exception {
+        Path dumpPath = Path.of("..", "docs", "nexo.sql").toAbsolutePath().normalize();
+
+        Map<Long, Pricing> unitQuantitiesPricing = loadUnitQuantitiesPricing(dumpPath);
+        Assertions.assertFalse(unitQuantitiesPricing.isEmpty());
+
+        HashSet<Long> soldPriceProductIds =
+                loadSoldProductIdsWithPositiveValue(dumpPath, "unit_price");
+        HashSet<Long> soldCogsProductIds =
+                loadSoldProductIdsWithPositiveValue(dumpPath, "total_purchase_price");
+        HashSet<Long> procurementProductIds =
+                loadProcurementProductIdsWithPositivePurchasePrice(dumpPath);
+
+        Optional<Long> candidate =
+                unitQuantitiesPricing.entrySet().stream()
+                        .filter(
+                                e ->
+                                        e.getValue().salePrice.compareTo(BigDecimal.ZERO) > 0
+                                                && e.getValue().cogs.compareTo(BigDecimal.ZERO) > 0)
+                        .map(Map.Entry::getKey)
+                        .filter(id -> !soldPriceProductIds.contains(id))
+                        .filter(id -> !soldCogsProductIds.contains(id))
+                        .filter(id -> !procurementProductIds.contains(id))
+                        .findFirst();
+
+        if (candidate.isEmpty()) {
+            candidate =
+                    unitQuantitiesPricing.entrySet().stream()
+                            .filter(e -> e.getValue().salePrice.compareTo(BigDecimal.ZERO) > 0)
+                            .map(Map.Entry::getKey)
+                            .filter(id -> !soldPriceProductIds.contains(id))
+                            .findFirst();
+        }
+
+        Assertions.assertTrue(candidate.isPresent());
+        long productId = candidate.get();
+        Pricing expected = unitQuantitiesPricing.get(productId);
+
+        MigrationRun run =
+                migrationRunRepository.save(
+                        MigrationRun.builder()
+                                .sourceSystem("NEXOPOS")
+                                .sourceReference(dumpPath.toString())
+                                .dryRun(false)
+                                .status(MigrationRunStatus.CREATED)
+                                .startedAt(OffsetDateTime.now())
+                                .scopeSourceIdMin(productId)
+                                .scopeSourceIdMax(productId)
+                                .build());
+
+        itemsStagesService.importItems(run, dumpPath);
+
+        com.finventory.model.MigrationIdMap map =
+                migrationIdMapRepository
+                        .findBySourceSystemAndEntityTypeAndSourceId("NEXOPOS", "ITEM", productId)
+                        .orElseThrow();
+
+        com.finventory.model.Item item = itemRepository.findById(map.getTargetId()).orElseThrow();
+        Assertions.assertTrue(item.getUnitPrice().compareTo(BigDecimal.ZERO) > 0);
+        Assertions.assertEquals(0, item.getUnitPrice().compareTo(expected.salePrice));
+        Assertions.assertTrue(item.getCogs().compareTo(BigDecimal.ZERO) >= 0);
+        if (expected.cogs.compareTo(BigDecimal.ZERO) > 0
+                && !soldCogsProductIds.contains(productId)
+                && !procurementProductIds.contains(productId)) {
+            Assertions.assertEquals(0, item.getCogs().compareTo(expected.cogs));
+        }
     }
 
     @Test
@@ -296,4 +387,113 @@ class MastersIntegrationTest {
 
         System.out.println(objectMapper.writeValueAsString(summary));
     }
+
+    private Map<Long, Pricing> loadUnitQuantitiesPricing(Path dumpPath) throws Exception {
+        Map<Long, Pricing> bestByProductId = new HashMap<>();
+        dumpSql.forEachInsertRow(
+                dumpPath,
+                "ns_nexopos_products_unit_quantities",
+                (columns, values) -> {
+                    Long productId = asLong(dumpSql.getByColumn(columns, values, "product_id"));
+                    if (productId == null) {
+                        return;
+                    }
+
+                    String type = dumpSql.getByColumn(columns, values, "type");
+                    if (type != null && !type.equalsIgnoreCase("product")) {
+                        return;
+                    }
+
+                    Long visible = asLong(dumpSql.getByColumn(columns, values, "visible"));
+                    if (visible != null && visible != 1L) {
+                        return;
+                    }
+
+                    boolean baseUnit =
+                            dumpSql.getByColumn(columns, values, "convert_unit_id") == null;
+                    BigDecimal salePrice =
+                            asBigDecimal(dumpSql.getByColumn(columns, values, "sale_price"));
+                    BigDecimal cogs = asBigDecimal(dumpSql.getByColumn(columns, values, "cogs"));
+                    Pricing candidate = new Pricing(salePrice, cogs, baseUnit);
+
+                    Pricing existing = bestByProductId.get(productId);
+                    if (existing == null || isBetter(candidate, existing)) {
+                        bestByProductId.put(productId, candidate);
+                    }
+                });
+        return bestByProductId;
+    }
+
+    private HashSet<Long> loadSoldProductIdsWithPositiveValue(Path dumpPath, String column)
+            throws Exception {
+        HashSet<Long> ids = new HashSet<>();
+        dumpSql.forEachInsertRow(
+                dumpPath,
+                "ns_nexopos_orders_products",
+                (columns, values) -> {
+                    Long productId = asLong(dumpSql.getByColumn(columns, values, "product_id"));
+                    if (productId == null) {
+                        return;
+                    }
+                    String status = dumpSql.getByColumn(columns, values, "status");
+                    if (status != null && !status.equalsIgnoreCase("sold")) {
+                        return;
+                    }
+                    BigDecimal v = asBigDecimal(dumpSql.getByColumn(columns, values, column));
+                    if (v.compareTo(BigDecimal.ZERO) > 0) {
+                        ids.add(productId);
+                    }
+                });
+        return ids;
+    }
+
+    private HashSet<Long> loadProcurementProductIdsWithPositivePurchasePrice(Path dumpPath)
+            throws Exception {
+        HashSet<Long> ids = new HashSet<>();
+        dumpSql.forEachInsertRow(
+                dumpPath,
+                "ns_nexopos_procurements_products",
+                (columns, values) -> {
+                    Long productId = asLong(dumpSql.getByColumn(columns, values, "product_id"));
+                    if (productId == null) {
+                        return;
+                    }
+                    BigDecimal v =
+                            asBigDecimal(dumpSql.getByColumn(columns, values, "purchase_price"));
+                    if (v.compareTo(BigDecimal.ZERO) > 0) {
+                        ids.add(productId);
+                    }
+                });
+        return ids;
+    }
+
+    private Long asLong(String token) {
+        if (token == null || token.isBlank()) {
+            return null;
+        }
+        return Long.parseLong(token.trim());
+    }
+
+    private BigDecimal asBigDecimal(String token) {
+        if (token == null || token.isBlank()) {
+            return BigDecimal.ZERO;
+        }
+        return new BigDecimal(token.trim());
+    }
+
+    private boolean isBetter(Pricing candidate, Pricing existing) {
+        if (candidate.baseUnit && !existing.baseUnit) {
+            return true;
+        }
+        if (!candidate.baseUnit && existing.baseUnit) {
+            return false;
+        }
+        int saleCompare = candidate.salePrice.compareTo(existing.salePrice);
+        if (saleCompare != 0) {
+            return saleCompare > 0;
+        }
+        return candidate.cogs.compareTo(existing.cogs) > 0;
+    }
+
+    private record Pricing(BigDecimal salePrice, BigDecimal cogs, boolean baseUnit) {}
 }

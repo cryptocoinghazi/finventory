@@ -78,6 +78,8 @@ public class NexoMigrationItemsStagesService {
                 resolveAverageOrderCogsByProductId(dumpPath);
         Map<Long, BigDecimal> avgPurchasePriceByProductId =
                 resolveAveragePurchasePriceByProductId(dumpPath);
+        Map<Long, UnitQuantityPricing> unitQuantityPricingByProductId =
+                resolveUnitQuantityPricingByProductId(dumpPath);
 
         ItemImportLookups lookups =
                 new ItemImportLookups(
@@ -86,7 +88,8 @@ public class NexoMigrationItemsStagesService {
                         taxRateByTaxGroupId,
                         avgOrderPriceByProductId,
                         avgOrderCogsByProductId,
-                        avgPurchasePriceByProductId);
+                        avgPurchasePriceByProductId,
+                        unitQuantityPricingByProductId);
 
         ImportItemsCounters counters = new ImportItemsCounters();
         List<String> errorSamples = new ArrayList<>();
@@ -101,9 +104,7 @@ public class NexoMigrationItemsStagesService {
                 TABLE_PRODUCTS,
                 (columns, values) -> importItemRow(rowContext, columns, values));
 
-        Map<String, Object> stats =
-                buildItemsStats(
-                        rowContext, dumpPath);
+        Map<String, Object> stats = buildItemsStats(rowContext, dumpPath);
 
         log(
                 run,
@@ -144,7 +145,8 @@ public class NexoMigrationItemsStagesService {
         return stats;
     }
 
-    private Map<String, Object> buildItemsStats(ItemRowContext ctx, Path dumpPath) throws Exception {
+    private Map<String, Object> buildItemsStats(ItemRowContext ctx, Path dumpPath)
+            throws Exception {
         Map<String, Object> stats = new LinkedHashMap<>();
         stats.put("implemented", true);
         stats.put("stage", MigrationStageKey.IMPORT_ITEMS.name());
@@ -201,8 +203,7 @@ public class NexoMigrationItemsStagesService {
                 sampleProductValues(ctx.lookups.avgPurchasePriceByProductId, MAX_STATS_SAMPLES));
 
         Map<String, Object> vendorLinkage = new LinkedHashMap<>();
-        vendorLinkage.put(
-                "productsWithCategoryId", ctx.vendorLinkageProductsWithCategory.get());
+        vendorLinkage.put("productsWithCategoryId", ctx.vendorLinkageProductsWithCategory.get());
         vendorLinkage.put("vendorMapped", ctx.vendorLinkageMapped.get());
         vendorLinkage.put("vendorMissingMap", ctx.vendorLinkageMissingMap.get());
         vendorLinkage.put("missingCategoryId", ctx.vendorLinkageMissingCategory.get());
@@ -217,13 +218,10 @@ public class NexoMigrationItemsStagesService {
         unsupported.put("cogsCandidatesPresent", ctx.unsupportedCogsCandidatesPresent.get());
         unsupported.put("samples", ctx.unsupportedFieldSamples);
         stats.put("unsupportedSourceFields", unsupported);
-        stats.put(
-                "unsupportedDescriptionNonEmpty", ctx.unsupportedDescriptionNonEmpty.get());
+        stats.put("unsupportedDescriptionNonEmpty", ctx.unsupportedDescriptionNonEmpty.get());
         stats.put("unsupportedStatusPresent", ctx.unsupportedStatusPresent.get());
         stats.put("unsupportedActivePresent", ctx.unsupportedStatusPresent.get());
-        stats.put(
-                "unsupportedCogsCandidatesPresent",
-                ctx.unsupportedCogsCandidatesPresent.get());
+        stats.put("unsupportedCogsCandidatesPresent", ctx.unsupportedCogsCandidatesPresent.get());
         return stats;
     }
 
@@ -692,6 +690,12 @@ public class NexoMigrationItemsStagesService {
             ctx.priceFromOrders.incrementAndGet();
             return fromOrders;
         }
+        UnitQuantityPricing pricing = ctx.lookups.unitQuantityPricingByProductId.get(productId);
+        if (pricing != null
+                && pricing.salePrice != null
+                && pricing.salePrice.compareTo(BigDecimal.ZERO) > 0) {
+            return pricing.salePrice;
+        }
         ctx.priceDefaultedZero.incrementAndGet();
         return BigDecimal.ZERO;
     }
@@ -724,8 +728,73 @@ public class NexoMigrationItemsStagesService {
             ctx.cogsFromProcurements.incrementAndGet();
             return fromProcurements;
         }
+        UnitQuantityPricing pricing = ctx.lookups.unitQuantityPricingByProductId.get(productId);
+        if (pricing != null
+                && pricing.cogs != null
+                && pricing.cogs.compareTo(BigDecimal.ZERO) > 0) {
+            return pricing.cogs;
+        }
         ctx.cogsDefaultedZero.incrementAndGet();
         return BigDecimal.ZERO;
+    }
+
+    private Map<Long, UnitQuantityPricing> resolveUnitQuantityPricingByProductId(Path dumpPath)
+            throws Exception {
+        Map<Long, UnitQuantityPricing> bestByProductId = new HashMap<>();
+
+        dumpSql.forEachInsertRow(
+                dumpPath,
+                TABLE_PRODUCTS_UNIT_QUANTITIES,
+                (columns, values) -> {
+                    Long productId = asLong(getByColumn(columns, values, "product_id"));
+                    if (productId == null) {
+                        return;
+                    }
+
+                    String type = normalizeBlankToNull(getByColumn(columns, values, "type"));
+                    if (type != null && !type.equalsIgnoreCase("product")) {
+                        return;
+                    }
+
+                    Long visible = asLong(getByColumn(columns, values, "visible"));
+                    if (visible != null && visible != 1L) {
+                        return;
+                    }
+
+                    Long convertUnitId = asLong(getByColumn(columns, values, "convert_unit_id"));
+                    boolean baseUnit = convertUnitId == null;
+
+                    BigDecimal salePrice =
+                            asBigDecimal(getByColumn(columns, values, "sale_price"), null);
+                    BigDecimal cogs = asBigDecimal(getByColumn(columns, values, "cogs"), null);
+                    UnitQuantityPricing candidate =
+                            new UnitQuantityPricing(
+                                    salePrice != null ? salePrice : BigDecimal.ZERO,
+                                    cogs != null ? cogs : BigDecimal.ZERO,
+                                    baseUnit);
+
+                    UnitQuantityPricing existing = bestByProductId.get(productId);
+                    if (existing == null || isBetterUnitQuantityPricing(candidate, existing)) {
+                        bestByProductId.put(productId, candidate);
+                    }
+                });
+
+        return bestByProductId;
+    }
+
+    private boolean isBetterUnitQuantityPricing(
+            UnitQuantityPricing candidate, UnitQuantityPricing existing) {
+        if (candidate.baseUnit && !existing.baseUnit) {
+            return true;
+        }
+        if (!candidate.baseUnit && existing.baseUnit) {
+            return false;
+        }
+        int saleCompare = candidate.salePrice.compareTo(existing.salePrice);
+        if (saleCompare != 0) {
+            return saleCompare > 0;
+        }
+        return candidate.cogs.compareTo(existing.cogs) > 0;
     }
 
     private Map<Long, BigDecimal> resolveAverageOrderPriceByProductId(Path dumpPath)
@@ -737,11 +806,15 @@ public class NexoMigrationItemsStagesService {
                 TABLE_ORDERS_PRODUCTS,
                 (columns, values) -> {
                     Long productId = asLong(getByColumn(columns, values, "product_id"));
-                    BigDecimal quantity = asBigDecimal(getByColumn(columns, values, "quantity"), null);
+                    BigDecimal quantity =
+                            asBigDecimal(getByColumn(columns, values, "quantity"), null);
                     String status = normalizeBlankToNull(getByColumn(columns, values, "status"));
                     BigDecimal unitPrice =
                             asBigDecimal(
-                                    firstNonBlank(columns, values, List.of("unit_price", "price", "rate")),
+                                    firstNonBlank(
+                                            columns,
+                                            values,
+                                            List.of("unit_price", "price", "rate")),
                                     null);
                     if (productId == null || unitPrice == null) {
                         return;
@@ -770,7 +843,8 @@ public class NexoMigrationItemsStagesService {
         return avg;
     }
 
-    private Map<Long, BigDecimal> resolveAverageOrderCogsByProductId(Path dumpPath) throws Exception {
+    private Map<Long, BigDecimal> resolveAverageOrderCogsByProductId(Path dumpPath)
+            throws Exception {
         Map<Long, BigDecimal> sum = new HashMap<>();
         Map<Long, Long> count = new HashMap<>();
         dumpSql.forEachInsertRow(
@@ -778,7 +852,8 @@ public class NexoMigrationItemsStagesService {
                 TABLE_ORDERS_PRODUCTS,
                 (columns, values) -> {
                     Long productId = asLong(getByColumn(columns, values, "product_id"));
-                    BigDecimal quantity = asBigDecimal(getByColumn(columns, values, "quantity"), null);
+                    BigDecimal quantity =
+                            asBigDecimal(getByColumn(columns, values, "quantity"), null);
                     String status = normalizeBlankToNull(getByColumn(columns, values, "status"));
                     BigDecimal unitCogs =
                             asBigDecimal(
@@ -1087,6 +1162,7 @@ public class NexoMigrationItemsStagesService {
         private final Map<Long, BigDecimal> avgOrderPriceByProductId;
         private final Map<Long, BigDecimal> avgOrderCogsByProductId;
         private final Map<Long, BigDecimal> avgPurchasePriceByProductId;
+        private final Map<Long, UnitQuantityPricing> unitQuantityPricingByProductId;
 
         private ItemImportLookups(
                 Map<Long, String> uomByGroupId,
@@ -1094,13 +1170,27 @@ public class NexoMigrationItemsStagesService {
                 Map<Long, BigDecimal> taxRateByTaxGroupId,
                 Map<Long, BigDecimal> avgOrderPriceByProductId,
                 Map<Long, BigDecimal> avgOrderCogsByProductId,
-                Map<Long, BigDecimal> avgPurchasePriceByProductId) {
+                Map<Long, BigDecimal> avgPurchasePriceByProductId,
+                Map<Long, UnitQuantityPricing> unitQuantityPricingByProductId) {
             this.uomByGroupId = uomByGroupId;
             this.taxRateByTaxId = taxRateByTaxId;
             this.taxRateByTaxGroupId = taxRateByTaxGroupId;
             this.avgOrderPriceByProductId = avgOrderPriceByProductId;
             this.avgOrderCogsByProductId = avgOrderCogsByProductId;
             this.avgPurchasePriceByProductId = avgPurchasePriceByProductId;
+            this.unitQuantityPricingByProductId = unitQuantityPricingByProductId;
+        }
+    }
+
+    private static final class UnitQuantityPricing {
+        private final BigDecimal salePrice;
+        private final BigDecimal cogs;
+        private final boolean baseUnit;
+
+        private UnitQuantityPricing(BigDecimal salePrice, BigDecimal cogs, boolean baseUnit) {
+            this.salePrice = salePrice;
+            this.cogs = cogs;
+            this.baseUnit = baseUnit;
         }
     }
 
