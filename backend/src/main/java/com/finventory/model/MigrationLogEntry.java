@@ -42,10 +42,10 @@ public class MigrationLogEntry {
     @Column(name = "level", nullable = false)
     private MigrationLogLevel level;
 
-    @Column(name = "message", nullable = false)
+    @Column(name = "message", nullable = false, columnDefinition = "text")
     private String message;
 
-    @Column(name = "details")
+    @Column(name = "details", columnDefinition = "text")
     private String details;
 
     @Column(name = "created_at", nullable = false)

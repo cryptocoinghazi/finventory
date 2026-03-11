@@ -157,6 +157,7 @@ public class ItemService {
                         .hsnCode(dto.getHsnCode())
                         .taxRate(dto.getTaxRate())
                         .unitPrice(dto.getUnitPrice())
+                        .cogs(dto.getCogs() != null ? dto.getCogs() : java.math.BigDecimal.ZERO)
                         .uom(dto.getUom())
                         .imageUrl(normalizeNullable(dto.getImageUrl()))
                         .vendor(vendor)
@@ -190,6 +191,9 @@ public class ItemService {
         existing.setHsnCode(dto.getHsnCode());
         existing.setTaxRate(dto.getTaxRate());
         existing.setUnitPrice(dto.getUnitPrice());
+        if (dto.getCogs() != null) {
+            existing.setCogs(dto.getCogs());
+        }
         existing.setUom(dto.getUom());
         if (dto.getImageUrl() != null) {
             existing.setImageUrl(normalizeNullable(dto.getImageUrl()));
@@ -288,6 +292,7 @@ public class ItemService {
                 .hsnCode(item.getHsnCode())
                 .taxRate(item.getTaxRate())
                 .unitPrice(item.getUnitPrice())
+                .cogs(item.getCogs())
                 .uom(item.getUom())
                 .imageUrl(item.getImageUrl())
                 .vendorId(item.getVendor() != null ? item.getVendor().getId() : null)

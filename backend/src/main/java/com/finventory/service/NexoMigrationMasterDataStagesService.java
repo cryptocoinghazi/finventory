@@ -2,10 +2,8 @@ package com.finventory.service;
 
 import com.finventory.dto.ItemDto;
 import com.finventory.dto.PartyDto;
-import com.finventory.dto.StockAdjustmentDto;
 import com.finventory.dto.TaxSlabDto;
 import com.finventory.dto.WarehouseDto;
-import com.finventory.model.Item;
 import com.finventory.model.MigrationIdMap;
 import com.finventory.model.MigrationLogEntry;
 import com.finventory.model.MigrationLogLevel;
@@ -21,7 +19,6 @@ import com.finventory.repository.WarehouseRepository;
 import java.math.BigDecimal;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -46,6 +43,7 @@ public class NexoMigrationMasterDataStagesService {
     private static final String ENTITY_TYPE_STOCK_ADJUSTMENT = "STOCK_ADJUSTMENT";
 
     private static final String TABLE_PRODUCTS = "ns_nexopos_products";
+    private static final String TABLE_CATEGORIES = "ns_nexopos_categories";
     private static final String TABLE_UNITS = "ns_nexopos_units";
     private static final String TABLE_UNIT_GROUPS = "ns_nexopos_units_groups";
     private static final String TABLE_CUSTOMERS = "ns_nexopos_customers";
@@ -57,6 +55,9 @@ public class NexoMigrationMasterDataStagesService {
     private static final String DEFAULT_UOM = "pcs";
     private static final int MAX_ERROR_SAMPLES = 25;
     private static final int MAX_MISSING_UNIT_GROUP_SAMPLES = 25;
+    private static final long FIXED_CUSTOMER_SOURCE_ID_HIJAB = -1L;
+    private static final long FIXED_CUSTOMER_SOURCE_ID_DRESS = -2L;
+    private static final int MAX_UNSUPPORTED_SAMPLES = 10;
 
     private final NexoDumpSqlService dumpSql;
     private final MigrationIdMapRepository idMapRepository;
@@ -70,6 +71,7 @@ public class NexoMigrationMasterDataStagesService {
     private final WarehouseService warehouseService;
     private final PartyService partyService;
     private final StockAdjustmentService stockAdjustmentService;
+    private final NexoMigrationItemsStagesService itemsStagesService;
 
     public Map<String, Object> analyzeSource(Path dumpPath) throws Exception {
         ensureDumpExists(dumpPath);
@@ -246,259 +248,174 @@ public class NexoMigrationMasterDataStagesService {
         result.put("scopeSourceIdMax", run.getScopeSourceIdMax());
         result.put("scopeLimit", run.getScopeLimit());
 
-        result.put(
-                "customers",
-                importPartyTable(run, dumpPath, TABLE_CUSTOMERS, ENTITY_TYPE_PARTY_CUSTOMER, Party.PartyType.CUSTOMER));
-        result.put(
-                "vendors",
-                importPartyTable(run, dumpPath, TABLE_PROVIDERS, ENTITY_TYPE_PARTY_VENDOR, Party.PartyType.VENDOR));
+        Map<String, Object> customers = ensureFixedCustomers(run);
+        Map<String, Object> vendors = importVendorsFromCategories(run, dumpPath);
+
+        result.put("customers", customers);
+        result.put("vendors", vendors);
+        result.put("fixedCustomersEnsured", 2);
+        result.put("customersCreated", customers.getOrDefault("created", 0L));
+        result.put("customersEnsuredExisting", customers.getOrDefault("ensuredExisting", 0L));
+        result.put("customersMappedExisting", customers.getOrDefault("mappedExisting", 0L));
+        result.put("customersWouldCreate", customers.getOrDefault("wouldCreate", 0L));
+        result.put("customersWouldMapExisting", customers.getOrDefault("wouldMapExisting", 0L));
+        result.put("vendorsCreatedFromCategories", vendors.getOrDefault("created", 0L));
+        result.put("vendorsLinkedExisting", vendors.getOrDefault("linkedExisting", 0L));
+        result.put("vendorsAlreadyMapped", vendors.getOrDefault("alreadyMapped", 0L));
+        result.put("vendorsWouldCreateFromCategories", vendors.getOrDefault("wouldCreate", 0L));
+
+        log(
+                run,
+                MigrationStageKey.IMPORT_PARTIES,
+                MigrationLogLevel.INFO,
+                "Parties import finished",
+                "fixedCustomersEnsured=2, customersCreated="
+                        + customers.getOrDefault("created", 0L)
+                        + ", customersExisting="
+                        + customers.getOrDefault("ensuredExisting", 0L)
+                        + ", vendorsFromCategoriesCreated="
+                        + vendors.getOrDefault("created", 0L)
+                        + ", vendorsLinkedExisting="
+                        + vendors.getOrDefault("linkedExisting", 0L)
+                        + ", vendorsAlreadyMapped="
+                        + vendors.getOrDefault("alreadyMapped", 0L)
+                        + ", dryRun="
+                        + run.isDryRun()
+                        + ", limit="
+                        + run.getScopeLimit());
+
         return result;
     }
 
-    public Map<String, Object> importItems(MigrationRun run, Path dumpPath) throws Exception {
-        ensureDumpExists(dumpPath);
+    private Map<String, Object> ensureFixedCustomers(MigrationRun run) {
+        Map<String, Object> customers = new LinkedHashMap<>();
+        customers.put("mode", "fixed-two-customers");
+        customers.put("names", List.of("Hijab Cust", "Dress Customer"));
+        long createdCustomers = 0L;
+        long ensuredExistingCustomers = 0L;
+        long mappedExistingCustomers = 0L;
+        long wouldCreateCustomers = 0L;
+        long wouldMapExistingCustomers = 0L;
+        for (String name : List.of("Hijab Cust", "Dress Customer")) {
+            long sourceId = name.equals("Hijab Cust") ? FIXED_CUSTOMER_SOURCE_ID_HIJAB : FIXED_CUSTOMER_SOURCE_ID_DRESS;
+            List<Party> existing = partyRepository.findByNameIgnoreCaseAndType(name, Party.PartyType.CUSTOMER);
+            Optional<MigrationIdMap> existingMap =
+                    idMapRepository.findBySourceSystemAndEntityTypeAndSourceId(
+                            run.getSourceSystem(), ENTITY_TYPE_PARTY_CUSTOMER, sourceId);
+            if (!existing.isEmpty()) {
+                ensuredExistingCustomers++;
+                if (existingMap.isEmpty()) {
+                    if (run.isDryRun()) {
+                        wouldMapExistingCustomers++;
+                    } else {
+                        saveIdMap(run.getSourceSystem(), ENTITY_TYPE_PARTY_CUSTOMER, sourceId, existing.get(0).getId());
+                        mappedExistingCustomers++;
+                    }
+                }
+                continue;
+            }
+            if (run.isDryRun()) {
+                wouldCreateCustomers++;
+                continue;
+            }
+            PartyDto created =
+                    partyService.createParty(PartyDto.builder().name(name).type(Party.PartyType.CUSTOMER).build());
+            createdCustomers++;
+            if (existingMap.isEmpty()) {
+                saveIdMap(run.getSourceSystem(), ENTITY_TYPE_PARTY_CUSTOMER, sourceId, created.getId());
+            }
+        }
+        customers.put("created", createdCustomers);
+        customers.put("ensuredExisting", ensuredExistingCustomers);
+        customers.put("mappedExisting", mappedExistingCustomers);
+        customers.put("wouldCreate", wouldCreateCustomers);
+        customers.put("wouldMapExisting", wouldMapExistingCustomers);
+        customers.put("fixedCustomersEnsured", 2);
+        return customers;
+    }
 
-        Map<Long, String> uomByGroupId = resolveUomByGroupId(dumpPath);
-        Map<Long, BigDecimal> taxRateByTaxId = resolveTaxRateByTaxId(dumpPath);
-        Map<Long, BigDecimal> taxRateByTaxGroupId = resolveTaxRateByTaxGroupId(dumpPath);
-        Map<Long, Long> vendorSourceIdByProductId = resolveVendorSourceIdByProductId(dumpPath);
-
-        ImportItemsCounters counters = new ImportItemsCounters();
-        List<String> errorSamples = new ArrayList<>();
+    private Map<String, Object> importVendorsFromCategories(MigrationRun run, Path dumpPath) throws Exception {
+        Map<String, Object> vendors = new LinkedHashMap<>();
+        vendors.put("mode", "categories-to-vendors");
+        ImportPartiesCounters counters = new ImportPartiesCounters();
         List<String> warningSamples = new ArrayList<>();
-        ItemImportSamples samples = new ItemImportSamples(warningSamples, errorSamples);
-        ItemRowContext rowContext =
-                new ItemRowContext(
-                        run,
-                        uomByGroupId,
-                        taxRateByTaxId,
-                        taxRateByTaxGroupId,
-                        vendorSourceIdByProductId,
-                        counters,
-                        samples);
-
+        List<String> errorSamples = new ArrayList<>();
         dumpSql.forEachInsertRow(
                 dumpPath,
-                TABLE_PRODUCTS,
-                (columns, values) -> importItemRow(rowContext, columns, values));
+                TABLE_CATEGORIES,
+                (columns, values) -> {
+                    Long categoryId = asLong(getByColumn(columns, values, "id"));
+                    String categoryName = normalizeBlankToNull(getByColumn(columns, values, "name"));
+                    if (categoryId == null || categoryName == null) {
+                        return;
+                    }
+                    counters.found.incrementAndGet();
+                    if (!isInScope(run, categoryId)) {
+                        counters.skippedOutOfScope.incrementAndGet();
+                        return;
+                    }
+                    if (isOverLimit(run, counters.inScope)) {
+                        counters.skippedOverLimit.incrementAndGet();
+                        return;
+                    }
+                    counters.inScope.incrementAndGet();
+                    Optional<MigrationIdMap> existingMap =
+                            idMapRepository.findBySourceSystemAndEntityTypeAndSourceId(
+                                    run.getSourceSystem(), ENTITY_TYPE_PARTY_VENDOR, categoryId);
+                    if (existingMap.isPresent()) {
+                        counters.alreadyMapped.incrementAndGet();
+                        return;
+                    }
+                    List<Party> existingByName =
+                            partyRepository.findByNameIgnoreCaseAndType(categoryName, Party.PartyType.VENDOR);
+                    if (!existingByName.isEmpty()) {
+                        counters.linkedExisting.incrementAndGet();
+                        if (!run.isDryRun()) {
+                            saveIdMap(
+                                    run.getSourceSystem(),
+                                    ENTITY_TYPE_PARTY_VENDOR,
+                                    categoryId,
+                                    existingByName.get(0).getId());
+                        }
+                        return;
+                    }
+                    if (run.isDryRun()) {
+                        counters.wouldCreate.incrementAndGet();
+                        return;
+                    }
+                    try {
+                        PartyDto created =
+                                partyService.createParty(
+                                        PartyDto.builder().name(categoryName).type(Party.PartyType.VENDOR).build());
+                        counters.created.incrementAndGet();
+                        saveIdMap(run.getSourceSystem(), ENTITY_TYPE_PARTY_VENDOR, categoryId, created.getId());
+                    } catch (Exception e) {
+                        counters.errors.incrementAndGet();
+                        addSample(errorSamples, "categoryId=" + categoryId + ": " + e.getMessage());
+                    }
+                });
+        vendors.put("found", counters.found.get());
+        vendors.put("inScope", counters.inScope.get());
+        vendors.put("skippedOutOfScope", counters.skippedOutOfScope.get());
+        vendors.put("skippedOverLimit", counters.skippedOverLimit.get());
+        vendors.put("alreadyMapped", counters.alreadyMapped.get());
+        vendors.put("linkedExisting", counters.linkedExisting.get());
+        vendors.put("created", counters.created.get());
+        vendors.put("wouldCreate", counters.wouldCreate.get());
+        vendors.put("invalidRows", counters.invalid.get());
+        vendors.put("warnings", warningSamples.size());
+        vendors.put("warningSamples", warningSamples);
+        vendors.put("errors", counters.errors.get());
+        vendors.put("errorSamples", errorSamples);
+        return vendors;
+    }
 
-        Map<String, Object> stats = new LinkedHashMap<>();
-        stats.put("implemented", true);
-        stats.put("stage", MigrationStageKey.IMPORT_ITEMS.name());
-        stats.put("dumpPath", dumpPath.toAbsolutePath().normalize().toString());
-        stats.put("dryRun", run.isDryRun());
-        stats.put("sourceSystem", run.getSourceSystem());
-        stats.put("sourceReference", run.getSourceReference());
-        stats.put("scopeSourceIdMin", run.getScopeSourceIdMin());
-        stats.put("scopeSourceIdMax", run.getScopeSourceIdMax());
-        stats.put("scopeLimit", run.getScopeLimit());
-        stats.put("insertStatements", dumpSql.countInsertStatements(dumpPath, TABLE_PRODUCTS));
-        stats.put("found", counters.found.get());
-        stats.put("valid", counters.valid.get());
-        stats.put("skippedOutOfScope", counters.skippedOutOfScope.get());
-        stats.put("skippedOverLimit", counters.skippedOverLimit.get());
-        stats.put("alreadyMapped", counters.alreadyMapped.get());
-        stats.put("linkedExisting", counters.linkedExisting.get());
-        stats.put("created", counters.created.get());
-        stats.put("updated", counters.updated.get());
-        stats.put("wouldCreate", counters.wouldCreate.get());
-        stats.put("wouldUpdate", counters.wouldUpdate.get());
-        stats.put("warnings", warningSamples.size());
-        stats.put("warningSamples", warningSamples);
-        stats.put("errors", counters.errors.get());
-        stats.put("errorSamples", errorSamples);
-
-        log(
-                run,
-                MigrationStageKey.IMPORT_ITEMS,
-                MigrationLogLevel.INFO,
-                "Items import finished",
-                "found="
-                        + counters.found.get()
-                        + ", created="
-                        + counters.created.get()
-                        + ", dryRun="
-                        + run.isDryRun()
-                        + ", limit="
-                        + run.getScopeLimit());
-
-        return stats;
+    public Map<String, Object> importItems(MigrationRun run, Path dumpPath) throws Exception {
+        return itemsStagesService.importItems(run, dumpPath);
     }
 
     public Map<String, Object> importOpeningStock(MigrationRun run, Path dumpPath) throws Exception {
-        ensureDumpExists(dumpPath);
-
-        UUID warehouseId = resolveDefaultWarehouseId(run);
-        if (warehouseId == null) {
-            Map<String, Object> stats = new LinkedHashMap<>();
-            stats.put("implemented", true);
-            stats.put("stage", MigrationStageKey.IMPORT_OPENING_STOCK.name());
-            stats.put("dumpPath", dumpPath.toAbsolutePath().normalize().toString());
-            stats.put("dryRun", run.isDryRun());
-            stats.put("message", "No warehouse available; cannot import opening stock");
-            return stats;
-        }
-
-        OpeningStockCounters counters = new OpeningStockCounters();
-        List<String> warningSamples = new ArrayList<>();
-        List<String> errorSamples = new ArrayList<>();
-
-        OpeningStockContext ctx = new OpeningStockContext(run, warehouseId, counters, warningSamples, errorSamples);
-
-        dumpSql.forEachInsertRow(
-                dumpPath,
-                TABLE_PRODUCTS,
-                (columns, values) -> importOpeningStockRow(ctx, columns, values));
-
-        Map<String, Object> stats =
-                buildOpeningStockStats(
-                        run, dumpPath, warehouseId, counters, warningSamples, errorSamples);
-
-        log(
-                run,
-                MigrationStageKey.IMPORT_OPENING_STOCK,
-                MigrationLogLevel.INFO,
-                "Opening stock import finished",
-                "found="
-                        + counters.found.get()
-                        + ", created="
-                        + counters.created.get()
-                        + ", dryRun="
-                        + run.isDryRun()
-                        + ", limit="
-                        + run.getScopeLimit());
-
-        return stats;
-    }
-
-    private void importOpeningStockRow(OpeningStockContext ctx, List<String> columns, List<String> values) {
-        Long productId = asLong(getByColumn(columns, values, "id"));
-        if (productId == null) {
-            return;
-        }
-
-        ctx.counters.found.incrementAndGet();
-
-        if (!isInScope(ctx.run, productId)) {
-            ctx.counters.skippedOutOfScope.incrementAndGet();
-            return;
-        }
-
-        if (isOverLimit(ctx.run, ctx.counters.inScope)) {
-            ctx.counters.skippedOverLimit.incrementAndGet();
-            return;
-        }
-        ctx.counters.inScope.incrementAndGet();
-
-        Optional<MigrationIdMap> existingMap =
-                idMapRepository.findBySourceSystemAndEntityTypeAndSourceId(
-                        ctx.run.getSourceSystem(), ENTITY_TYPE_STOCK_ADJUSTMENT, productId);
-        if (existingMap.isPresent()) {
-            ctx.counters.alreadyMapped.incrementAndGet();
-            return;
-        }
-
-        Optional<MigrationIdMap> itemMap =
-                idMapRepository.findBySourceSystemAndEntityTypeAndSourceId(
-                        ctx.run.getSourceSystem(), ENTITY_TYPE_ITEM, productId);
-        if (itemMap.isEmpty()) {
-            ctx.counters.skippedMissingItemMap.incrementAndGet();
-            addSample(ctx.warningSamples, "productId=" + productId + " missing item mapping");
-            return;
-        }
-
-        BigDecimal quantity =
-                asBigDecimal(
-                        firstNonBlank(
-                                columns,
-                                values,
-                                List.of("quantity", "available_quantity", "stock", "stock_quantity")),
-                        null);
-        if (quantity == null) {
-            ctx.counters.skippedMissingQuantity.incrementAndGet();
-            return;
-        }
-        if (quantity.compareTo(BigDecimal.ZERO) <= 0) {
-            ctx.counters.skippedNonPositiveQuantity.incrementAndGet();
-            return;
-        }
-
-        if (ctx.run.isDryRun()) {
-            ctx.counters.wouldCreate.incrementAndGet();
-            return;
-        }
-
-        try {
-            StockAdjustmentDto dto =
-                    StockAdjustmentDto.builder()
-                            .adjustmentDate(LocalDate.now())
-                            .warehouseId(ctx.warehouseId)
-                            .itemId(itemMap.get().getTargetId())
-                            .quantity(quantity)
-                            .reason("Opening stock import (NexoPOS productId=" + productId + ")")
-                            .build();
-            StockAdjustmentDto createdAdj = stockAdjustmentService.createAdjustment(dto);
-            ctx.counters.created.incrementAndGet();
-            saveIdMap(
-                    ctx.run.getSourceSystem(),
-                    ENTITY_TYPE_STOCK_ADJUSTMENT,
-                    productId,
-                    createdAdj.getId());
-        } catch (Exception e) {
-            ctx.counters.errors.incrementAndGet();
-            addSample(ctx.errorSamples, "productId=" + productId + ": " + e.getMessage());
-        }
-    }
-
-    private Map<String, Object> buildOpeningStockStats(
-            MigrationRun run,
-            Path dumpPath,
-            UUID warehouseId,
-            OpeningStockCounters counters,
-            List<String> warningSamples,
-            List<String> errorSamples)
-            throws Exception {
-        Map<String, Object> stats = new LinkedHashMap<>();
-        stats.put("implemented", true);
-        stats.put("stage", MigrationStageKey.IMPORT_OPENING_STOCK.name());
-        stats.put("dumpPath", dumpPath.toAbsolutePath().normalize().toString());
-        stats.put("dryRun", run.isDryRun());
-        stats.put("sourceSystem", run.getSourceSystem());
-        stats.put("sourceReference", run.getSourceReference());
-        stats.put("scopeSourceIdMin", run.getScopeSourceIdMin());
-        stats.put("scopeSourceIdMax", run.getScopeSourceIdMax());
-        stats.put("scopeLimit", run.getScopeLimit());
-        stats.put("warehouseId", warehouseId);
-        stats.put("insertStatements", dumpSql.countInsertStatements(dumpPath, TABLE_PRODUCTS));
-        stats.put("found", counters.found.get());
-        stats.put("inScope", counters.inScope.get());
-        stats.put("skippedOutOfScope", counters.skippedOutOfScope.get());
-        stats.put("skippedOverLimit", counters.skippedOverLimit.get());
-        stats.put("alreadyMapped", counters.alreadyMapped.get());
-        stats.put("skippedMissingItemMap", counters.skippedMissingItemMap.get());
-        stats.put("skippedMissingQuantity", counters.skippedMissingQuantity.get());
-        stats.put("skippedNonPositiveQuantity", counters.skippedNonPositiveQuantity.get());
-        stats.put("created", counters.created.get());
-        stats.put("wouldCreate", counters.wouldCreate.get());
-        stats.put("warnings", warningSamples.size());
-        stats.put("warningSamples", warningSamples);
-        stats.put("errors", counters.errors.get());
-        stats.put("errorSamples", errorSamples);
-        return stats;
-    }
-
-    private UUID resolveDefaultWarehouseId(MigrationRun run) {
-        List<com.finventory.model.Warehouse> warehouses = warehouseRepository.findAll().stream().limit(1).toList();
-        if (!warehouses.isEmpty()) {
-            return warehouses.get(0).getId();
-        }
-
-        if (run.isDryRun()) {
-            return null;
-        }
-
-        WarehouseDto created = warehouseService.createWarehouse(WarehouseDto.builder().name("Main Warehouse").build());
-        return created.getId();
+        return itemsStagesService.importOpeningStock(run, dumpPath);
     }
 
     private void ensureDumpExists(Path dumpPath) {
@@ -1111,275 +1028,6 @@ public class NexoMigrationMasterDataStagesService {
         }
 
         return Optional.empty();
-    }
-
-    private void importItemRow(ItemRowContext ctx, List<String> columns, List<String> values) {
-        Long sourceId = asLong(getByColumn(columns, values, "id"));
-        if (sourceId == null) {
-            ctx.counters.errors.incrementAndGet();
-            addSample(ctx.samples.errorSamples, "productId=<NULL>");
-            return;
-        }
-
-        ctx.counters.found.incrementAndGet();
-
-        if (!isInScope(ctx.run, sourceId)) {
-            ctx.counters.skippedOutOfScope.incrementAndGet();
-            return;
-        }
-
-        if (isOverLimit(ctx.run, ctx.counters.valid)) {
-            ctx.counters.skippedOverLimit.incrementAndGet();
-            return;
-        }
-
-        ctx.counters.valid.incrementAndGet();
-
-        Optional<MigrationIdMap> existingMap =
-                idMapRepository.findBySourceSystemAndEntityTypeAndSourceId(
-                        ctx.run.getSourceSystem(), ENTITY_TYPE_ITEM, sourceId);
-
-        try {
-            ItemUpsert upsert = parseItemUpsert(ctx, sourceId, columns, values);
-
-            if (upsert == null) {
-                return;
-            }
-
-            Item targetItem = null;
-            if (existingMap.isPresent()) {
-                ctx.counters.alreadyMapped.incrementAndGet();
-                targetItem = itemRepository.findById(existingMap.get().getTargetId()).orElse(null);
-            } else if (upsert.code != null) {
-                Optional<Item> existingByCode = itemRepository.findByCode(upsert.code);
-                if (existingByCode.isPresent()) {
-                    ctx.counters.linkedExisting.incrementAndGet();
-                    targetItem = existingByCode.get();
-                    if (!ctx.run.isDryRun()) {
-                        saveIdMap(ctx.run.getSourceSystem(), ENTITY_TYPE_ITEM, sourceId, targetItem.getId());
-                    }
-                }
-            }
-
-            if (targetItem != null) {
-                boolean changed = applyItemUpdates(targetItem, upsert);
-                if (!changed) {
-                    return;
-                }
-                if (ctx.run.isDryRun()) {
-                    ctx.counters.wouldUpdate.incrementAndGet();
-                    return;
-                }
-                itemRepository.save(targetItem);
-                ctx.counters.updated.incrementAndGet();
-                if (existingMap.isEmpty()) {
-                    saveIdMap(ctx.run.getSourceSystem(), ENTITY_TYPE_ITEM, sourceId, targetItem.getId());
-                }
-                return;
-            }
-
-            if (ctx.run.isDryRun()) {
-                ctx.counters.wouldCreate.incrementAndGet();
-                return;
-            }
-
-            ItemDto created = itemService.createItem(upsert.dto);
-            ctx.counters.created.incrementAndGet();
-            saveIdMap(ctx.run.getSourceSystem(), ENTITY_TYPE_ITEM, sourceId, created.getId());
-        } catch (Exception e) {
-            ctx.counters.errors.incrementAndGet();
-            addSample(ctx.samples.errorSamples, "productId=" + sourceId + ": " + e.getMessage());
-        }
-    }
-
-    private boolean applyItemUpdates(Item targetItem, ItemUpsert upsert) {
-        boolean changed = false;
-
-        if (upsert.vendorId != null
-                && (targetItem.getVendor() == null || !upsert.vendorId.equals(targetItem.getVendor().getId()))) {
-            Party vendor = partyRepository.findById(upsert.vendorId).orElse(null);
-            if (vendor != null) {
-                targetItem.setVendor(vendor);
-                changed = true;
-            }
-        }
-
-        if (upsert.uom != null && !upsert.uom.equals(targetItem.getUom())) {
-            targetItem.setUom(upsert.uom);
-            changed = true;
-        }
-
-        if (upsert.taxRate != null
-                && targetItem.getTaxRate() != null
-                && upsert.taxRate.compareTo(targetItem.getTaxRate()) != 0) {
-            targetItem.setTaxRate(upsert.taxRate);
-            changed = true;
-        }
-
-        if (upsert.unitPrice != null
-                && targetItem.getUnitPrice() != null
-                && upsert.unitPrice.compareTo(targetItem.getUnitPrice()) != 0) {
-            targetItem.setUnitPrice(upsert.unitPrice);
-            changed = true;
-        }
-
-        String desiredBarcode = normalizeBlankToNull(upsert.barcode);
-        if (desiredBarcode != null
-                && (targetItem.getBarcode() == null || targetItem.getBarcode().isBlank())
-                && !itemRepository.existsByBarcode(desiredBarcode)) {
-            targetItem.setBarcode(desiredBarcode);
-            changed = true;
-        }
-
-        return changed;
-    }
-
-    private ItemUpsert parseItemUpsert(ItemRowContext ctx, Long sourceId, List<String> columns, List<String> values) {
-        String name = normalizeBlankToNull(getByColumn(columns, values, "name"));
-        if (name == null) {
-            addSample(ctx.samples.warningSamples, "productId=" + sourceId + " missing name");
-            return null;
-        }
-
-        String sku = normalizeBlankToNull(getByColumn(columns, values, "sku"));
-        String barcode = normalizeBlankToNull(getByColumn(columns, values, "barcode"));
-        Long unitGroupId = asLong(getByColumn(columns, values, "unit_group"));
-        Long taxGroupId = asLong(getByColumn(columns, values, "tax_group_id"));
-        Long taxId = asLong(getByColumn(columns, values, "tax_id"));
-        BigDecimal taxRate =
-                resolveTaxRate(columns, values, ctx.taxRateByTaxId, ctx.taxRateByTaxGroupId, taxGroupId, taxId);
-
-        Long vendorSourceId =
-                asLong(firstNonBlank(columns, values, List.of("provider_id", "vendor_id", "supplier_id")));
-        if (vendorSourceId == null) {
-            vendorSourceId = ctx.vendorSourceIdByProductId.get(sourceId);
-        }
-
-        UUID vendorId = null;
-        if (vendorSourceId != null) {
-            Optional<MigrationIdMap> vendorMap =
-                    idMapRepository.findBySourceSystemAndEntityTypeAndSourceId(
-                            ctx.run.getSourceSystem(), ENTITY_TYPE_PARTY_VENDOR, vendorSourceId);
-            if (vendorMap.isPresent()) {
-                vendorId = vendorMap.get().getTargetId();
-            } else {
-                addSample(
-                        ctx.samples.warningSamples,
-                        "productId="
-                                + sourceId
-                                + " missing vendor mapping for vendorId="
-                                + vendorSourceId);
-            }
-        }
-
-        String uom =
-                unitGroupId == null ? DEFAULT_UOM : ctx.uomByGroupId.getOrDefault(unitGroupId, DEFAULT_UOM);
-        String code = chooseItemCode(sku, barcode, sourceId);
-
-        BigDecimal unitPrice =
-                asBigDecimal(
-                        firstNonBlank(
-                                columns,
-                                values,
-                                List.of("sale_price", "selling_price", "price")),
-                        BigDecimal.ZERO);
-
-        ItemDto dto =
-                ItemDto.builder()
-                        .name(name)
-                        .code(code)
-                        .barcode(
-                                barcode != null && itemRepository.existsByBarcode(barcode) ? null : barcode)
-                        .uom(uom)
-                        .unitPrice(unitPrice)
-                        .taxRate(taxRate)
-                        .vendorId(vendorId)
-                        .build();
-
-        ItemUpsert upsert = new ItemUpsert();
-        upsert.dto = dto;
-        upsert.code = code;
-        upsert.vendorId = vendorId;
-        upsert.uom = uom;
-        upsert.taxRate = taxRate;
-        upsert.unitPrice = unitPrice;
-        upsert.barcode = barcode;
-        return upsert;
-    }
-
-    private BigDecimal resolveTaxRate(
-            List<String> columns,
-            List<String> values,
-            Map<Long, BigDecimal> taxRateByTaxId,
-            Map<Long, BigDecimal> taxRateByTaxGroupId,
-            Long taxGroupId,
-            Long taxId) {
-        if (taxGroupId != null && taxRateByTaxGroupId.containsKey(taxGroupId)) {
-            return taxRateByTaxGroupId.get(taxGroupId);
-        }
-        if (taxId != null && taxRateByTaxId.containsKey(taxId)) {
-            return taxRateByTaxId.get(taxId);
-        }
-        return asBigDecimal(getByColumn(columns, values, "tax_value"), DEFAULT_TAX_RATE);
-    }
-
-    private static final class ItemUpsert {
-        private ItemDto dto;
-        private String code;
-        private UUID vendorId;
-        private String uom;
-        private BigDecimal taxRate;
-        private BigDecimal unitPrice;
-        private String barcode;
-    }
-
-    private static final class ItemRowContext {
-        private final MigrationRun run;
-        private final Map<Long, String> uomByGroupId;
-        private final Map<Long, BigDecimal> taxRateByTaxId;
-        private final Map<Long, BigDecimal> taxRateByTaxGroupId;
-        private final Map<Long, Long> vendorSourceIdByProductId;
-        private final ImportItemsCounters counters;
-        private final ItemImportSamples samples;
-
-        private ItemRowContext(
-                MigrationRun run,
-                Map<Long, String> uomByGroupId,
-                Map<Long, BigDecimal> taxRateByTaxId,
-                Map<Long, BigDecimal> taxRateByTaxGroupId,
-                Map<Long, Long> vendorSourceIdByProductId,
-                ImportItemsCounters counters,
-                ItemImportSamples samples) {
-            this.run = run;
-            this.uomByGroupId = uomByGroupId;
-            this.taxRateByTaxId = taxRateByTaxId;
-            this.taxRateByTaxGroupId = taxRateByTaxGroupId;
-            this.vendorSourceIdByProductId = vendorSourceIdByProductId;
-            this.counters = counters;
-            this.samples = samples;
-        }
-    }
-
-    private static final class ItemImportSamples {
-        private final List<String> warningSamples;
-        private final List<String> errorSamples;
-
-        private ItemImportSamples(List<String> warningSamples, List<String> errorSamples) {
-            this.warningSamples = warningSamples;
-            this.errorSamples = errorSamples;
-        }
-    }
-
-    private String chooseItemCode(String sku, String barcode, Long sourceId) {
-        String candidate = normalizeBlankToNull(sku);
-        if (candidate != null) {
-            return candidate;
-        }
-        candidate = normalizeBlankToNull(barcode);
-        if (candidate != null) {
-            return candidate;
-        }
-        return "NEXO-" + sourceId;
     }
 
     private String firstNonBlank(List<String> columns, List<String> values, List<String> candidateColumns) {

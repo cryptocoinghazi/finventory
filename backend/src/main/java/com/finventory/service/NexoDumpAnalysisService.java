@@ -68,6 +68,14 @@ public class NexoDumpAnalysisService {
                                 "tax_group_id",
                                 "tax_type",
                                 "tax_value",
+                                "sale_price",
+                                "selling_price",
+                                "price",
+                                "purchase_price",
+                                "purchase_cost",
+                                "cost_price",
+                                "cost",
+                                "buying_price",
                                 "status",
                                 "stock_management"),
                         List.of("status", "stock_management", "product_type", "type", "tax_type")));
@@ -596,4 +604,3 @@ public class NexoDumpAnalysisService {
         return v.toUpperCase(Locale.ROOT);
     }
 }
-

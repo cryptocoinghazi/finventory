@@ -42,6 +42,9 @@ public class Item {
     @Column(name = "unit_price", nullable = false)
     private BigDecimal unitPrice;
 
+    @Column(name = "cogs")
+    private BigDecimal cogs;
+
     @Column(nullable = false)
     private String uom; // Unit of Measurement (e.g., PCS, KGS)
 

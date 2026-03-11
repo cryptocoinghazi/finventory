@@ -31,6 +31,9 @@ public class ItemDto {
     @DecimalMin(value = "0.0", inclusive = true, message = "Unit price must be positive or zero")
     private BigDecimal unitPrice;
 
+    @DecimalMin(value = "0.0", inclusive = true, message = "COGS must be positive or zero")
+    private BigDecimal cogs;
+
     @NotBlank(message = "Unit of measurement (UOM) is required")
     private String uom;
 

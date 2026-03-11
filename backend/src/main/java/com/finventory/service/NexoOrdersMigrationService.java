@@ -43,6 +43,8 @@ public class NexoOrdersMigrationService {
     private static final String ENTITY_TYPE_PARTY_CUSTOMER = "PARTY_CUSTOMER";
     private static final String ENTITY_TYPE_SALES_INVOICE = "SALES_INVOICE";
 
+    private static final String TABLE_PRODUCTS = "ns_nexopos_products";
+    private static final String TABLE_CATEGORIES = "ns_nexopos_categories";
     private static final String TABLE_ORDERS = "ns_nexopos_orders";
     private static final String TABLE_ORDERS_PRODUCTS = "ns_nexopos_orders_products";
     private static final String TABLE_ORDERS_PAYMENTS = "ns_nexopos_orders_payments";
@@ -71,6 +73,7 @@ public class NexoOrdersMigrationService {
         private String orderCode;
         private Long customerId;
         private String createdAt;
+        private String paymentStatus;
     }
 
     private static final class OrderLine {
@@ -105,7 +108,8 @@ public class NexoOrdersMigrationService {
         SalesPilotContext ctx =
                 new SalesPilotContext(run, warehouseId, counters, warningSamples, errorSamples, eligibleOrdersById);
 
-        collectEligiblePaidOrders(ctx, dumpPath);
+        Map<Long, String> productCategoryByProductId = collectProductCategoryNames(dumpPath);
+        collectEligibleOrders(ctx, dumpPath);
 
         if (eligibleOrdersById.isEmpty()) {
             Map<String, Object> stats = new LinkedHashMap<>();
@@ -113,7 +117,7 @@ public class NexoOrdersMigrationService {
             stats.put("stage", MigrationStageKey.IMPORT_SALES_PILOT.name());
             stats.put("dumpPath", dumpPath.toAbsolutePath().normalize().toString());
             stats.put("dryRun", run.isDryRun());
-            stats.put("message", "No eligible paid orders found");
+            stats.put("message", "No eligible orders found");
             stats.put("insertStatements", dumpSqlService.countInsertStatements(dumpPath, TABLE_ORDERS));
             return stats;
         }
@@ -121,7 +125,7 @@ public class NexoOrdersMigrationService {
         Map<Long, List<OrderLine>> linesByOrderId = collectOrderLines(dumpPath, eligibleOrdersById);
         Map<Long, BigDecimal> paymentsByOrderId = collectPayments(dumpPath, eligibleOrdersById);
 
-        importEligibleOrders(ctx, linesByOrderId);
+        importEligibleOrders(ctx, linesByOrderId, productCategoryByProductId);
 
         Map<String, Object> stats = buildSalesPilotStats(ctx, dumpPath, linesByOrderId, paymentsByOrderId);
 
@@ -134,8 +138,24 @@ public class NexoOrdersMigrationService {
                         + counters.found.get()
                         + ", created="
                         + counters.created.get()
-                        + ", markedPaid="
-                        + counters.markedPaid.get()
+                        + ", pendingInvoices="
+                        + (run.isDryRun()
+                                ? counters.wouldCreatePendingInvoices.get()
+                                : counters.pendingInvoices.get())
+                        + ", paidInvoices="
+                        + (run.isDryRun()
+                                ? counters.wouldCreatePaidInvoices.get()
+                                : counters.paidInvoices.get())
+                        + ", invoiceLinesCreated="
+                        + (run.isDryRun()
+                                ? counters.invoiceLinesWouldCreate.get()
+                                : counters.invoiceLinesCreated.get())
+                        + ", skippedMissingProductLines="
+                        + counters.skippedMissingProductLines.get()
+                        + ", hijabCustInvoices="
+                        + counters.hijabCustomerAssigned.get()
+                        + ", dressCustInvoices="
+                        + counters.dressCustomerAssigned.get()
                         + ", dryRun="
                         + run.isDryRun()
                         + ", limit="
@@ -144,7 +164,7 @@ public class NexoOrdersMigrationService {
         return stats;
     }
 
-    private void collectEligiblePaidOrders(SalesPilotContext ctx, Path dumpPath) throws Exception {
+    private void collectEligibleOrders(SalesPilotContext ctx, Path dumpPath) throws Exception {
         dumpSqlService.forEachInsertRow(
                 dumpPath,
                 TABLE_ORDERS,
@@ -169,11 +189,8 @@ public class NexoOrdersMigrationService {
                     ctx.counters.inScope.incrementAndGet();
 
                     String paymentStatus =
-                            normalizeBlankToNull(dumpSqlService.getByColumn(columns, values, "payment_status"));
-                    if (!isPaidStatus(paymentStatus)) {
-                        ctx.counters.skippedNotPaid.incrementAndGet();
-                        return;
-                    }
+                            normalizeBlankToNull(
+                                    dumpSqlService.getByColumn(columns, values, "payment_status"));
 
                     OrderHeader header = new OrderHeader();
                     header.orderId = orderId;
@@ -187,6 +204,7 @@ public class NexoOrdersMigrationService {
                     header.createdAt =
                             normalizeBlankToNull(
                                     firstNonBlank(columns, values, List.of("created_at", "date", "created")));
+                    header.paymentStatus = paymentStatus;
                     ctx.eligibleOrdersById.put(orderId, header);
                 });
     }
@@ -240,13 +258,24 @@ public class NexoOrdersMigrationService {
         return paymentsByOrderId;
     }
 
-    private void importEligibleOrders(SalesPilotContext ctx, Map<Long, List<OrderLine>> linesByOrderId) {
+    private void importEligibleOrders(
+            SalesPilotContext ctx,
+            Map<Long, List<OrderLine>> linesByOrderId,
+            Map<Long, String> productCategoryByProductId) {
         for (OrderHeader header : ctx.eligibleOrdersById.values()) {
-            importSingleOrder(ctx, header, linesByOrderId.getOrDefault(header.orderId, List.of()));
+            importSingleOrder(
+                    ctx,
+                    header,
+                    linesByOrderId.getOrDefault(header.orderId, List.of()),
+                    productCategoryByProductId);
         }
     }
 
-    private void importSingleOrder(SalesPilotContext ctx, OrderHeader header, List<OrderLine> orderLines) {
+    private void importSingleOrder(
+            SalesPilotContext ctx,
+            OrderHeader header,
+            List<OrderLine> orderLines,
+            Map<Long, String> productCategoryByProductId) {
         Optional<MigrationIdMap> existingInvoiceMap =
                 idMapRepository.findBySourceSystemAndEntityTypeAndSourceId(
                         ctx.run.getSourceSystem(), ENTITY_TYPE_SALES_INVOICE, header.orderId);
@@ -262,21 +291,26 @@ public class NexoOrdersMigrationService {
         }
 
         List<SalesInvoiceLineDto> invoiceLines = buildInvoiceLines(ctx, header, orderLines);
-        if (invoiceLines == null) {
-            ctx.counters.skippedMissingItems.incrementAndGet();
-            addSample(ctx.warningSamples, "orderId=" + header.orderId + " missing item mappings");
-            return;
-        }
         if (invoiceLines.isEmpty()) {
             ctx.counters.skippedNoLines.incrementAndGet();
             return;
         }
 
-        UUID partyId = resolveCustomerPartyId(ctx.run, header.customerId, ctx.warningSamples, ctx.counters);
+        boolean hijabOrder = determineHijabOrder(orderLines, productCategoryByProductId);
+        UUID partyId = resolveCustomerPartyIdByRule(ctx.run, hijabOrder, ctx.warningSamples, ctx.counters);
         if (partyId == null) {
             ctx.counters.skippedMissingParty.incrementAndGet();
-            addSample(ctx.warningSamples, "orderId=" + header.orderId + " missing customer/party mapping");
+            addSample(
+                    ctx.warningSamples,
+                    "orderId="
+                            + header.orderId
+                            + " missing customer mapping for rule-based assignment");
             return;
+        }
+        if (hijabOrder) {
+            ctx.counters.hijabCustomerAssigned.incrementAndGet();
+        } else {
+            ctx.counters.dressCustomerAssigned.incrementAndGet();
         }
 
         LocalDate invoiceDate = parseLocalDateOrToday(header.createdAt);
@@ -297,6 +331,12 @@ public class NexoOrdersMigrationService {
 
         if (ctx.run.isDryRun()) {
             ctx.counters.wouldCreate.incrementAndGet();
+            if (isPaidStatus(header.paymentStatus)) {
+                ctx.counters.wouldCreatePaidInvoices.incrementAndGet();
+            } else {
+                ctx.counters.wouldCreatePendingInvoices.incrementAndGet();
+            }
+            ctx.counters.invoiceLinesWouldCreate.addAndGet(invoiceLines.size());
             return;
         }
 
@@ -319,9 +359,14 @@ public class NexoOrdersMigrationService {
                     header.orderId,
                     createdInvoice.getId());
 
-            salesInvoiceService.applyPayment(
-                    createdInvoice.getId(), InvoicePaymentStatus.PAID, BigDecimal.ZERO);
-            ctx.counters.markedPaid.incrementAndGet();
+            if (isPaidStatus(header.paymentStatus)) {
+                salesInvoiceService.applyPayment(
+                        createdInvoice.getId(), InvoicePaymentStatus.PAID, BigDecimal.ZERO);
+                ctx.counters.paidInvoices.incrementAndGet();
+            } else {
+                ctx.counters.pendingInvoices.incrementAndGet();
+            }
+            ctx.counters.invoiceLinesCreated.addAndGet(invoiceLines.size());
         } catch (Exception e) {
             ctx.counters.errors.incrementAndGet();
             addSample(ctx.errorSamples, "orderId=" + header.orderId + ": " + e.getMessage());
@@ -331,18 +376,16 @@ public class NexoOrdersMigrationService {
     private List<SalesInvoiceLineDto> buildInvoiceLines(
             SalesPilotContext ctx, OrderHeader header, List<OrderLine> orderLines) {
         List<SalesInvoiceLineDto> invoiceLines = new ArrayList<>();
-        boolean missingAnyItem = false;
 
         for (OrderLine l : orderLines) {
             if (l.productId == null) {
-                missingAnyItem = true;
                 continue;
             }
             Optional<MigrationIdMap> itemMap =
                     idMapRepository.findBySourceSystemAndEntityTypeAndSourceId(
                             ctx.run.getSourceSystem(), ENTITY_TYPE_ITEM, l.productId);
             if (itemMap.isEmpty()) {
-                missingAnyItem = true;
+                ctx.counters.skippedMissingProductLines.incrementAndGet();
                 continue;
             }
             BigDecimal qty = l.quantity != null ? l.quantity : BigDecimal.ZERO;
@@ -359,9 +402,6 @@ public class NexoOrdersMigrationService {
                             .build());
         }
 
-        if (missingAnyItem) {
-            return null;
-        }
         return invoiceLines;
     }
 
@@ -393,7 +433,7 @@ public class NexoOrdersMigrationService {
         stats.put("scopeSourceIdMax", ctx.run.getScopeSourceIdMax());
         stats.put("scopeLimit", ctx.run.getScopeLimit());
         stats.put("warehouseId", ctx.warehouseId);
-        stats.put("eligiblePaidOrders", ctx.eligibleOrdersById.size());
+        stats.put("ordersConsidered", ctx.eligibleOrdersById.size());
         stats.put("eligibleOrdersWithLines", linesByOrderId.size());
         stats.put("eligibleOrdersWithPayments", paymentsByOrderId.size());
         stats.put("insertStatementsOrders", dumpSqlService.countInsertStatements(dumpPath, TABLE_ORDERS));
@@ -405,7 +445,6 @@ public class NexoOrdersMigrationService {
         stats.put("inScope", ctx.counters.inScope.get());
         stats.put("skippedOutOfScope", ctx.counters.skippedOutOfScope.get());
         stats.put("skippedOverLimit", ctx.counters.skippedOverLimit.get());
-        stats.put("skippedNotPaid", ctx.counters.skippedNotPaid.get());
         stats.put("skippedMissingItems", ctx.counters.skippedMissingItems.get());
         stats.put("skippedMissingParty", ctx.counters.skippedMissingParty.get());
         stats.put("skippedNoLines", ctx.counters.skippedNoLines.get());
@@ -413,11 +452,29 @@ public class NexoOrdersMigrationService {
         stats.put("linkedExisting", ctx.counters.linkedExisting.get());
         stats.put("created", ctx.counters.created.get());
         stats.put("wouldCreate", ctx.counters.wouldCreate.get());
-        stats.put("markedPaid", ctx.counters.markedPaid.get());
+        stats.put("invoiceLinesCreated", ctx.counters.invoiceLinesCreated.get());
+        stats.put("invoiceLinesWouldCreate", ctx.counters.invoiceLinesWouldCreate.get());
+        stats.put("skippedMissingProductLines", ctx.counters.skippedMissingProductLines.get());
+        stats.put(
+                "paidInvoices",
+                ctx.run.isDryRun()
+                        ? ctx.counters.wouldCreatePaidInvoices.get()
+                        : ctx.counters.paidInvoices.get());
+        stats.put(
+                "pendingInvoices",
+                ctx.run.isDryRun()
+                        ? ctx.counters.wouldCreatePendingInvoices.get()
+                        : ctx.counters.pendingInvoices.get());
+        stats.put(
+                "customerAssignment",
+                Map.of(
+                        "hijabCustInvoices", ctx.counters.hijabCustomerAssigned.get(),
+                        "dressCustomerInvoices", ctx.counters.dressCustomerAssigned.get()));
         stats.put("warnings", ctx.warningSamples.size());
         stats.put("warningSamples", ctx.warningSamples);
         stats.put("errors", ctx.counters.errors.get());
         stats.put("errorSamples", ctx.errorSamples);
+
 
         stats.put("reconciliation", buildSalesPilotReconciliation(linesByOrderId, paymentsByOrderId));
         stats.put("fallbackUsage", buildFallbackUsage(ctx.counters));
@@ -443,7 +500,15 @@ public class NexoOrdersMigrationService {
         private final AtomicLong linkedExisting = new AtomicLong();
         private final AtomicLong created = new AtomicLong();
         private final AtomicLong wouldCreate = new AtomicLong();
-        private final AtomicLong markedPaid = new AtomicLong();
+        private final AtomicLong paidInvoices = new AtomicLong();
+        private final AtomicLong pendingInvoices = new AtomicLong();
+        private final AtomicLong wouldCreatePaidInvoices = new AtomicLong();
+        private final AtomicLong wouldCreatePendingInvoices = new AtomicLong();
+        private final AtomicLong invoiceLinesCreated = new AtomicLong();
+        private final AtomicLong invoiceLinesWouldCreate = new AtomicLong();
+        private final AtomicLong skippedMissingProductLines = new AtomicLong();
+        private final AtomicLong hijabCustomerAssigned = new AtomicLong();
+        private final AtomicLong dressCustomerAssigned = new AtomicLong();
         private final AtomicLong errors = new AtomicLong();
         private final AtomicLong fallbackWarehouseCreated = new AtomicLong();
         private final AtomicLong fallbackPartyCreated = new AtomicLong();
@@ -503,37 +568,72 @@ public class NexoOrdersMigrationService {
         return created.getId();
     }
 
-    private UUID resolveCustomerPartyId(
-            MigrationRun run, Long customerSourceId, List<String> warningSamples, SalesPilotCounters counters) {
-        if (customerSourceId != null) {
-            Optional<MigrationIdMap> map =
-                    idMapRepository.findBySourceSystemAndEntityTypeAndSourceId(
-                            run.getSourceSystem(), ENTITY_TYPE_PARTY_CUSTOMER, customerSourceId);
-            if (map.isPresent()) {
-                return map.get().getTargetId();
-            }
-            if (warningSamples.size() < MAX_ERROR_SAMPLES) {
-                warningSamples.add("customerId=" + customerSourceId + " missing customer mapping");
-            }
-        }
-
-        List<Party> walkIns =
-                partyRepository.findByNameIgnoreCaseAndType("Walk-in Customer", Party.PartyType.CUSTOMER);
-        if (!walkIns.isEmpty()) {
+    private UUID resolveCustomerPartyIdByRule(
+            MigrationRun run, boolean hijabOrder, List<String> warningSamples, SalesPilotCounters counters) {
+        String targetName = hijabOrder ? "Hijab Cust" : "Dress Customer";
+        List<Party> matches = partyRepository.findByNameIgnoreCaseAndType(targetName, Party.PartyType.CUSTOMER);
+        if (!matches.isEmpty()) {
             counters.fallbackPartyUsed.incrementAndGet();
-            return walkIns.get(0).getId();
+            return matches.get(0).getId();
         }
-
         if (run.isDryRun()) {
             return null;
         }
-
         PartyDto created =
-                partyService.createParty(
-                        PartyDto.builder().name("Walk-in Customer").type(Party.PartyType.CUSTOMER).build());
+                partyService.createParty(PartyDto.builder().name(targetName).type(Party.PartyType.CUSTOMER).build());
         counters.fallbackPartyCreated.incrementAndGet();
         counters.fallbackPartyUsed.incrementAndGet();
         return created.getId();
+    }
+
+    private boolean determineHijabOrder(List<OrderLine> orderLines, Map<Long, String> productCategoryByProductId) {
+        for (OrderLine l : orderLines) {
+            if (l.productId == null) {
+                continue;
+            }
+            String categoryName = productCategoryByProductId.get(l.productId);
+            if (categoryName != null && categoryName.toLowerCase(Locale.ROOT).contains("hijab")) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private Map<Long, String> collectProductCategoryNames(Path dumpPath) throws Exception {
+        Map<Long, Long> categoryIdByProductId = new HashMap<>();
+        dumpSqlService.forEachInsertRow(
+                dumpPath,
+                TABLE_PRODUCTS,
+                (columns, values) -> {
+                    Long productId = asLong(dumpSqlService.getByColumn(columns, values, "id"));
+                    Long categoryId = asLong(dumpSqlService.getByColumn(columns, values, "category_id"));
+                    if (productId != null && categoryId != null) {
+                        categoryIdByProductId.put(productId, categoryId);
+                    }
+                });
+
+        Map<Long, String> categoryNameById = new HashMap<>();
+        dumpSqlService.forEachInsertRow(
+                dumpPath,
+                TABLE_CATEGORIES,
+                (columns, values) -> {
+                    Long categoryId = asLong(dumpSqlService.getByColumn(columns, values, "id"));
+                    String name = normalizeBlankToNull(dumpSqlService.getByColumn(columns, values, "name"));
+                    if (categoryId != null && name != null) {
+                        categoryNameById.put(categoryId, name);
+                    }
+                });
+
+        Map<Long, String> result = new HashMap<>();
+        for (Map.Entry<Long, Long> e : categoryIdByProductId.entrySet()) {
+            Long productId = e.getKey();
+            Long categoryId = e.getValue();
+            String name = categoryNameById.get(categoryId);
+            if (name != null) {
+                result.put(productId, name);
+            }
+        }
+        return result;
     }
 
     private Map<String, Object> buildFallbackUsage(SalesPilotCounters counters) {

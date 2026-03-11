@@ -1,0 +1,3 @@
+ALTER TABLE items
+    ADD COLUMN cogs DECIMAL(19, 2);
+

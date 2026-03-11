@@ -51,10 +51,10 @@ public class MigrationStageExecution {
     @Column(name = "finished_at")
     private OffsetDateTime finishedAt;
 
-    @Column(name = "stats_json")
+    @Column(name = "stats_json", columnDefinition = "text")
     private String statsJson;
 
-    @Column(name = "error_message")
+    @Column(name = "error_message", columnDefinition = "text")
     private String errorMessage;
 
     @PrePersist

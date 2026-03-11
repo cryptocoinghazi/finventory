@@ -371,20 +371,22 @@ public class MigrationOrchestrator {
             return List.of(
                     MigrationStageKey.IMPORT_UNITS,
                     MigrationStageKey.IMPORT_TAX_SLABS,
-                    MigrationStageKey.IMPORT_WAREHOUSES,
                     MigrationStageKey.IMPORT_PARTIES,
                     MigrationStageKey.IMPORT_ITEMS,
-                    MigrationStageKey.IMPORT_SALES_PILOT);
+                    MigrationStageKey.IMPORT_OPENING_STOCK,
+                    MigrationStageKey.IMPORT_SALES_PILOT,
+                    MigrationStageKey.FINALIZE);
         }
         return List.of(
                 MigrationStageKey.ANALYZE_SOURCE,
                 MigrationStageKey.IMPORT_UNITS,
                 MigrationStageKey.IMPORT_TAX_SLABS,
-                MigrationStageKey.IMPORT_WAREHOUSES,
                 MigrationStageKey.IMPORT_PARTIES,
                 MigrationStageKey.IMPORT_ITEMS,
+                MigrationStageKey.IMPORT_OPENING_STOCK,
                 MigrationStageKey.ANALYZE_ORDERS,
-                MigrationStageKey.IMPORT_SALES_PILOT);
+                MigrationStageKey.IMPORT_SALES_PILOT,
+                MigrationStageKey.FINALIZE);
     }
 
     private Optional<String> detectBlockingIssue(MigrationStageKey stageKey, Map<String, Object> stats) {
@@ -462,6 +464,18 @@ public class MigrationOrchestrator {
                         "inScope",
                         "created",
                         "updated",
+                        "itemsCreated",
+                        "itemsUpdated",
+                        "fixedCustomersEnsured",
+                        "customersCreated",
+                        "customersEnsuredExisting",
+                        "customersMappedExisting",
+                        "customersWouldCreate",
+                        "customersWouldMapExisting",
+                        "vendorsCreatedFromCategories",
+                        "vendorsWouldCreateFromCategories",
+                        "vendorsLinkedExisting",
+                        "vendorsAlreadyMapped",
                         "skippedOutOfScope",
                         "skippedOverLimit",
                         "alreadyMapped",
@@ -470,6 +484,17 @@ public class MigrationOrchestrator {
                         "wouldUpdate",
                         "warnings",
                         "errors",
+                        "vendorMapped",
+                        "vendorMissingMap",
+                        "unsupportedDescriptionNonEmpty",
+                        "unsupportedStatusPresent",
+                        "unsupportedActivePresent",
+                        "unsupportedCogsCandidatesPresent",
+                        "stockAdjustmentsCreated",
+                        "paidInvoices",
+                        "pendingInvoices",
+                        "invoiceLinesCreated",
+                        "skippedMissingProductLines",
                         "markedPaid",
                         "eligiblePaidOrders",
                         "reconciliation",

@@ -26,7 +26,7 @@ $BackendDir = Join-Path $ProjectRoot "backend"
 
 # Launch in a new window to keep this script clean and allow parallel frontend start later
 # We explicitly source activate.ps1 in the new window to ensure maven/java are on PATH
-$BackendCommand = "-NoExit -Command `". '$ActivateScript'; cd '$BackendDir'; mvn spring-boot:run`""
+$BackendCommand = "-NoExit -Command `". '$ActivateScript'; `$env:SPRING_PROFILES_ACTIVE='local'; `$env:SPRING_DATASOURCE_URL='jdbc:postgresql://localhost:5432/finventory'; `$env:SPRING_DATASOURCE_USERNAME='postgres'; `$env:SPRING_DATASOURCE_PASSWORD='password'; `$env:SPRING_DATASOURCE_DRIVER_CLASS_NAME='org.postgresql.Driver'; cd '$BackendDir'; mvn -DskipTests spring-boot:run`""
 Start-Process powershell -ArgumentList $BackendCommand -WorkingDirectory $BackendDir
 
 # 4. Start Frontend
