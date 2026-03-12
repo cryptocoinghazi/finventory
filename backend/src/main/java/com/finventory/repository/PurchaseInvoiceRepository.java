@@ -26,9 +26,9 @@ public interface PurchaseInvoiceRepository extends JpaRepository<PurchaseInvoice
 
     @Query(
             "SELECT p FROM PurchaseInvoice p "
-                    + "WHERE (:paymentStatus IS NULL OR p.paymentStatus = :paymentStatus) "
-                    + "AND (:fromDate IS NULL OR p.invoiceDate >= :fromDate) "
-                    + "AND (:toDate IS NULL OR p.invoiceDate <= :toDate) "
+                    + "WHERE p.paymentStatus = COALESCE(:paymentStatus, p.paymentStatus) "
+                    + "AND p.invoiceDate >= COALESCE(:fromDate, p.invoiceDate) "
+                    + "AND p.invoiceDate <= COALESCE(:toDate, p.invoiceDate) "
                     + "ORDER BY p.invoiceDate DESC")
     List<PurchaseInvoice> findAllWithFilters(
             @Param("paymentStatus") InvoicePaymentStatus paymentStatus,

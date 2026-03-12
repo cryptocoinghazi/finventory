@@ -18,8 +18,8 @@ public interface OfferRepository extends JpaRepository<Offer, UUID> {
     @Query(
             "SELECT o FROM Offer o "
                     + "WHERE o.active = true "
-                    + "AND (:asOf IS NULL OR (o.startDate IS NULL OR o.startDate <= :asOf)) "
-                    + "AND (:asOf IS NULL OR (o.endDate IS NULL OR o.endDate >= :asOf)) "
+                    + "AND (o.startDate IS NULL OR o.startDate <= COALESCE(:asOf, o.startDate)) "
+                    + "AND (o.endDate IS NULL OR o.endDate >= COALESCE(:asOf, o.endDate)) "
                     + "ORDER BY o.updatedAt DESC")
     List<Offer> findActiveAsOf(@Param("asOf") LocalDate asOf);
 }

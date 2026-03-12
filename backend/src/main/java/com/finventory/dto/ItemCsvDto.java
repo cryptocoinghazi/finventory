@@ -19,6 +19,9 @@ public class ItemCsvDto {
     @CsvBindByName(column = "hsnCode")
     private String hsnCode;
 
+    @CsvBindByName(column = "category")
+    private String category;
+
     @CsvBindByName(column = "taxRate", required = true)
     private BigDecimal taxRate;
 

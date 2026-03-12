@@ -49,7 +49,8 @@ public class PartyController {
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteParty(
-            @PathVariable UUID id, @RequestParam(name = "force", defaultValue = "false") boolean force) {
+            @PathVariable UUID id,
+            @RequestParam(name = "force", defaultValue = "false") boolean force) {
         partyService.deleteParty(id, force);
         return ResponseEntity.noContent().build();
     }

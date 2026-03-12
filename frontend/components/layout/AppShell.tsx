@@ -86,9 +86,12 @@ const NAV: NavSection[] = [
   {
     title: "Reports",
     items: [
-      { title: "Stock Summary", href: "/reports/stock-summary", icon: ClipboardList },
+      { title: "Sales Report", href: "/reports/sales", icon: ClipboardList },
+      { title: "Stock Report", href: "/reports/stock-summary", icon: ClipboardList },
       { title: "Party Outstanding", href: "/reports/outstanding", icon: Users },
       { title: "GST Registers", href: "/reports/gst-registers", icon: FileText },
+      { title: "Profit & Loss", href: "/reports/profit-loss", icon: FileText },
+      { title: "Annual Report", href: "/reports/annual", icon: FileText },
     ],
   },
   {

@@ -1,7 +1,7 @@
 package com.finventory.controller;
 
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -370,7 +370,6 @@ class SalesInvoiceIntegrationTest {
                                 .header("Authorization", userToken))
                 .andExpect(status().isForbidden());
     }
-
 
     @Test
     void testCreateSalesInvoiceValidationFailure() throws Exception {

@@ -175,7 +175,8 @@ public class DatabaseBackupService {
         Process p = pb.start();
         String out;
         try (BufferedReader reader =
-                new BufferedReader(new InputStreamReader(p.getInputStream(), StandardCharsets.UTF_8))) {
+                new BufferedReader(
+                        new InputStreamReader(p.getInputStream(), StandardCharsets.UTF_8))) {
             out = reader.lines().limit(MAX_PGDUMP_OUTPUT_LINES).reduce("", (a, b) -> a + b + "\n");
         }
         int code = p.waitFor();
@@ -198,7 +199,8 @@ public class DatabaseBackupService {
                         Paths.get("tools", "pgsql", "bin", "pg_dump.exe"),
                         Paths.get("tools", "pgsql", "pgAdmin 4", "runtime", "pg_dump.exe"),
                         Paths.get("backend", "tools", "pgsql", "bin", "pg_dump.exe"),
-                        Paths.get("backend", "tools", "pgsql", "pgAdmin 4", "runtime", "pg_dump.exe"),
+                        Paths.get(
+                                "backend", "tools", "pgsql", "pgAdmin 4", "runtime", "pg_dump.exe"),
                         Paths.get("..", "tools", "pgsql", "bin", "pg_dump.exe"),
                         Paths.get("..", "tools", "pgsql", "pgAdmin 4", "runtime", "pg_dump.exe"));
         for (Path c : candidates) {

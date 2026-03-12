@@ -19,6 +19,7 @@ import { API_BASE } from "@/lib/api"
 const itemSchema = z.object({
   name: z.string().min(1, "Name is required"),
   code: z.string().min(1, "Code is required"),
+  category: z.string().max(100, "Category too long").optional(),
   barcode: z.string().max(64, "Barcode too long").optional(),
   hsnCode: z.string().optional(),
   uom: z.string().min(1, "UOM is required"),
@@ -56,6 +57,7 @@ export function ItemForm({
     defaultValues: {
       name: initialValue?.name ?? "",
       code: initialValue?.code ?? "",
+      category: initialValue?.category ?? "",
       barcode: initialValue?.barcode ?? "",
       hsnCode: initialValue?.hsnCode ?? "",
       uom: initialValue?.uom ?? "",
@@ -70,6 +72,7 @@ export function ItemForm({
     try {
       await onSubmit({
         ...data,
+        category: (data.category ?? "").trim() || null,
         barcode: (data.barcode ?? "").trim(),
         hsnCode: data.hsnCode || null,
       }, imageFile)
@@ -139,6 +142,19 @@ export function ItemForm({
                     <FormLabel>Barcode</FormLabel>
                     <FormControl>
                       <Input placeholder="Optional barcode" {...field} value={field.value || ""} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="category"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Category</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Optional category" {...field} value={field.value || ""} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

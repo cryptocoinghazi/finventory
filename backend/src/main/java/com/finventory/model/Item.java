@@ -36,6 +36,9 @@ public class Item {
     @Column(name = "hsn_code")
     private String hsnCode;
 
+    @Column(name = "category")
+    private String category;
+
     @Column(name = "tax_rate", nullable = false)
     private BigDecimal taxRate;
 

@@ -203,6 +203,7 @@ UI:
 - POS coupon apply modal/input
 - Display applied discount line in POS summary
 
+STATUS: DONE (2026-03-12)
 ==================================================
 8. ACCOUNTING MODULE WITH EXPENSES
 ==================================================

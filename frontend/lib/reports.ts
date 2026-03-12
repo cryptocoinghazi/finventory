@@ -212,3 +212,202 @@ export async function getSystemStatus(): Promise<SystemStatus> {
   if (!res.ok) throw new Error("Failed to fetch system status")
   return res.json()
 }
+
+export type ReportInvoiceStatus = "ACTIVE" | "CANCELLED" | "DELETED" | "ALL"
+export type SalesGroupBy = "DAY" | "WEEK" | "MONTH" | "RANGE"
+export type InvoicePaymentStatus = "PENDING" | "PARTIAL" | "PAID"
+
+export interface SalesReportTotals {
+  invoiceCount: number
+  totalAmount: number
+  totalDiscount: number
+  totalPaid: number
+  totalPending: number
+}
+
+export interface SalesReportBucket {
+  periodStart: string | null
+  periodEnd: string | null
+  label: string | null
+  invoiceCount: number
+  totalAmount: number
+  totalDiscount: number
+  totalPaid: number
+  totalPending: number
+}
+
+export interface SalesReportResponse {
+  fromDate: string | null
+  toDate: string | null
+  groupBy: string | null
+  totals: SalesReportTotals
+  buckets: SalesReportBucket[]
+}
+
+export async function getSalesReport(params?: {
+  fromDate?: string
+  toDate?: string
+  groupBy?: SalesGroupBy
+  itemId?: string
+  category?: string
+  partyId?: string
+  paymentStatus?: InvoicePaymentStatus
+  invoiceStatus?: ReportInvoiceStatus
+}): Promise<SalesReportResponse> {
+  const qs = new URLSearchParams()
+  if (params?.fromDate) qs.set("fromDate", params.fromDate)
+  if (params?.toDate) qs.set("toDate", params.toDate)
+  if (params?.groupBy) qs.set("groupBy", params.groupBy)
+  if (params?.itemId) qs.set("itemId", params.itemId)
+  if (params?.category) qs.set("category", params.category)
+  if (params?.partyId) qs.set("partyId", params.partyId)
+  if (params?.paymentStatus) qs.set("paymentStatus", params.paymentStatus)
+  if (params?.invoiceStatus) qs.set("invoiceStatus", params.invoiceStatus)
+  const res = await apiFetch(`/api/reports/sales${qs.toString() ? `?${qs.toString()}` : ""}`, {
+    cache: "no-store",
+  })
+  if (!res.ok) throw new Error("Failed to fetch sales report")
+  return res.json()
+}
+
+export interface StockReportRow {
+  itemId: string
+  itemName: string
+  itemCode: string
+  vendorId?: string | null
+  vendorName?: string | null
+  warehouseId: string
+  warehouseName: string
+  currentStock: number
+  uom: string
+  unitPrice: number
+  valuation: number
+}
+
+export interface LowStockResponse {
+  threshold: number
+  lowStock: StockReportRow[]
+  outOfStock: StockReportRow[]
+}
+
+export interface StockMovementEntry {
+  date: string
+  itemId: string
+  itemName: string
+  warehouseId: string
+  warehouseName: string
+  qtyIn: number
+  qtyOut: number
+  refType: string | null
+  refId: string
+}
+
+export async function getStockReport(): Promise<StockReportRow[]> {
+  const res = await apiFetch("/api/reports/stock", { cache: "no-store" })
+  if (!res.ok) throw new Error("Failed to fetch stock report")
+  return res.json()
+}
+
+export async function getLowStockReport(params?: { threshold?: number }): Promise<LowStockResponse> {
+  const qs = new URLSearchParams()
+  if (params?.threshold != null && Number.isFinite(params.threshold))
+    qs.set("threshold", String(params.threshold))
+  const res = await apiFetch(`/api/reports/stock/low${qs.toString() ? `?${qs.toString()}` : ""}`, {
+    cache: "no-store",
+  })
+  if (!res.ok) throw new Error("Failed to fetch low stock report")
+  return res.json()
+}
+
+export async function getStockMovement(params?: {
+  fromDate?: string
+  toDate?: string
+  itemId?: string
+  warehouseId?: string
+}): Promise<StockMovementEntry[]> {
+  const qs = new URLSearchParams()
+  if (params?.fromDate) qs.set("fromDate", params.fromDate)
+  if (params?.toDate) qs.set("toDate", params.toDate)
+  if (params?.itemId) qs.set("itemId", params.itemId)
+  if (params?.warehouseId) qs.set("warehouseId", params.warehouseId)
+  const res = await apiFetch(
+    `/api/reports/stock/movement${qs.toString() ? `?${qs.toString()}` : ""}`,
+    { cache: "no-store" }
+  )
+  if (!res.ok) throw new Error("Failed to fetch stock movement")
+  return res.json()
+}
+
+export interface ProfitLossReport {
+  fromDate: string | null
+  toDate: string | null
+  revenue: number
+  discounts: number
+  expenses: number
+  cogs: number
+  grossProfit: number
+  netProfit: number
+}
+
+export async function getProfitLossReport(params?: {
+  fromDate?: string
+  toDate?: string
+}): Promise<ProfitLossReport> {
+  const qs = new URLSearchParams()
+  if (params?.fromDate) qs.set("fromDate", params.fromDate)
+  if (params?.toDate) qs.set("toDate", params.toDate)
+  const res = await apiFetch(
+    `/api/reports/profit-loss${qs.toString() ? `?${qs.toString()}` : ""}`,
+    { cache: "no-store" }
+  )
+  if (!res.ok) throw new Error("Failed to fetch profit & loss report")
+  return res.json()
+}
+
+export interface AnnualReportMonthTrend {
+  month: number
+  revenue: number
+  discounts: number
+  expenses: number
+  cogs: number
+  grossProfit: number
+  netProfit: number
+}
+
+export interface AnnualReportTopItem {
+  itemId: string
+  itemName: string
+  itemCode: string
+  quantity: number
+  amount: number
+}
+
+export interface AnnualReportTopParty {
+  partyId: string
+  partyName: string
+  amount: number
+  invoiceCount: number
+}
+
+export interface AnnualReport {
+  year: number
+  months: AnnualReportMonthTrend[]
+  topItems: AnnualReportTopItem[]
+  topCustomers: AnnualReportTopParty[]
+}
+
+export async function getAnnualReport(params: { year: number; topLimit?: number }): Promise<AnnualReport> {
+  const qs = new URLSearchParams()
+  qs.set("year", String(params.year))
+  if (params.topLimit != null && Number.isFinite(params.topLimit)) qs.set("topLimit", String(params.topLimit))
+  const res = await apiFetch(`/api/reports/annual?${qs.toString()}`, { cache: "no-store" })
+  if (!res.ok) {
+    let text = ""
+    try {
+      text = await res.text()
+    } catch {}
+    const msg = text?.trim()
+    throw new Error(msg || `Failed to fetch annual report (${res.status})`)
+  }
+  return res.json()
+}

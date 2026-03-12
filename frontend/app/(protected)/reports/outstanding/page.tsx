@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/select"
 import { Dialog, DialogClose, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { format } from "date-fns"
+import { DateRangeFilter } from "@/components/reports/DateRangeFilter"
  
  export default function PartyOutstandingPage() {
    const [rows, setRows] = useState<PartyOutstanding[]>([])
@@ -336,21 +337,12 @@ import { format } from "date-fns"
             </SelectContent>
           </Select>
         </div>
-        <input
-          className="w-full max-w-[170px] px-3 py-2 rounded-md border border-input bg-background"
-          type="date"
-          value={fromDate}
-          onChange={(e) => {
-            setFromDate(e.target.value)
-            resetScroll()
-          }}
-        />
-        <input
-          className="w-full max-w-[170px] px-3 py-2 rounded-md border border-input bg-background"
-          type="date"
-          value={toDate}
-          onChange={(e) => {
-            setToDate(e.target.value)
+        <DateRangeFilter
+          fromDate={fromDate}
+          toDate={toDate}
+          onChange={({ fromDate: nextFrom, toDate: nextTo }) => {
+            setFromDate(nextFrom)
+            setToDate(nextTo)
             resetScroll()
           }}
         />

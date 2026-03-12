@@ -78,6 +78,7 @@ public class ItemService {
                     Item item = existing.get();
                     item.setName(csvDto.getName());
                     item.setHsnCode(csvDto.getHsnCode());
+                    item.setCategory(normalizeNullable(csvDto.getCategory()));
                     item.setTaxRate(csvDto.getTaxRate());
                     item.setUnitPrice(csvDto.getUnitPrice());
                     item.setUom(csvDto.getUom());
@@ -110,6 +111,7 @@ public class ItemService {
                                     .code(csvDto.getCode())
                                     .barcode(normalizedBarcode)
                                     .hsnCode(csvDto.getHsnCode())
+                                    .category(normalizeNullable(csvDto.getCategory()))
                                     .taxRate(csvDto.getTaxRate())
                                     .unitPrice(csvDto.getUnitPrice())
                                     .uom(csvDto.getUom())
@@ -159,6 +161,7 @@ public class ItemService {
                         .code(dto.getCode())
                         .barcode(normalizedBarcode)
                         .hsnCode(dto.getHsnCode())
+                        .category(normalizeNullable(dto.getCategory()))
                         .taxRate(dto.getTaxRate())
                         .unitPrice(dto.getUnitPrice())
                         .cogs(dto.getCogs() != null ? dto.getCogs() : java.math.BigDecimal.ZERO)
@@ -207,6 +210,7 @@ public class ItemService {
 
         existing.setName(dto.getName());
         existing.setHsnCode(dto.getHsnCode());
+        existing.setCategory(normalizeNullable(dto.getCategory()));
         existing.setTaxRate(dto.getTaxRate());
         existing.setUnitPrice(dto.getUnitPrice());
         if (dto.getCogs() != null) {
@@ -319,6 +323,7 @@ public class ItemService {
                 .code(item.getCode())
                 .barcode(item.getBarcode())
                 .hsnCode(item.getHsnCode())
+                .category(item.getCategory())
                 .taxRate(item.getTaxRate())
                 .unitPrice(item.getUnitPrice())
                 .cogs(item.getCogs())

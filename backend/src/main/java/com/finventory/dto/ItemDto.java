@@ -23,6 +23,8 @@ public class ItemDto {
 
     private String hsnCode;
 
+    private String category;
+
     @NotNull(message = "Tax rate is required")
     @DecimalMin(value = "0.0", inclusive = true, message = "Tax rate must be positive or zero")
     private BigDecimal taxRate;

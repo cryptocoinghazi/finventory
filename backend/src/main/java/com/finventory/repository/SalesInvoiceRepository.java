@@ -27,9 +27,9 @@ public interface SalesInvoiceRepository extends JpaRepository<SalesInvoice, UUID
 
     @Query(
             "SELECT s FROM SalesInvoice s "
-                    + "WHERE (:paymentStatus IS NULL OR s.paymentStatus = :paymentStatus) "
-                    + "AND (:fromDate IS NULL OR s.invoiceDate >= :fromDate) "
-                    + "AND (:toDate IS NULL OR s.invoiceDate <= :toDate) "
+                    + "WHERE s.paymentStatus = COALESCE(:paymentStatus, s.paymentStatus) "
+                    + "AND s.invoiceDate >= COALESCE(:fromDate, s.invoiceDate) "
+                    + "AND s.invoiceDate <= COALESCE(:toDate, s.invoiceDate) "
                     + "ORDER BY s.invoiceDate DESC")
     List<SalesInvoice> findAllWithFilters(
             @Param("paymentStatus") InvoicePaymentStatus paymentStatus,
@@ -51,4 +51,25 @@ public interface SalesInvoiceRepository extends JpaRepository<SalesInvoice, UUID
 
     @Query("SELECT SUM(s.grandTotal) FROM SalesInvoice s WHERE s.invoiceDate = CURRENT_DATE")
     java.math.BigDecimal findTotalSalesToday();
+
+    @Query(
+            "SELECT DISTINCT s FROM SalesInvoice s "
+                    + "JOIN FETCH s.party p "
+                    + "JOIN FETCH s.warehouse w "
+                    + "LEFT JOIN FETCH s.lines l "
+                    + "LEFT JOIN FETCH l.item i "
+                    + "WHERE s.invoiceDate >= COALESCE(:fromDate, s.invoiceDate) "
+                    + "AND s.invoiceDate <= COALESCE(:toDate, s.invoiceDate) "
+                    + "AND p.id = COALESCE(:partyId, p.id) "
+                    + "AND s.paymentStatus = COALESCE(:paymentStatus, s.paymentStatus) "
+                    + "AND i.id = COALESCE(:itemId, i.id) "
+                    + "AND (COALESCE(:category, '') = '' OR i.category = :category) "
+                    + "ORDER BY s.invoiceDate ASC")
+    List<SalesInvoice> findForSalesReport(
+            @Param("fromDate") LocalDate fromDate,
+            @Param("toDate") LocalDate toDate,
+            @Param("partyId") UUID partyId,
+            @Param("paymentStatus") InvoicePaymentStatus paymentStatus,
+            @Param("itemId") UUID itemId,
+            @Param("category") String category);
 }

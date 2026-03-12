@@ -293,7 +293,9 @@ public class SalesInvoiceService {
                 postingDate,
                 saved.getId(),
                 saved.getParty(),
-                saved.getTotalTaxableAmount() != null ? saved.getTotalTaxableAmount() : BigDecimal.ZERO,
+                saved.getTotalTaxableAmount() != null
+                        ? saved.getTotalTaxableAmount()
+                        : BigDecimal.ZERO,
                 saved.getTotalCgstAmount() != null ? saved.getTotalCgstAmount() : BigDecimal.ZERO,
                 saved.getTotalSgstAmount() != null ? saved.getTotalSgstAmount() : BigDecimal.ZERO,
                 saved.getTotalIgstAmount() != null ? saved.getTotalIgstAmount() : BigDecimal.ZERO,
@@ -301,7 +303,10 @@ public class SalesInvoiceService {
                 saved.getOfferDiscountAmount());
 
         auditLogService.log(
-                "SALES_INVOICE_CANCELLED", "SALES_INVOICE", saved.getId(), reason != null ? reason : "");
+                "SALES_INVOICE_CANCELLED",
+                "SALES_INVOICE",
+                saved.getId(),
+                reason != null ? reason : "");
 
         return mapToDto(saved);
     }

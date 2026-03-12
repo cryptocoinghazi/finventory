@@ -59,7 +59,7 @@ export function ItemUploadDialog({ onUpload }: { onUpload: () => void }) {
             onChange={(e) => setFile(e.target.files?.[0] || null)}
           />
           <div className="text-sm text-muted-foreground">
-            CSV Headers: name, code, hsnCode, taxRate, unitPrice, uom
+            CSV Headers: name, code, category, hsnCode, taxRate, unitPrice, uom
           </div>
           <Button onClick={handleUpload} disabled={!file || loading}>
             {loading ? "Uploading..." : "Upload"}

@@ -94,7 +94,7 @@ public class DatabaseBackupIntegrationTest {
                 .andExpect(header().string("Content-Type", "application/sql"))
                 .andExpect(
                         header().string(
-                                "Content-Disposition",
-                                org.hamcrest.Matchers.containsString("attachment")));
+                                        "Content-Disposition",
+                                        org.hamcrest.Matchers.containsString("attachment")));
     }
 }

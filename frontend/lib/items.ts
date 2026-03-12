@@ -4,6 +4,7 @@ export type Item = {
   id: string
   name: string
   code: string
+  category?: string | null
   barcode?: string | null
   hsnCode?: string | null
   taxRate: number

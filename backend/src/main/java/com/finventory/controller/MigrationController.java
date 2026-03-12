@@ -260,7 +260,8 @@ public class MigrationController {
     }
 
     @GetMapping("/backups/{id}/download")
-    public ResponseEntity<Resource> downloadDatabaseBackup(@PathVariable UUID id) throws IOException {
+    public ResponseEntity<Resource> downloadDatabaseBackup(@PathVariable UUID id)
+            throws IOException {
         DatabaseBackup backup = databaseBackupService.getBackup(id);
         Path file = databaseBackupService.resolveBackupFile(backup);
 
@@ -274,7 +275,9 @@ public class MigrationController {
         InputStreamResource body = new InputStreamResource(Files.newInputStream(file));
 
         return ResponseEntity.ok()
-                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + fileName + "\"")
+                .header(
+                        HttpHeaders.CONTENT_DISPOSITION,
+                        "attachment; filename=\"" + fileName + "\"")
                 .contentType(MediaType.parseMediaType("application/sql"))
                 .contentLength(size)
                 .body(body);
