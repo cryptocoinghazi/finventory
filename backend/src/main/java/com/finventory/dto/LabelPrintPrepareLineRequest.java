@@ -20,4 +20,3 @@ public class LabelPrintPrepareLineRequest {
     @Min(value = 1, message = "quantity must be >= 1")
     private Integer quantity;
 }
-

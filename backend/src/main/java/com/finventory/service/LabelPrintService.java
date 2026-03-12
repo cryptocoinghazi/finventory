@@ -93,7 +93,8 @@ public class LabelPrintService {
                 continue;
             }
 
-            LabelBarcodeFormat effective = resolveEffectiveBarcodeFormat(item.getBarcode(), request.getBarcodeFormat());
+            LabelBarcodeFormat effective =
+                    resolveEffectiveBarcodeFormat(item.getBarcode(), request.getBarcodeFormat());
             validItems.add(
                     LabelPrintPreparedItemDto.builder()
                             .itemId(item.getId())
@@ -106,11 +107,15 @@ public class LabelPrintService {
                             .build());
         }
 
-        int totalLabelsRequested = quantityByItemId.values().stream().mapToInt(Integer::intValue).sum();
-        int totalLabelsValid = validItems.stream().mapToInt(LabelPrintPreparedItemDto::getQuantity).sum();
+        int totalLabelsRequested =
+                quantityByItemId.values().stream().mapToInt(Integer::intValue).sum();
+        int totalLabelsValid =
+                validItems.stream().mapToInt(LabelPrintPreparedItemDto::getQuantity).sum();
 
         LabelPrintJobStatus status =
-                invalidItems.isEmpty() ? LabelPrintJobStatus.PREPARED : LabelPrintJobStatus.FAILED_VALIDATION;
+                invalidItems.isEmpty()
+                        ? LabelPrintJobStatus.PREPARED
+                        : LabelPrintJobStatus.FAILED_VALIDATION;
 
         String detailsJson = buildDetailsJson(request, includeItemCode, validItems, invalidItems);
 

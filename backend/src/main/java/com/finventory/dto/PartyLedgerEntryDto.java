@@ -19,4 +19,3 @@ public class PartyLedgerEntryDto {
     private String description;
     private BigDecimal amount;
 }
-

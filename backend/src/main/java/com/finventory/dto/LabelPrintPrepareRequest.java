@@ -28,4 +28,3 @@ public class LabelPrintPrepareRequest {
 
     private Boolean includeItemCode;
 }
-

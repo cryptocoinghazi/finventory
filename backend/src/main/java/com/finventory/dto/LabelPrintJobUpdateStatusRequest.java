@@ -15,4 +15,3 @@ public class LabelPrintJobUpdateStatusRequest {
     @NotNull(message = "status is required")
     private LabelPrintJobStatus status;
 }
-

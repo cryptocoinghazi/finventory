@@ -88,7 +88,8 @@ public class ReportsService {
         LocalDate effectiveTo = toDate != null ? toDate : effectiveAsOf;
 
         List<GLTransaction> transactions =
-                glTransactionRepository.findOutstandingTransactions(fromDate, effectiveTo, partyType);
+                glTransactionRepository.findOutstandingTransactions(
+                        fromDate, effectiveTo, partyType);
 
         Map<UUID, PartyOutstandingDto> byParty = new LinkedHashMap<>();
 
@@ -147,12 +148,16 @@ public class ReportsService {
 
         List<PartyOutstandingDto> out = new ArrayList<>(byParty.values());
         out.removeIf(
-                (r) -> r.getNetBalance() == null || r.getNetBalance().compareTo(java.math.BigDecimal.ZERO) == 0);
+                (r) ->
+                        r.getNetBalance() == null
+                                || r.getNetBalance().compareTo(java.math.BigDecimal.ZERO) == 0);
         if (minOutstanding != null && minOutstanding.compareTo(java.math.BigDecimal.ZERO) > 0) {
             out.removeIf((r) -> r.getNetBalance().abs().compareTo(minOutstanding) < 0);
         }
 
-        out.sort(Comparator.comparing(PartyOutstandingDto::getPartyName, String.CASE_INSENSITIVE_ORDER));
+        out.sort(
+                Comparator.comparing(
+                        PartyOutstandingDto::getPartyName, String.CASE_INSENSITIVE_ORDER));
         return out;
     }
 
@@ -164,7 +169,8 @@ public class ReportsService {
         }
 
         List<GLTransaction> transactions =
-                glTransactionRepository.findOutstandingTransactionsForParty(partyId, fromDate, toDate);
+                glTransactionRepository.findOutstandingTransactionsForParty(
+                        partyId, fromDate, toDate);
 
         List<PartyLedgerEntryDto> entries = new ArrayList<>();
         for (GLTransaction t : transactions) {
@@ -183,7 +189,9 @@ public class ReportsService {
                             .build());
         }
         entries.sort(
-                Comparator.comparing(PartyLedgerEntryDto::getDate, Comparator.nullsLast(Comparator.naturalOrder()))
+                Comparator.comparing(
+                                PartyLedgerEntryDto::getDate,
+                                Comparator.nullsLast(Comparator.naturalOrder()))
                         .reversed());
         return entries;
     }
@@ -202,8 +210,10 @@ public class ReportsService {
             if (!"ACCOUNTS_RECEIVABLE".equals(head) && !"ACCOUNTS_PAYABLE".equals(head)) {
                 continue;
             }
-            java.math.BigDecimal debit = line.getDebit() != null ? line.getDebit() : java.math.BigDecimal.ZERO;
-            java.math.BigDecimal credit = line.getCredit() != null ? line.getCredit() : java.math.BigDecimal.ZERO;
+            java.math.BigDecimal debit =
+                    line.getDebit() != null ? line.getDebit() : java.math.BigDecimal.ZERO;
+            java.math.BigDecimal credit =
+                    line.getCredit() != null ? line.getCredit() : java.math.BigDecimal.ZERO;
             net = net.add(debit.subtract(credit));
         }
         return net;

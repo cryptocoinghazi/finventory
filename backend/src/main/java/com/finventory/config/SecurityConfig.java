@@ -1,6 +1,8 @@
 package com.finventory.config;
 
 import com.finventory.security.JwtAuthenticationFilter;
+import jakarta.servlet.DispatcherType;
+import jakarta.servlet.http.HttpServletResponse;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
@@ -33,10 +35,13 @@ public class SecurityConfig {
                 .cors(Customizer.withDefaults())
                 .authorizeHttpRequests(
                         auth ->
-                                auth.requestMatchers(
+                                auth.dispatcherTypeMatchers(DispatcherType.ERROR)
+                                        .permitAll()
+                                        .requestMatchers(
                                                 "/api/v1/auth/**",
                                                 "/uploads/**",
                                                 "/health",
+                                                "/error",
                                                 "/v3/api-docs/**",
                                                 "/swagger-ui/**",
                                                 "/swagger-ui.html")
@@ -66,6 +71,13 @@ public class SecurityConfig {
                                         .hasAuthority("ADMIN")
                                         .anyRequest()
                                         .authenticated())
+                .exceptionHandling(
+                        exceptions ->
+                                exceptions.authenticationEntryPoint(
+                                        (request, response, authException) ->
+                                                response.sendError(
+                                                        HttpServletResponse.SC_UNAUTHORIZED,
+                                                        "Unauthorized")))
                 .sessionManagement(
                         sess -> sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authenticationProvider(authenticationProvider)
@@ -79,7 +91,8 @@ public class SecurityConfig {
         CorsConfiguration config = new CorsConfiguration();
         config.setAllowedOrigins(List.of("http://localhost:3000", "http://127.0.0.1:3000"));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-        config.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Requested-With", "Accept"));
+        config.setAllowedHeaders(
+                List.of("Authorization", "Content-Type", "X-Requested-With", "Accept"));
         config.setAllowCredentials(true);
         config.setMaxAge(CORS_MAX_AGE_SECONDS);
 

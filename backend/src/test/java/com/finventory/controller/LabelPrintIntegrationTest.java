@@ -117,14 +117,7 @@ class LabelPrintIntegrationTest {
         ItemDto created = objectMapper.readValue(itemResponse, ItemDto.class);
 
         Map<String, Object> body = new LinkedHashMap<>();
-        body.put(
-                "items",
-                List.of(
-                        Map.of(
-                                "itemId",
-                                created.getId(),
-                                "quantity",
-                                2)));
+        body.put("items", List.of(Map.of("itemId", created.getId(), "quantity", 2)));
         body.put("templateName", "LABEL_2X1");
         body.put("barcodeFormat", "AUTO");
         body.put("includeItemCode", false);
@@ -170,14 +163,7 @@ class LabelPrintIntegrationTest {
         ItemDto created = objectMapper.readValue(itemResponse, ItemDto.class);
 
         Map<String, Object> body = new LinkedHashMap<>();
-        body.put(
-                "items",
-                List.of(
-                        Map.of(
-                                "itemId",
-                                created.getId(),
-                                "quantity",
-                                1)));
+        body.put("items", List.of(Map.of("itemId", created.getId(), "quantity", 1)));
         body.put("templateName", "LABEL_2X1");
         body.put("barcodeFormat", "EAN13");
         body.put("includeItemCode", false);
@@ -223,14 +209,7 @@ class LabelPrintIntegrationTest {
         ItemDto created = objectMapper.readValue(itemResponse, ItemDto.class);
 
         Map<String, Object> prepareBody = new LinkedHashMap<>();
-        prepareBody.put(
-                "items",
-                List.of(
-                        Map.of(
-                                "itemId",
-                                created.getId(),
-                                "quantity",
-                                1)));
+        prepareBody.put("items", List.of(Map.of("itemId", created.getId(), "quantity", 1)));
         prepareBody.put("templateName", "LABEL_2X1");
         prepareBody.put("barcodeFormat", "AUTO");
         prepareBody.put("includeItemCode", false);
@@ -246,9 +225,7 @@ class LabelPrintIntegrationTest {
                         .getResponse()
                         .getContentAsString();
 
-        UUID jobId =
-                UUID.fromString(
-                        objectMapper.readTree(prepareResponse).get("jobId").asText());
+        UUID jobId = UUID.fromString(objectMapper.readTree(prepareResponse).get("jobId").asText());
 
         Map<String, Object> statusBody = Map.of("status", "PRINTED");
 

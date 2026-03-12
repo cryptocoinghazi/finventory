@@ -54,7 +54,8 @@ public class OfferService {
     public OfferDto createOffer(OfferDto dto) {
         normalizeDto(dto);
 
-        if (dto.getCode() != null && offerRepository.findByCodeIgnoreCase(dto.getCode()).isPresent()) {
+        if (dto.getCode() != null
+                && offerRepository.findByCodeIgnoreCase(dto.getCode()).isPresent()) {
             throw new IllegalArgumentException("Offer code already exists");
         }
 
@@ -93,9 +94,10 @@ public class OfferService {
             offerRepository
                     .findByCodeIgnoreCase(dto.getCode())
                     .filter((o) -> !o.getId().equals(offer.getId()))
-                    .ifPresent((o) -> {
-                        throw new IllegalArgumentException("Offer code already exists");
-                    });
+                    .ifPresent(
+                            (o) -> {
+                                throw new IllegalArgumentException("Offer code already exists");
+                            });
         }
 
         Item item = resolveItem(dto.getScope(), dto.getItemId());
@@ -172,7 +174,8 @@ public class OfferService {
 
         BigDecimal discountAmount =
                 switch (offer.getScope()) {
-                    case CART -> computeDiscount(offer.getDiscountType(), offer.getDiscountValue(), taxableSubtotal);
+                    case CART -> computeDiscount(
+                            offer.getDiscountType(), offer.getDiscountValue(), taxableSubtotal);
                     case ITEM -> computeItemScopedDiscount(offer, request);
                 };
 
@@ -217,10 +220,9 @@ public class OfferService {
         }
         BigDecimal raw =
                 switch (discountType) {
-                    case PERCENT ->
-                            baseAmount
-                                    .multiply(discountValue)
-                                    .divide(HUNDRED, PERCENT_CALC_SCALE, RoundingMode.HALF_UP);
+                    case PERCENT -> baseAmount
+                            .multiply(discountValue)
+                            .divide(HUNDRED, PERCENT_CALC_SCALE, RoundingMode.HALF_UP);
                     case FLAT -> discountValue;
                 };
         BigDecimal capped = raw.min(baseAmount);

@@ -7,4 +7,3 @@ public enum LabelPrintJobStatus {
     CANCELLED,
     FAILED_VALIDATION
 }
-

@@ -25,4 +25,3 @@ public class LabelPrintPrepareResponse {
     private List<LabelPrintPreparedItemDto> items;
     private List<LabelPrintInvalidItemDto> invalidItems;
 }
-

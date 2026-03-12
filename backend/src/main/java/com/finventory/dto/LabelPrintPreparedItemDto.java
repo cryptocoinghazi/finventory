@@ -21,4 +21,3 @@ public class LabelPrintPreparedItemDto {
     private Integer quantity;
     private LabelBarcodeFormat effectiveBarcodeFormat;
 }
-

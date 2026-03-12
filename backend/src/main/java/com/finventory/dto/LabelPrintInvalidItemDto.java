@@ -21,4 +21,3 @@ public class LabelPrintInvalidItemDto {
     private Integer quantity;
     private List<String> errors;
 }
-

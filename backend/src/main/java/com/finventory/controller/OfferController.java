@@ -50,7 +50,8 @@ public class OfferController {
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<OfferDto> updateOffer(@PathVariable UUID id, @Valid @RequestBody OfferDto dto) {
+    public ResponseEntity<OfferDto> updateOffer(
+            @PathVariable UUID id, @Valid @RequestBody OfferDto dto) {
         return ResponseEntity.ok(offerService.updateOffer(id, dto));
     }
 

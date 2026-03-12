@@ -48,7 +48,11 @@ public class ReportsController {
 
         return ResponseEntity.ok(
                 reportsService.getPartyOutstanding(
-                        parsedFromDate, parsedToDate, parsedPartyType, minOutstanding, parsedAsOfDate));
+                        parsedFromDate,
+                        parsedToDate,
+                        parsedPartyType,
+                        minOutstanding,
+                        parsedAsOfDate));
     }
 
     @GetMapping("/party-outstanding/ledger")
@@ -58,7 +62,8 @@ public class ReportsController {
             @RequestParam(name = "toDate", required = false) String toDate) {
         LocalDate parsedFromDate = parseDate(fromDate, "fromDate");
         LocalDate parsedToDate = parseDate(toDate, "toDate");
-        return ResponseEntity.ok(reportsService.getPartyOutstandingLedger(partyId, parsedFromDate, parsedToDate));
+        return ResponseEntity.ok(
+                reportsService.getPartyOutstandingLedger(partyId, parsedFromDate, parsedToDate));
     }
 
     private static LocalDate parseDate(String value, String fieldName) {

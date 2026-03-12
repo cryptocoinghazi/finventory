@@ -5,4 +5,3 @@ public enum LabelBarcodeFormat {
     CODE128,
     EAN13
 }
-

@@ -35,9 +35,9 @@ public interface GLTransactionRepository extends JpaRepository<GLTransaction, UU
                     + "JOIN FETCH t.lines l "
                     + "WHERE p IS NOT NULL "
                     + "AND (l.accountHead = 'ACCOUNTS_RECEIVABLE' OR l.accountHead = 'ACCOUNTS_PAYABLE') "
-                    + "AND (:fromDate IS NULL OR t.date >= :fromDate) "
-                    + "AND (:toDate IS NULL OR t.date <= :toDate) "
-                    + "AND (:partyType IS NULL OR p.type = :partyType)")
+                    + "AND t.date >= COALESCE(:fromDate, t.date) "
+                    + "AND t.date <= COALESCE(:toDate, t.date) "
+                    + "AND p.type = COALESCE(:partyType, p.type)")
     List<GLTransaction> findOutstandingTransactions(
             @Param("fromDate") LocalDate fromDate,
             @Param("toDate") LocalDate toDate,
@@ -50,8 +50,8 @@ public interface GLTransactionRepository extends JpaRepository<GLTransaction, UU
                     + "JOIN FETCH t.lines l "
                     + "WHERE p.id = :partyId "
                     + "AND (l.accountHead = 'ACCOUNTS_RECEIVABLE' OR l.accountHead = 'ACCOUNTS_PAYABLE') "
-                    + "AND (:fromDate IS NULL OR t.date >= :fromDate) "
-                    + "AND (:toDate IS NULL OR t.date <= :toDate) "
+                    + "AND t.date >= COALESCE(:fromDate, t.date) "
+                    + "AND t.date <= COALESCE(:toDate, t.date) "
                     + "ORDER BY t.date DESC")
     List<GLTransaction> findOutstandingTransactionsForParty(
             @Param("partyId") UUID partyId,

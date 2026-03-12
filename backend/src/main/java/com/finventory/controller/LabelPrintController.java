@@ -50,7 +50,8 @@ public class LabelPrintController {
                         .findByUsername(principal.getName())
                         .orElseThrow(() -> new IllegalArgumentException("User not found"));
 
-        boolean allowed = actor.getRole() == Role.ADMIN || actor.getId().equals(job.getUser().getId());
+        boolean allowed =
+                actor.getRole() == Role.ADMIN || actor.getId().equals(job.getUser().getId());
         if (!allowed) {
             throw new IllegalArgumentException("Not allowed");
         }
@@ -60,4 +61,3 @@ public class LabelPrintController {
         return ResponseEntity.ok().build();
     }
 }
-

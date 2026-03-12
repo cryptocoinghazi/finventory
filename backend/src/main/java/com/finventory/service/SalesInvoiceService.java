@@ -1,9 +1,9 @@
 package com.finventory.service;
 
-import com.finventory.dto.SalesInvoiceDto;
-import com.finventory.dto.SalesInvoiceLineDto;
 import com.finventory.dto.OfferValidationRequest;
 import com.finventory.dto.OfferValidationResponse;
+import com.finventory.dto.SalesInvoiceDto;
+import com.finventory.dto.SalesInvoiceLineDto;
 import com.finventory.model.InvoicePaymentStatus;
 import com.finventory.model.Item;
 import com.finventory.model.Offer;
@@ -280,7 +280,9 @@ public class SalesInvoiceService {
                         dto.getInvoiceNumber() != null
                                 ? dto.getInvoiceNumber()
                                 : sequenceGeneratorService.generateSequence(
-                                        SequenceType.SALES_INVOICE, warehouse, dto.getInvoiceDate()))
+                                        SequenceType.SALES_INVOICE,
+                                        warehouse,
+                                        dto.getInvoiceDate()))
                 .invoiceDate(dto.getInvoiceDate())
                 .party(party)
                 .warehouse(warehouse)
@@ -369,7 +371,8 @@ public class SalesInvoiceService {
         return new InvoiceTotals(totalTaxable, totalTax, totalCgst, totalSgst, totalIgst);
     }
 
-    private void applyOfferToInvoice(SalesInvoiceDto dto, SalesInvoice invoice, BigDecimal taxableSubtotal) {
+    private void applyOfferToInvoice(
+            SalesInvoiceDto dto, SalesInvoice invoice, BigDecimal taxableSubtotal) {
         if (dto.getOfferCode() != null && !dto.getOfferCode().trim().isBlank()) {
             OfferValidationRequest offerRequest = buildOfferValidationRequest(dto, taxableSubtotal);
             OfferValidationResponse result = offerService.validateOffer(offerRequest);
@@ -395,7 +398,9 @@ public class SalesInvoiceService {
                             .findById(dto.getOfferId())
                             .orElseThrow(() -> new EntityNotFoundException("Offer not found"));
             BigDecimal discountAmount =
-                    dto.getOfferDiscountAmount() != null ? dto.getOfferDiscountAmount() : BigDecimal.ZERO;
+                    dto.getOfferDiscountAmount() != null
+                            ? dto.getOfferDiscountAmount()
+                            : BigDecimal.ZERO;
             if (discountAmount.compareTo(BigDecimal.ZERO) < 0) {
                 throw new IllegalArgumentException("Offer discount amount must be >= 0");
             }
@@ -417,6 +422,7 @@ public class SalesInvoiceService {
                         + invoice.getOfferCode()
                         + ", discountAmount="
                         + invoice.getOfferDiscountAmount();
-        auditLogService.log("SALES_INVOICE_OFFER_APPLIED", "SALES_INVOICE", invoice.getId(), details);
+        auditLogService.log(
+                "SALES_INVOICE_OFFER_APPLIED", "SALES_INVOICE", invoice.getId(), details);
     }
 }
