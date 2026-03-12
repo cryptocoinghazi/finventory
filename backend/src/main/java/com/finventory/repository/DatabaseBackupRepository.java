@@ -1,0 +1,12 @@
+package com.finventory.repository;
+
+import com.finventory.model.DatabaseBackup;
+import java.util.List;
+import java.util.UUID;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
+
+@Repository
+public interface DatabaseBackupRepository extends JpaRepository<DatabaseBackup, UUID> {
+    List<DatabaseBackup> findAllByOrderByCreatedAtDesc();
+}

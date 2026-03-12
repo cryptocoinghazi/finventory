@@ -64,6 +64,20 @@ export interface MigrationDbTable {
   rowCount: number
 }
 
+export type DatabaseBackupStatus = "RUNNING" | "SUCCESS" | "FAILED"
+
+export interface DatabaseBackup {
+  id: string
+  status: DatabaseBackupStatus
+  createdAt: string
+  startedAt?: string | null
+  finishedAt?: string | null
+  requestedBy?: string | null
+  fileName?: string | null
+  fileSize?: number | null
+  errorMessage?: string | null
+}
+
 export interface TruncateDatabaseRequest {
   keepUsers?: boolean
   confirmText: string
@@ -241,4 +255,42 @@ export async function truncateDatabase(
     throw new Error(text || "Failed to truncate database")
   }
   return res.json()
+}
+
+export async function listDatabaseBackups(): Promise<DatabaseBackup[]> {
+  const res = await apiFetch("/api/v1/admin/migration/backups")
+  if (!res.ok) throw new Error("Failed to fetch database backups")
+  return res.json()
+}
+
+export async function createDatabaseBackup(): Promise<DatabaseBackup> {
+  const res = await apiFetch("/api/v1/admin/migration/backups", { method: "POST" })
+  if (!res.ok) {
+    const text = await res.text()
+    throw new Error(text || "Failed to create database backup")
+  }
+  return res.json()
+}
+
+export async function downloadDatabaseBackup(backup: DatabaseBackup): Promise<void> {
+  const res = await apiFetch(`/api/v1/admin/migration/backups/${backup.id}/download`)
+  if (!res.ok) {
+    const text = await res.text()
+    throw new Error(text || "Failed to download database backup")
+  }
+
+  const blob = await res.blob()
+  const name = backup.fileName || "database-backup.sql"
+  const url = URL.createObjectURL(blob)
+  try {
+    const a = document.createElement("a")
+    a.href = url
+    a.download = name
+    a.rel = "noopener"
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+  } finally {
+    URL.revokeObjectURL(url)
+  }
 }

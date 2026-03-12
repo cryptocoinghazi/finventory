@@ -16,6 +16,10 @@ target/
 *.log
 logs/
 
+# Database backups
+backups/
+backend/backups/
+
 # Tools and Local Environment (Heavy binaries and data)
 tools/
 scripts/pgpass.txt

@@ -1,14 +1,20 @@
 package com.finventory.controller;
 
 import com.finventory.dto.CreateMigrationRunRequest;
+import com.finventory.dto.DatabaseBackupDto;
 import com.finventory.dto.MigrationPipelinePreset;
 import com.finventory.dto.MigrationPipelineProgressDto;
 import com.finventory.dto.MigrationPipelineStartRequest;
 import com.finventory.dto.MigrationRunDto;
 import com.finventory.dto.MigrationStageExecutionDto;
+import com.finventory.model.DatabaseBackup;
 import com.finventory.model.MigrationStageKey;
+import com.finventory.service.DatabaseBackupService;
 import com.finventory.service.MigrationOrchestrator;
 import com.finventory.service.MigrationService;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.security.Principal;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
@@ -20,6 +26,10 @@ import java.util.Locale;
 import java.util.Set;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import org.springframework.core.io.InputStreamResource;
+import org.springframework.core.io.Resource;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.annotation.Transactional;
@@ -39,6 +49,7 @@ public class MigrationController {
     private final MigrationService migrationService;
     private final MigrationOrchestrator migrationOrchestrator;
     private final JdbcTemplate jdbcTemplate;
+    private final DatabaseBackupService databaseBackupService;
 
     @GetMapping("/stages")
     public ResponseEntity<List<String>> getStages() {
@@ -236,4 +247,36 @@ public class MigrationController {
     }
 
     public record TruncateDatabaseResponse(List<String> truncatedTables, boolean keepUsers) {}
+
+    @GetMapping("/backups")
+    public ResponseEntity<List<DatabaseBackupDto>> listDatabaseBackups() {
+        return ResponseEntity.ok(databaseBackupService.listBackups());
+    }
+
+    @PostMapping("/backups")
+    public ResponseEntity<DatabaseBackupDto> createDatabaseBackup(Principal principal) {
+        String requestedBy = principal == null ? null : principal.getName();
+        return ResponseEntity.ok(databaseBackupService.createBackup(requestedBy));
+    }
+
+    @GetMapping("/backups/{id}/download")
+    public ResponseEntity<Resource> downloadDatabaseBackup(@PathVariable UUID id) throws IOException {
+        DatabaseBackup backup = databaseBackupService.getBackup(id);
+        Path file = databaseBackupService.resolveBackupFile(backup);
+
+        if (!Files.exists(file) || Files.isDirectory(file)) {
+            throw new IllegalArgumentException("Backup file not found");
+        }
+
+        String fileName =
+                backup.getFileName() != null ? backup.getFileName() : file.getFileName().toString();
+        long size = Files.size(file);
+        InputStreamResource body = new InputStreamResource(Files.newInputStream(file));
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + fileName + "\"")
+                .contentType(MediaType.parseMediaType("application/sql"))
+                .contentLength(size)
+                .body(body);
+    }
 }

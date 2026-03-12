@@ -24,8 +24,12 @@ import { getCurrentUser } from "@/lib/users"
 import {
   cancelFullSafePipeline,
   createMigrationRun,
+  createDatabaseBackup,
+  DatabaseBackup,
+  downloadDatabaseBackup,
   executeMigrationStage,
   getFullSafePipelineProgress,
+  listDatabaseBackups,
   listMigrationDbTables,
   listMigrationLogsForRun,
   listMigrationRuns,
@@ -63,6 +67,19 @@ function prettyJson(value?: string | null) {
   } catch {
     return value
   }
+}
+
+function formatBytes(value?: number | null) {
+  if (!value || value <= 0) return "-"
+  const units = ["B", "KB", "MB", "GB", "TB"]
+  let n = value
+  let idx = 0
+  while (n >= 1024 && idx < units.length - 1) {
+    n = n / 1024
+    idx += 1
+  }
+  const decimals = idx === 0 ? 0 : 1
+  return `${n.toFixed(decimals)} ${units[idx]}`
 }
 
 type StageStats = {
@@ -183,6 +200,11 @@ export default function AdminMigrationPage() {
   const [dbTablesError, setDbTablesError] = useState<string | null>(null)
   const [dbTables, setDbTables] = useState<MigrationDbTable[]>([])
 
+  const [backupsLoading, setBackupsLoading] = useState(false)
+  const [backupsError, setBackupsError] = useState<string | null>(null)
+  const [backups, setBackups] = useState<DatabaseBackup[]>([])
+  const [backupCreating, setBackupCreating] = useState(false)
+
   const [truncateLoading, setTruncateLoading] = useState(false)
   const [truncateKeepUsers, setTruncateKeepUsers] = useState(true)
   const [truncateConfirmText, setTruncateConfirmText] = useState("")
@@ -233,6 +255,19 @@ export default function AdminMigrationPage() {
     }
   }, [])
 
+  const loadBackups = useCallback(async () => {
+    setBackupsLoading(true)
+    setBackupsError(null)
+    try {
+      const res = await listDatabaseBackups()
+      setBackups(res)
+    } catch (err) {
+      setBackupsError(err instanceof Error ? err.message : "Failed to load backups")
+    } finally {
+      setBackupsLoading(false)
+    }
+  }, [])
+
   async function loadRun(runId: string) {
     setLoading(true)
     setError(null)
@@ -273,6 +308,11 @@ export default function AdminMigrationPage() {
     if (!isAdmin) return
     loadDbTables()
   }, [isAdmin, loadDbTables])
+
+  useEffect(() => {
+    if (!isAdmin) return
+    loadBackups()
+  }, [isAdmin, loadBackups])
 
   useEffect(() => {
     if (!selectedRunId) return
@@ -371,6 +411,26 @@ export default function AdminMigrationPage() {
       })
     } finally {
       setTruncateLoading(false)
+    }
+  }
+
+  async function onCreateBackup() {
+    setBackupCreating(true)
+    try {
+      const created = await createDatabaseBackup()
+      toast({
+        title: "Backup created",
+        description: created.fileName ? `Saved as ${created.fileName}` : "Database backup completed",
+      })
+      loadBackups()
+    } catch (err) {
+      toast({
+        variant: "destructive",
+        title: "Backup failed",
+        description: err instanceof Error ? err.message : "Failed to create backup",
+      })
+    } finally {
+      setBackupCreating(false)
     }
   }
 
@@ -721,6 +781,92 @@ export default function AdminMigrationPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           {dbTablesError ? <InlineErrorCallout message={dbTablesError} /> : null}
+
+          <div className="space-y-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="text-sm font-medium">Database Backups</div>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" onClick={loadBackups} disabled={backupsLoading || !isAdmin}>
+                  Refresh Backups
+                </Button>
+                <Button onClick={onCreateBackup} disabled={backupCreating || !isAdmin}>
+                  {backupCreating ? "Creating…" : "Create Backup"}
+                </Button>
+              </div>
+            </div>
+            {backupsError ? <InlineErrorCallout message={backupsError} /> : null}
+            {backupsLoading ? (
+              <div className="text-sm text-muted-foreground">Loading…</div>
+            ) : backups.length === 0 ? (
+              <div className="text-sm text-muted-foreground">No backups yet.</div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[160px]">Created</TableHead>
+                    <TableHead className="w-[110px]">Status</TableHead>
+                    <TableHead>File</TableHead>
+                    <TableHead className="w-[110px]">Size</TableHead>
+                    <TableHead className="w-[160px]">Requested by</TableHead>
+                    <TableHead className="w-[120px] text-right">Action</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {backups.map((b) => (
+                    <TableRow key={b.id}>
+                      <TableCell className="text-xs text-muted-foreground">
+                        {formatDateTime(b.createdAt)}
+                      </TableCell>
+                      <TableCell>
+                        <Badge
+                          variant={
+                            b.status === "FAILED"
+                              ? "destructive"
+                              : b.status === "RUNNING"
+                                ? "secondary"
+                                : "default"
+                          }
+                        >
+                          {b.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-xs">
+                        <div className="font-mono">{b.fileName ?? "-"}</div>
+                        {b.errorMessage ? (
+                          <div className="text-destructive mt-1">{b.errorMessage}</div>
+                        ) : null}
+                      </TableCell>
+                      <TableCell className="text-xs">{formatBytes(b.fileSize ?? null)}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground">
+                        {b.requestedBy ?? "-"}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={!b.fileName || b.status !== "SUCCESS"}
+                          onClick={async () => {
+                            try {
+                              await downloadDatabaseBackup(b)
+                            } catch (err) {
+                              toast({
+                                variant: "destructive",
+                                title: "Download failed",
+                                description:
+                                  err instanceof Error ? err.message : "Failed to download backup",
+                              })
+                            }
+                          }}
+                        >
+                          Download
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </div>
 
           <div className="space-y-2">
             <div className="text-sm font-medium">Migration Tables</div>
