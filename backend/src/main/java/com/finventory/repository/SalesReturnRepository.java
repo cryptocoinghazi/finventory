@@ -10,6 +10,10 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface SalesReturnRepository extends JpaRepository<SalesReturn, UUID> {
     List<SalesReturn> findBySalesInvoiceId(UUID salesInvoiceId);
 
+    void deleteByPartyId(UUID partyId);
+
+    List<SalesReturn> findAllByPartyId(UUID partyId);
+
     List<SalesReturn> findAllByOrderByReturnDateDesc(Pageable pageable);
 
     long countByReturnDate(LocalDate returnDate);

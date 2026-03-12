@@ -78,11 +78,11 @@ export default function PartiesListPage() {
         </Link>
         <ConfirmDialog
           title={`Delete ${p.name}?`}
-          description="This action cannot be undone."
+          description="This will permanently delete the party and any related invoices/returns/ledger entries."
           confirmText="Delete"
           onConfirm={async () => {
             try {
-              await deleteParty(p.id)
+              await deleteParty(p.id, { force: true })
               setRows((prev) => prev.filter((x) => x.id !== p.id))
             } catch (err) {
               setError(err instanceof Error ? err.message : "Delete failed")

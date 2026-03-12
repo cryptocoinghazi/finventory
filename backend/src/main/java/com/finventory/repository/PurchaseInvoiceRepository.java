@@ -20,6 +20,10 @@ public interface PurchaseInvoiceRepository extends JpaRepository<PurchaseInvoice
 
     long countByInvoiceDate(LocalDate invoiceDate);
 
+    void deleteByPartyId(UUID partyId);
+
+    List<PurchaseInvoice> findAllByPartyId(UUID partyId);
+
     @Query(
             "SELECT p FROM PurchaseInvoice p "
                     + "WHERE (:paymentStatus IS NULL OR p.paymentStatus = :paymentStatus) "

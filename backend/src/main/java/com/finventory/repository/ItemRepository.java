@@ -1,6 +1,7 @@
 package com.finventory.repository;
 
 import com.finventory.model.Item;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -15,4 +16,6 @@ public interface ItemRepository extends JpaRepository<Item, UUID> {
     boolean existsByBarcode(String barcode);
 
     Optional<Item> findByBarcode(String barcode);
+
+    List<Item> findByVendorId(UUID vendorId);
 }

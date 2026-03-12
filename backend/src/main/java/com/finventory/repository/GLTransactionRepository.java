@@ -57,4 +57,8 @@ public interface GLTransactionRepository extends JpaRepository<GLTransaction, UU
             @Param("partyId") UUID partyId,
             @Param("fromDate") LocalDate fromDate,
             @Param("toDate") LocalDate toDate);
+
+    void deleteByPartyId(UUID partyId);
+
+    List<GLTransaction> findAllByPartyId(UUID partyId);
 }

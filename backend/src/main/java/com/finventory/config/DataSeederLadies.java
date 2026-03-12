@@ -18,12 +18,14 @@ import java.util.ArrayList;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
 @Component
 @RequiredArgsConstructor
 @Profile({"dev", "local"})
+@ConditionalOnProperty(name = "finventory.seed-data", havingValue = "true")
 public class DataSeederLadies implements CommandLineRunner {
 
     private final ItemRepository itemRepository;

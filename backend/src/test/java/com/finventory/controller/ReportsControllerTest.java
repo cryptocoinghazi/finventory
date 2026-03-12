@@ -219,6 +219,52 @@ public class ReportsControllerTest {
     }
 
     @Test
+    void getPartyOutstanding_ShouldUseNetForReceivableAndPayable() throws Exception {
+        GLTransaction debitTx =
+                GLTransaction.builder()
+                        .date(LocalDate.now().minusDays(1))
+                        .refType(GLTransaction.ReferenceType.SALES_INVOICE)
+                        .refId(UUID.randomUUID())
+                        .party(testParty)
+                        .description("Sales Invoice")
+                        .build();
+        debitTx.getLines()
+                .add(
+                        GLLine.builder()
+                                .transaction(debitTx)
+                                .accountHead("ACCOUNTS_RECEIVABLE")
+                                .debit(new BigDecimal("2000.00"))
+                                .credit(BigDecimal.ZERO)
+                                .build());
+        glTransactionRepository.save(debitTx);
+
+        GLTransaction creditTx =
+                GLTransaction.builder()
+                        .date(LocalDate.now())
+                        .refType(GLTransaction.ReferenceType.SALES_INVOICE)
+                        .refId(UUID.randomUUID())
+                        .party(testParty)
+                        .description("Sales Invoice Reversal")
+                        .build();
+        creditTx.getLines()
+                .add(
+                        GLLine.builder()
+                                .transaction(creditTx)
+                                .accountHead("ACCOUNTS_RECEIVABLE")
+                                .debit(BigDecimal.ZERO)
+                                .credit(new BigDecimal("1000.00"))
+                                .build());
+        glTransactionRepository.save(creditTx);
+
+        mockMvc.perform(get("/api/reports/party-outstanding").header("Authorization", jwtToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].partyName").value("Test Customer"))
+                .andExpect(jsonPath("$[0].netBalance").value(1000.0))
+                .andExpect(jsonPath("$[0].totalReceivable").value(1000.0))
+                .andExpect(jsonPath("$[0].totalPayable").value(0.0));
+    }
+
+    @Test
     void getGstr3b_ShouldReturnCorrectData() throws Exception {
         // 1. Setup Sales Invoice
         com.finventory.model.SalesInvoice salesInvoice =

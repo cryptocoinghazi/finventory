@@ -124,11 +124,6 @@ public class ReportsService {
                                             .build());
 
             agg.setNetBalance(agg.getNetBalance().add(netAmount));
-            if (netAmount.compareTo(java.math.BigDecimal.ZERO) > 0) {
-                agg.setTotalReceivable(agg.getTotalReceivable().add(netAmount));
-            } else {
-                agg.setTotalPayable(agg.getTotalPayable().add(netAmount.abs()));
-            }
 
             long ageDays = ChronoUnit.DAYS.between(t.getDate(), effectiveAsOf);
             if (ageDays < 0) {
@@ -143,6 +138,21 @@ public class ReportsService {
                 agg.setAge61to90(agg.getAge61to90().add(netAmount));
             } else {
                 agg.setAge90Plus(agg.getAge90Plus().add(netAmount));
+            }
+        }
+
+        for (PartyOutstandingDto row : byParty.values()) {
+            java.math.BigDecimal net =
+                    row.getNetBalance() != null ? row.getNetBalance() : java.math.BigDecimal.ZERO;
+            if (net.compareTo(java.math.BigDecimal.ZERO) > 0) {
+                row.setTotalReceivable(net);
+                row.setTotalPayable(java.math.BigDecimal.ZERO);
+            } else if (net.compareTo(java.math.BigDecimal.ZERO) < 0) {
+                row.setTotalReceivable(java.math.BigDecimal.ZERO);
+                row.setTotalPayable(net.abs());
+            } else {
+                row.setTotalReceivable(java.math.BigDecimal.ZERO);
+                row.setTotalPayable(java.math.BigDecimal.ZERO);
             }
         }
 

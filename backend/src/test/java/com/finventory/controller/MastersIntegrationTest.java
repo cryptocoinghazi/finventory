@@ -2,6 +2,7 @@ package com.finventory.controller;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -10,10 +11,16 @@ import com.finventory.dto.AuthenticationRequest;
 import com.finventory.dto.AuthenticationResponse;
 import com.finventory.dto.CreateMigrationRunRequest;
 import com.finventory.dto.ItemDto;
+import com.finventory.dto.PartyDto;
+import com.finventory.dto.PurchaseInvoiceDto;
+import com.finventory.dto.PurchaseInvoiceLineDto;
+import com.finventory.dto.SalesInvoiceDto;
+import com.finventory.dto.SalesInvoiceLineDto;
 import com.finventory.dto.MigrationPipelinePreset;
 import com.finventory.dto.MigrationPipelineProgressDto;
 import com.finventory.dto.MigrationPipelineStartRequest;
 import com.finventory.dto.MigrationStageExecutionDto;
+import com.finventory.model.Party;
 import com.finventory.model.MigrationRun;
 import com.finventory.model.MigrationRunStatus;
 import com.finventory.model.Role;
@@ -37,6 +44,7 @@ import com.finventory.service.NexoDumpSqlService;
 import com.finventory.service.NexoMigrationItemsStagesService;
 import java.math.BigDecimal;
 import java.nio.file.Path;
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -158,6 +166,188 @@ class MastersIntegrationTest {
         mockMvc.perform(get("/api/v1/items").header("Authorization", jwtToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].code").value("TP-001"));
+    }
+
+    @Test
+    void deleteParty_ShouldReturnConflictWhenPartyIsUsed() throws Exception {
+        String partyJson =
+                mockMvc.perform(
+                                post("/api/v1/parties")
+                                        .header("Authorization", jwtToken)
+                                        .contentType(MediaType.APPLICATION_JSON)
+                                        .content(
+                                                objectMapper.writeValueAsString(
+                                                        PartyDto.builder()
+                                                                .name("Delete Blocked Customer")
+                                                                .type(Party.PartyType.CUSTOMER)
+                                                                .gstin("29DELPCUST0000C1Z5")
+                                                                .stateCode("29")
+                                                                .phone("9000000000")
+                                                                .build())))
+                        .andExpect(status().isOk())
+                        .andReturn()
+                        .getResponse()
+                        .getContentAsString();
+        PartyDto party = objectMapper.readValue(partyJson, PartyDto.class);
+
+        String warehouseJson =
+                mockMvc.perform(
+                                post("/api/v1/warehouses")
+                                        .header("Authorization", jwtToken)
+                                        .contentType(MediaType.APPLICATION_JSON)
+                                        .content(
+                                                """
+                                                {"name":"Delete Blocked WH","stateCode":"29","location":"Test"}
+                                                """))
+                        .andExpect(status().isOk())
+                        .andReturn()
+                        .getResponse()
+                        .getContentAsString();
+        UUID warehouseId = UUID.fromString(objectMapper.readTree(warehouseJson).get("id").asText());
+
+        String itemJson =
+                mockMvc.perform(
+                                post("/api/v1/items")
+                                        .header("Authorization", jwtToken)
+                                        .contentType(MediaType.APPLICATION_JSON)
+                                        .content(
+                                                objectMapper.writeValueAsString(
+                                                        ItemDto.builder()
+                                                                .name("Delete Blocked Item")
+                                                                .code("DEL-BLOCK-001")
+                                                                .taxRate(new BigDecimal("18.00"))
+                                                                .unitPrice(new BigDecimal("100.00"))
+                                                                .uom("PCS")
+                                                                .build())))
+                        .andExpect(status().isOk())
+                        .andReturn()
+                        .getResponse()
+                        .getContentAsString();
+        UUID itemId = UUID.fromString(objectMapper.readTree(itemJson).get("id").asText());
+
+        SalesInvoiceDto invoice =
+                SalesInvoiceDto.builder()
+                        .invoiceDate(LocalDate.now())
+                        .partyId(party.getId())
+                        .warehouseId(warehouseId)
+                        .lines(
+                                List.of(
+                                        SalesInvoiceLineDto.builder()
+                                                .itemId(itemId)
+                                                .quantity(new BigDecimal("1"))
+                                                .unitPrice(new BigDecimal("100.00"))
+                                                .build()))
+                        .build();
+
+        mockMvc.perform(
+                        post("/api/v1/sales-invoices")
+                                .header("Authorization", jwtToken)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(invoice)))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(
+                        delete("/api/v1/parties/{id}", party.getId())
+                                .header("Authorization", jwtToken))
+                .andExpect(status().isConflict())
+                .andExpect(
+                        jsonPath("$.message")
+                                .value(
+                                        "Cannot delete party because it is used in invoices or ledger entries"));
+    }
+
+    @Test
+    void deleteParty_ShouldForceDeleteWhenForceIsTrue() throws Exception {
+        String partyJson =
+                mockMvc.perform(
+                                post("/api/v1/parties")
+                                        .header("Authorization", jwtToken)
+                                        .contentType(MediaType.APPLICATION_JSON)
+                                        .content(
+                                                objectMapper.writeValueAsString(
+                                                        PartyDto.builder()
+                                                                .name("Force Delete Vendor")
+                                                                .type(Party.PartyType.VENDOR)
+                                                                .gstin("29FORCEVEND0000C1Z5")
+                                                                .stateCode("29")
+                                                                .phone("9000000001")
+                                                                .build())))
+                        .andExpect(status().isOk())
+                        .andReturn()
+                        .getResponse()
+                        .getContentAsString();
+        PartyDto party = objectMapper.readValue(partyJson, PartyDto.class);
+
+        String warehouseJson =
+                mockMvc.perform(
+                                post("/api/v1/warehouses")
+                                        .header("Authorization", jwtToken)
+                                        .contentType(MediaType.APPLICATION_JSON)
+                                        .content(
+                                                """
+                                                {"name":"Force Delete WH","stateCode":"29","location":"Test"}
+                                                """))
+                        .andExpect(status().isOk())
+                        .andReturn()
+                        .getResponse()
+                        .getContentAsString();
+        UUID warehouseId = UUID.fromString(objectMapper.readTree(warehouseJson).get("id").asText());
+
+        String itemJson =
+                mockMvc.perform(
+                                post("/api/v1/items")
+                                        .header("Authorization", jwtToken)
+                                        .contentType(MediaType.APPLICATION_JSON)
+                                        .content(
+                                                objectMapper.writeValueAsString(
+                                                        ItemDto.builder()
+                                                                .name("Force Delete Item")
+                                                                .code("FORCE-DEL-001")
+                                                                .taxRate(new BigDecimal("18.00"))
+                                                                .unitPrice(new BigDecimal("100.00"))
+                                                                .uom("PCS")
+                                                                .vendorId(party.getId())
+                                                                .build())))
+                        .andExpect(status().isOk())
+                        .andReturn()
+                        .getResponse()
+                        .getContentAsString();
+        UUID itemId = UUID.fromString(objectMapper.readTree(itemJson).get("id").asText());
+
+        PurchaseInvoiceDto invoice =
+                PurchaseInvoiceDto.builder()
+                        .invoiceDate(LocalDate.now())
+                        .partyId(party.getId())
+                        .warehouseId(warehouseId)
+                        .lines(
+                                List.of(
+                                        PurchaseInvoiceLineDto.builder()
+                                                .itemId(itemId)
+                                                .quantity(new BigDecimal("1"))
+                                                .unitPrice(new BigDecimal("100.00"))
+                                                .build()))
+                        .build();
+
+        mockMvc.perform(
+                        post("/api/v1/purchase-invoices")
+                                .header("Authorization", jwtToken)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(invoice)))
+                .andExpect(status().isCreated());
+
+        mockMvc.perform(
+                        delete("/api/v1/parties/{id}", party.getId())
+                                .param("force", "true")
+                                .header("Authorization", jwtToken))
+                .andExpect(status().isNoContent());
+
+        Assertions.assertFalse(partyRepository.existsById(party.getId()));
+        Assertions.assertTrue(purchaseInvoiceRepository.findAll().isEmpty());
+        Assertions.assertTrue(purchaseReturnRepository.findAll().isEmpty());
+        Assertions.assertTrue(glTransactionRepository.findAll().isEmpty());
+
+        com.finventory.model.Item persistedItem = itemRepository.findById(itemId).orElseThrow();
+        Assertions.assertNull(persistedItem.getVendor());
     }
 
     @Test

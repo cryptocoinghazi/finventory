@@ -48,8 +48,15 @@ export async function updateParty(id: string, input: PartyInput): Promise<Party>
   return readJsonOrThrow<Party>(res)
 }
 
-export async function deleteParty(id: string): Promise<void> {
-  const res = await apiFetch(`/api/v1/parties/${encodeURIComponent(id)}`, {
+export async function deleteParty(id: string, opts?: { force?: boolean }): Promise<void> {
+  const qs = new URLSearchParams()
+  if (opts?.force) qs.set("force", "true")
+
+  const url = qs.toString()
+    ? `/api/v1/parties/${encodeURIComponent(id)}?${qs.toString()}`
+    : `/api/v1/parties/${encodeURIComponent(id)}`
+
+  const res = await apiFetch(url, {
     method: "DELETE",
   })
   if (!res.ok) {

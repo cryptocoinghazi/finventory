@@ -10,4 +10,6 @@ public interface MigrationIdMapRepository extends JpaRepository<MigrationIdMap, 
             String sourceSystem, String entityType, Long sourceId);
 
     Optional<MigrationIdMap> findByEntityTypeAndTargetId(String entityType, UUID targetId);
+
+    void deleteByTargetId(UUID targetId);
 }
