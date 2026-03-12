@@ -6,13 +6,14 @@ import { Button } from "@/components/ui/button"
 import { PageHeader } from "@/components/ui/page-header"
 import {
   applyPurchaseInvoicePayment,
+  cancelPurchaseInvoice,
   InvoicePaymentStatus,
   listPurchaseInvoices,
   PurchaseInvoice,
 } from "@/lib/purchase-invoices"
 import { DataTablePro } from "@/components/ui-kit/DataTablePro"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { CreditCard } from "lucide-react"
+import { CreditCard, Trash2 } from "lucide-react"
 import {
   Dialog,
   DialogContent,
@@ -23,6 +24,8 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useToast } from "@/components/ui/use-toast"
+import { ConfirmDialog } from "@/components/ui-kit/ConfirmDialog"
+import { getCurrentUser } from "@/lib/users"
 
 function InvoicePaymentDialog({
   invoice,
@@ -181,6 +184,7 @@ function InvoicePaymentDialog({
 }
 
 export default function PurchaseInvoicesListPage() {
+  const { toast } = useToast()
   const [rows, setRows] = useState<PurchaseInvoice[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -188,6 +192,7 @@ export default function PurchaseInvoicesListPage() {
   const [paymentStatus, setPaymentStatus] = useState<InvoicePaymentStatus | "">("")
   const [fromDate, setFromDate] = useState("")
   const [toDate, setToDate] = useState("")
+  const [isAdmin, setIsAdmin] = useState<boolean | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -205,6 +210,17 @@ export default function PurchaseInvoicesListPage() {
   useEffect(() => {
     load()
   }, [load])
+
+  useEffect(() => {
+    ;(async () => {
+      try {
+        const user = await getCurrentUser()
+        setIsAdmin(user.role === "ADMIN")
+      } catch {
+        setIsAdmin(null)
+      }
+    })()
+  }, [])
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -272,7 +288,7 @@ export default function PurchaseInvoicesListPage() {
             header: "Status",
             sortable: true,
             filterable: true,
-            cell: (row) => row.paymentStatus || "PENDING",
+            cell: (row) => (row.deletedAt ? "CANCELLED" : row.paymentStatus || "PENDING"),
           },
           {
             key: "grandTotal",
@@ -285,12 +301,40 @@ export default function PurchaseInvoicesListPage() {
             key: "actions",
             header: "",
             cell: (row) => (
-              <InvoicePaymentDialog
-                invoice={row}
-                onUpdated={(updated) => {
-                  setRows((prev) => prev.map((r) => (r.id === updated.id ? updated : r)))
-                }}
-              />
+              <div className="flex items-center justify-end gap-1">
+                {row.deletedAt ? null : (
+                  <InvoicePaymentDialog
+                    invoice={row}
+                    onUpdated={(updated) => {
+                      setRows((prev) => prev.map((r) => (r.id === updated.id ? updated : r)))
+                    }}
+                  />
+                )}
+                {isAdmin ? (
+                  <ConfirmDialog
+                    title="Cancel invoice?"
+                    description="This will reverse stock and accounting entries."
+                    confirmText="Cancel invoice"
+                    onConfirm={async () => {
+                      try {
+                        const updated = await cancelPurchaseInvoice(row.id)
+                        setRows((prev) => prev.map((r) => (r.id === updated.id ? updated : r)))
+                        toast({ title: "Invoice cancelled" })
+                      } catch (err) {
+                        toast({
+                          variant: "destructive",
+                          title: "Cancel failed",
+                          description: err instanceof Error ? err.message : "Request failed",
+                        })
+                      }
+                    }}
+                  >
+                    <Button variant="ghost" size="icon" title="Cancel invoice" disabled={!!row.deletedAt}>
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </ConfirmDialog>
+                ) : null}
+              </div>
             ),
           },
         ]}

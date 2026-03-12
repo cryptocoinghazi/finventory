@@ -80,6 +80,8 @@ UI:
 - Backup list/history table
 - Status badges
 
+STATUS: DONE (2026-03-12)
+
 ==================================================
 4. NOTIFICATIONS / ALERTS MODULE
 ==================================================

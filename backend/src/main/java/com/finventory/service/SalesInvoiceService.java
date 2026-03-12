@@ -17,11 +17,13 @@ import com.finventory.repository.ItemRepository;
 import com.finventory.repository.OfferRepository;
 import com.finventory.repository.PartyRepository;
 import com.finventory.repository.SalesInvoiceRepository;
+import com.finventory.repository.SalesReturnRepository;
 import com.finventory.repository.WarehouseRepository;
 import jakarta.persistence.EntityNotFoundException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -39,6 +41,7 @@ public class SalesInvoiceService {
     private static final int MONEY_SCALE = 2;
 
     private final SalesInvoiceRepository salesInvoiceRepository;
+    private final SalesReturnRepository salesReturnRepository;
     private final PartyRepository partyRepository;
     private final ItemRepository itemRepository;
     private final WarehouseRepository warehouseRepository;
@@ -139,6 +142,9 @@ public class SalesInvoiceService {
                 salesInvoiceRepository
                         .findById(id)
                         .orElseThrow(() -> new EntityNotFoundException("Invoice not found"));
+        if (invoice.getDeletedAt() != null) {
+            throw new IllegalStateException("Invoice is cancelled");
+        }
         invoice.setPaymentStatus(status);
         return mapToDto(salesInvoiceRepository.save(invoice));
     }
@@ -150,6 +156,9 @@ public class SalesInvoiceService {
                 salesInvoiceRepository
                         .findById(id)
                         .orElseThrow(() -> new EntityNotFoundException("Invoice not found"));
+        if (invoice.getDeletedAt() != null) {
+            throw new IllegalStateException("Invoice is cancelled");
+        }
 
         BigDecimal grandTotal =
                 invoice.getGrandTotal() != null ? invoice.getGrandTotal() : BigDecimal.ZERO;
@@ -243,7 +252,58 @@ public class SalesInvoiceService {
                                                         : BigDecimal.ZERO)
                                 : BigDecimal.ZERO)
                 .paymentStatus(invoice.getPaymentStatus())
+                .cancelledAt(invoice.getCancelledAt())
+                .deletedAt(invoice.getDeletedAt())
+                .cancelReason(invoice.getCancelReason())
                 .build();
+    }
+
+    @Transactional
+    public SalesInvoiceDto cancelSalesInvoice(UUID id, String reason) {
+        SalesInvoice invoice =
+                salesInvoiceRepository
+                        .findById(id)
+                        .orElseThrow(() -> new EntityNotFoundException("Invoice not found"));
+
+        if (invoice.getDeletedAt() != null) {
+            return mapToDto(invoice);
+        }
+        if (!salesReturnRepository.findBySalesInvoiceId(id).isEmpty()) {
+            throw new IllegalStateException("Cannot cancel invoice with returns");
+        }
+
+        OffsetDateTime now = OffsetDateTime.now();
+        invoice.setCancelledAt(now);
+        invoice.setDeletedAt(now);
+        invoice.setCancelReason(reason);
+        SalesInvoice saved = salesInvoiceRepository.save(invoice);
+
+        LocalDate postingDate = LocalDate.now();
+        for (SalesInvoiceLine line : saved.getLines()) {
+            stockPostingService.postStockIn(
+                    postingDate,
+                    line.getItem(),
+                    saved.getWarehouse(),
+                    line.getQuantity(),
+                    StockLedgerEntry.ReferenceType.SALES_INVOICE,
+                    saved.getId());
+        }
+
+        glPostingService.postSalesInvoiceReversal(
+                postingDate,
+                saved.getId(),
+                saved.getParty(),
+                saved.getTotalTaxableAmount() != null ? saved.getTotalTaxableAmount() : BigDecimal.ZERO,
+                saved.getTotalCgstAmount() != null ? saved.getTotalCgstAmount() : BigDecimal.ZERO,
+                saved.getTotalSgstAmount() != null ? saved.getTotalSgstAmount() : BigDecimal.ZERO,
+                saved.getTotalIgstAmount() != null ? saved.getTotalIgstAmount() : BigDecimal.ZERO,
+                saved.getGrandTotal() != null ? saved.getGrandTotal() : BigDecimal.ZERO,
+                saved.getOfferDiscountAmount());
+
+        auditLogService.log(
+                "SALES_INVOICE_CANCELLED", "SALES_INVOICE", saved.getId(), reason != null ? reason : "");
+
+        return mapToDto(saved);
     }
 
     private static OfferValidationRequest buildOfferValidationRequest(

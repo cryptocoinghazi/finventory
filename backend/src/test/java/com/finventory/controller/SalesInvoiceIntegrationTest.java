@@ -1,6 +1,7 @@
 package com.finventory.controller;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -29,6 +30,7 @@ import com.finventory.repository.WarehouseRepository;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -257,6 +259,118 @@ class SalesInvoiceIntegrationTest {
         org.junit.jupiter.api.Assertions.assertEquals(
                 3, glLineRepository.count(), "Should create 3 GL lines (AR, Sales, IGST)");
     }
+
+    @Test
+    void cancelSalesInvoice_ShouldReverseStockAndGL() throws Exception {
+        SalesInvoiceLineDto lineDto =
+                SalesInvoiceLineDto.builder()
+                        .itemId(testItem.getId())
+                        .quantity(new BigDecimal("2"))
+                        .unitPrice(new BigDecimal("100.00"))
+                        .build();
+
+        SalesInvoiceDto invoiceDto =
+                SalesInvoiceDto.builder()
+                        .invoiceNumber("INV-CANCEL-001")
+                        .invoiceDate(LocalDate.now())
+                        .partyId(testParty.getId())
+                        .warehouseId(testWarehouse.getId())
+                        .lines(List.of(lineDto))
+                        .build();
+
+        String createdJson =
+                mockMvc.perform(
+                                post("/api/v1/sales-invoices")
+                                        .header("Authorization", jwtToken)
+                                        .contentType(MediaType.APPLICATION_JSON)
+                                        .content(objectMapper.writeValueAsString(invoiceDto)))
+                        .andExpect(status().isOk())
+                        .andReturn()
+                        .getResponse()
+                        .getContentAsString();
+
+        SalesInvoiceDto created = objectMapper.readValue(createdJson, SalesInvoiceDto.class);
+        UUID invoiceId = created.getId();
+
+        org.junit.jupiter.api.Assertions.assertEquals(1, stockLedgerRepository.count());
+        org.junit.jupiter.api.Assertions.assertEquals(1, glTransactionRepository.count());
+        org.junit.jupiter.api.Assertions.assertEquals(4, glLineRepository.count());
+
+        mockMvc.perform(
+                        delete("/api/v1/sales-invoices/{id}", invoiceId)
+                                .header("Authorization", jwtToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.deletedAt").isNotEmpty())
+                .andExpect(jsonPath("$.cancelledAt").isNotEmpty());
+
+        org.junit.jupiter.api.Assertions.assertEquals(2, stockLedgerRepository.count());
+        org.junit.jupiter.api.Assertions.assertEquals(2, glTransactionRepository.count());
+        org.junit.jupiter.api.Assertions.assertEquals(8, glLineRepository.count());
+    }
+
+    @Test
+    void cancelSalesInvoice_ShouldRequireAdmin() throws Exception {
+        User user =
+                User.builder()
+                        .username("user")
+                        .email("user@finventory.com")
+                        .password(passwordEncoder.encode("user123"))
+                        .role(Role.USER)
+                        .build();
+        userRepository.save(user);
+
+        AuthenticationRequest loginRequest =
+                AuthenticationRequest.builder().username("user").password("user123").build();
+
+        String loginResponse =
+                mockMvc.perform(
+                                post("/api/v1/auth/login")
+                                        .contentType(MediaType.APPLICATION_JSON)
+                                        .content(objectMapper.writeValueAsString(loginRequest)))
+                        .andExpect(status().isOk())
+                        .andReturn()
+                        .getResponse()
+                        .getContentAsString();
+
+        AuthenticationResponse authResponse =
+                objectMapper.readValue(loginResponse, AuthenticationResponse.class);
+        String userToken = "Bearer " + authResponse.getToken();
+
+        SalesInvoiceLineDto lineDto =
+                SalesInvoiceLineDto.builder()
+                        .itemId(testItem.getId())
+                        .quantity(new BigDecimal("1"))
+                        .unitPrice(new BigDecimal("100.00"))
+                        .build();
+
+        SalesInvoiceDto invoiceDto =
+                SalesInvoiceDto.builder()
+                        .invoiceNumber("INV-CANCEL-002")
+                        .invoiceDate(LocalDate.now())
+                        .partyId(testParty.getId())
+                        .warehouseId(testWarehouse.getId())
+                        .lines(List.of(lineDto))
+                        .build();
+
+        String createdJson =
+                mockMvc.perform(
+                                post("/api/v1/sales-invoices")
+                                        .header("Authorization", jwtToken)
+                                        .contentType(MediaType.APPLICATION_JSON)
+                                        .content(objectMapper.writeValueAsString(invoiceDto)))
+                        .andExpect(status().isOk())
+                        .andReturn()
+                        .getResponse()
+                        .getContentAsString();
+
+        SalesInvoiceDto created = objectMapper.readValue(createdJson, SalesInvoiceDto.class);
+
+        mockMvc.perform(
+                        delete("/api/v1/sales-invoices/{id}", created.getId())
+                                .header("Authorization", userToken))
+                .andExpect(status().isForbidden());
+    }
+
 
     @Test
     void testCreateSalesInvoiceValidationFailure() throws Exception {

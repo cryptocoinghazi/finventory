@@ -11,6 +11,7 @@ import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -59,6 +60,12 @@ public class SalesInvoiceController {
         return ResponseEntity.ok(
                 salesInvoiceService.applyPayment(
                         id, request.getPaymentStatus(), request.getPaymentAmount()));
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<SalesInvoiceDto> cancelSalesInvoice(
+            @PathVariable UUID id, @RequestParam(required = false) String reason) {
+        return ResponseEntity.ok(salesInvoiceService.cancelSalesInvoice(id, reason));
     }
 
     public static class PaymentStatusUpdateRequest {

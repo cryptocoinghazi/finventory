@@ -6,6 +6,7 @@ import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
 import lombok.AllArgsConstructor;
@@ -59,4 +60,8 @@ public class SalesInvoiceDto {
     private BigDecimal balanceAmount;
 
     private InvoicePaymentStatus paymentStatus;
+
+    private OffsetDateTime cancelledAt;
+    private OffsetDateTime deletedAt;
+    private String cancelReason;
 }

@@ -12,6 +12,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -63,6 +64,12 @@ public class PurchaseInvoiceController {
                 purchaseInvoiceService.applyPayment(
                         id, request.getPaymentStatus(), request.getPaymentAmount());
         return ResponseEntity.ok(updated);
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<PurchaseInvoiceDto> cancelPurchaseInvoice(
+            @PathVariable UUID id, @RequestParam(required = false) String reason) {
+        return ResponseEntity.ok(purchaseInvoiceService.cancelPurchaseInvoice(id, reason));
     }
 
     public static class PaymentStatusUpdateRequest {

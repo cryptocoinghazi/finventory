@@ -28,6 +28,9 @@ export type SalesInvoice = {
   paymentStatus?: InvoicePaymentStatus
   paidAmount?: number
   balanceAmount?: number
+  cancelledAt?: string | null
+  deletedAt?: string | null
+  cancelReason?: string | null
   lines: SalesInvoiceLine[]
   totalTaxableAmount?: number
   totalTaxAmount?: number
@@ -94,6 +97,16 @@ export async function applySalesInvoicePayment(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ paymentStatus, paymentAmount }),
   })
+  return readJsonOrThrow<SalesInvoice>(res)
+}
+
+export async function cancelSalesInvoice(id: string, reason?: string): Promise<SalesInvoice> {
+  const params = new URLSearchParams()
+  if (reason) params.set("reason", reason)
+  const url = params.toString()
+    ? `/api/v1/sales-invoices/${encodeURIComponent(id)}?${params.toString()}`
+    : `/api/v1/sales-invoices/${encodeURIComponent(id)}`
+  const res = await apiFetch(url, { method: "DELETE" })
   return readJsonOrThrow<SalesInvoice>(res)
 }
 

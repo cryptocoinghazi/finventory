@@ -6,6 +6,7 @@ import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { PageHeader } from "@/components/ui/page-header"
 import {
+  cancelPurchaseInvoice,
   getPurchaseInvoice,
   InvoicePaymentStatus,
   PurchaseInvoice,
@@ -22,8 +23,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { ConfirmDialog } from "@/components/ui-kit/ConfirmDialog"
+import { Trash2 } from "lucide-react"
+import { useToast } from "@/components/ui/use-toast"
+import { getCurrentUser } from "@/lib/users"
 
 export default function PurchaseInvoiceDetailPage() {
+  const { toast } = useToast()
   const params = useParams()
   const id = params.id as string
   const [invoice, setInvoice] = useState<PurchaseInvoice | null>(null)
@@ -31,6 +37,7 @@ export default function PurchaseInvoiceDetailPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [savingStatus, setSavingStatus] = useState(false)
+  const [isAdmin, setIsAdmin] = useState<boolean | null>(null)
 
   useEffect(() => {
     async function load() {
@@ -46,6 +53,17 @@ export default function PurchaseInvoiceDetailPage() {
     }
     load()
   }, [id])
+
+  useEffect(() => {
+    ;(async () => {
+      try {
+        const user = await getCurrentUser()
+        setIsAdmin(user.role === "ADMIN")
+      } catch {
+        setIsAdmin(null)
+      }
+    })()
+  }, [])
 
   useEffect(() => {
     document.body.classList.add("a4-print-scope")
@@ -130,6 +148,32 @@ export default function PurchaseInvoiceDetailPage() {
               <Button variant="secondary" onClick={() => window.print()}>
                 Print (A4)
               </Button>
+              {isAdmin ? (
+                <ConfirmDialog
+                  title="Cancel invoice?"
+                  description="This will reverse stock and accounting entries."
+                  confirmText="Cancel invoice"
+                  onConfirm={async () => {
+                    try {
+                      const updated = await cancelPurchaseInvoice(invoice.id)
+                      setInvoice(updated)
+                      toast({ title: "Invoice cancelled" })
+                    } catch (err) {
+                      toast({
+                        variant: "destructive",
+                        title: "Cancel failed",
+                        description: err instanceof Error ? err.message : "Request failed",
+                      })
+                    }
+                  }}
+                  disabled={!!invoice.deletedAt}
+                >
+                  <Button variant="destructive" disabled={!!invoice.deletedAt}>
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Cancel
+                  </Button>
+                </ConfirmDialog>
+              ) : null}
             </div>
           }
         />
@@ -178,35 +222,43 @@ export default function PurchaseInvoiceDetailPage() {
             </div>
             <div className="flex justify-between items-center gap-3">
               <span className="text-muted-foreground">Status:</span>
-              <div className="w-[180px] print:hidden">
-                <Select
-                  value={invoice.paymentStatus || "PENDING"}
-                  onValueChange={async (v) => {
-                    const next = v as InvoicePaymentStatus
-                    if (invoice.paymentStatus === next) return
-                    setSavingStatus(true)
-                    try {
-                      const updated = await updatePurchaseInvoicePaymentStatus(invoice.id, next)
-                      setInvoice(updated)
-                    } catch (err) {
-                      setError(err instanceof Error ? err.message : "Failed to update status")
-                    } finally {
-                      setSavingStatus(false)
-                    }
-                  }}
-                  disabled={savingStatus}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="PENDING">Pending</SelectItem>
-                    <SelectItem value="PARTIAL">Partial</SelectItem>
-                    <SelectItem value="PAID">Paid</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <span className="font-medium hidden print:inline">{invoice.paymentStatus || "PENDING"}</span>
+              {invoice.deletedAt ? (
+                <span className="font-medium">CANCELLED</span>
+              ) : (
+                <>
+                  <div className="w-[180px] print:hidden">
+                    <Select
+                      value={invoice.paymentStatus || "PENDING"}
+                      onValueChange={async (v) => {
+                        const next = v as InvoicePaymentStatus
+                        if (invoice.paymentStatus === next) return
+                        setSavingStatus(true)
+                        try {
+                          const updated = await updatePurchaseInvoicePaymentStatus(invoice.id, next)
+                          setInvoice(updated)
+                        } catch (err) {
+                          setError(err instanceof Error ? err.message : "Failed to update status")
+                        } finally {
+                          setSavingStatus(false)
+                        }
+                      }}
+                      disabled={savingStatus}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="PENDING">Pending</SelectItem>
+                        <SelectItem value="PARTIAL">Partial</SelectItem>
+                        <SelectItem value="PAID">Paid</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <span className="font-medium hidden print:inline">
+                    {invoice.paymentStatus || "PENDING"}
+                  </span>
+                </>
+              )}
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Warehouse:</span>

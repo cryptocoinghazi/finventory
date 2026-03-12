@@ -61,6 +61,11 @@ public class SecurityConfig {
                                         .hasAuthority("ADMIN")
                                         .requestMatchers(HttpMethod.DELETE, "/api/v1/items/**")
                                         .hasAuthority("ADMIN")
+                                        .requestMatchers(
+                                                HttpMethod.DELETE,
+                                                "/api/v1/sales-invoices/**",
+                                                "/api/v1/purchase-invoices/**")
+                                        .hasAuthority("ADMIN")
                                         .requestMatchers(HttpMethod.POST, "/api/v1/offers/validate")
                                         .authenticated()
                                         .requestMatchers(HttpMethod.POST, "/api/v1/offers/**")
