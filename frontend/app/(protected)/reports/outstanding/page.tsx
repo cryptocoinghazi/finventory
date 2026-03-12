@@ -1,10 +1,18 @@
  "use client"
  
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
  import { Button } from "@/components/ui/button"
  import { PageHeader } from "@/components/ui/page-header"
  import { DataTablePro } from "@/components/ui-kit/DataTablePro"
-import { getPartyOutstanding, getPartyOutstandingLedger, PartyLedgerEntry, PartyOutstanding } from "@/lib/reports"
+import {
+  filterPartyOutstandingRows,
+  getPartyOutstandingStatus,
+  getPartyOutstanding,
+  getPartyOutstandingLedger,
+  PartyLedgerEntry,
+  PartyOutstanding,
+  PartyOutstandingStatusFilter,
+} from "@/lib/reports"
 import { ChevronDown, ChevronRight } from "lucide-react"
 import { StatCard } from "@/components/ui-kit/StatCard"
 import {
@@ -14,7 +22,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Dialog, DialogClose, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { format } from "date-fns"
  
  export default function PartyOutstandingPage() {
@@ -27,6 +35,7 @@ import { format } from "date-fns"
   const [fromDate, setFromDate] = useState("")
   const [toDate, setToDate] = useState(() => new Date().toISOString().slice(0, 10))
   const [partyType, setPartyType] = useState<"__ALL__" | "CUSTOMER" | "VENDOR">("__ALL__")
+  const [status, setStatus] = useState<PartyOutstandingStatusFilter>("__ALL__")
   const [minOutstanding, setMinOutstanding] = useState("")
 
   const [ledgerOpen, setLedgerOpen] = useState(false)
@@ -34,6 +43,9 @@ import { format } from "date-fns"
   const [ledgerRows, setLedgerRows] = useState<PartyLedgerEntry[]>([])
   const [ledgerLoading, setLedgerLoading] = useState(false)
   const [ledgerError, setLedgerError] = useState<string | null>(null)
+  const ledgerBodyRef = useRef<HTMLDivElement | null>(null)
+  const vendorBodyRef = useRef<HTMLDivElement | null>(null)
+  const customerBodyRef = useRef<HTMLDivElement | null>(null)
  
   const load = useCallback(async () => {
      setLoading(true)
@@ -55,30 +67,37 @@ import { format } from "date-fns"
      }
   }, [fromDate, minOutstanding, partyType, toDate])
  
+  type RowWithStatus = PartyOutstanding & { status: ReturnType<typeof getPartyOutstandingStatus> }
+
+  const resetScroll = useCallback(() => {
+    vendorBodyRef.current?.scrollTo({ top: 0, behavior: "smooth" })
+    customerBodyRef.current?.scrollTo({ top: 0, behavior: "smooth" })
+    window.scrollTo({ top: 0, behavior: "smooth" })
+  }, [])
+
    useEffect(() => {
      load()
   }, [load])
  
-  const filteredByQuery = useMemo(() => {
-     const q = query.trim().toLowerCase()
-     return rows.filter((r) => {
-      if (!q) return true
-      return (
-        r.partyName.toLowerCase().includes(q) ||
-        (r.phone || "").toLowerCase().includes(q) ||
-        (r.gstin || "").toLowerCase().includes(q)
-      )
-     })
-  }, [query, rows])
+  const filteredRows = useMemo(
+    () => filterPartyOutstandingRows(rows, { query, status }),
+    [query, rows, status]
+  )
 
   const vendorRows = useMemo(
-    () => filteredByQuery.filter((r) => r.partyType === "VENDOR"),
-    [filteredByQuery]
+    () =>
+      filteredRows
+        .filter((r) => r.partyType === "VENDOR")
+        .map((r) => ({ ...r, status: getPartyOutstandingStatus(r) })),
+    [filteredRows]
   )
 
   const customerRows = useMemo(
-    () => filteredByQuery.filter((r) => r.partyType === "CUSTOMER"),
-    [filteredByQuery]
+    () =>
+      filteredRows
+        .filter((r) => r.partyType === "CUSTOMER")
+        .map((r) => ({ ...r, status: getPartyOutstandingStatus(r) })),
+    [filteredRows]
   )
 
   const vendorTotals = useMemo(() => {
@@ -106,7 +125,7 @@ import { format } from "date-fns"
   }, [customerRows])
 
   const allTotals = useMemo(() => {
-    return filteredByQuery.reduce(
+    return filteredRows.reduce(
       (acc, r) => {
         acc.receivable += r.totalReceivable || 0
         acc.payable += r.totalPayable || 0
@@ -115,7 +134,7 @@ import { format } from "date-fns"
       },
       { receivable: 0, payable: 0, net: 0 }
     )
-  }, [filteredByQuery])
+  }, [filteredRows])
 
   const openLedger = useCallback(
     async (party: PartyOutstanding) => {
@@ -144,6 +163,7 @@ import { format } from "date-fns"
     const headers = [
       "Type",
       "Party",
+      "Status",
       "Phone",
       "GSTIN",
       "Receivable",
@@ -155,10 +175,11 @@ import { format } from "date-fns"
       "90+",
     ]
     const lines = [headers.join(",")]
-    for (const r of filteredByQuery) {
+    for (const r of filteredRows) {
       const row = [
         r.partyType,
         r.partyName,
+        getPartyOutstandingStatus(r),
         r.phone || "",
         r.gstin || "",
         String(r.totalReceivable || 0),
@@ -181,7 +202,7 @@ import { format } from "date-fns"
     a.click()
     a.remove()
     URL.revokeObjectURL(url)
-  }, [filteredByQuery, toDate])
+  }, [filteredRows, toDate])
 
   const exportPdf = useCallback(() => {
     const title = `Party Outstanding (${fromDate || "All"} to ${toDate || "-"})`
@@ -196,11 +217,12 @@ import { format } from "date-fns"
         .replaceAll('"', "&quot;")
         .replaceAll("'", "&#039;")
 
-    const rowsHtml = filteredByQuery
+    const rowsHtml = filteredRows
       .map((r) => {
         return `<tr>
           <td>${escapeHtml(r.partyType)}</td>
           <td>${escapeHtml(r.partyName)}</td>
+          <td>${escapeHtml(getPartyOutstandingStatus(r))}</td>
           <td>${escapeHtml(r.phone || "")}</td>
           <td>${escapeHtml(r.gstin || "")}</td>
           <td style="text-align:right">${Number(r.totalReceivable || 0).toFixed(2)}</td>
@@ -236,6 +258,7 @@ import { format } from "date-fns"
         <tr>
           <th>Type</th>
           <th>Party</th>
+          <th>Status</th>
           <th>Phone</th>
           <th>GSTIN</th>
           <th style="text-align:right">Receivable</th>
@@ -257,7 +280,7 @@ import { format } from "date-fns"
     doc.focus()
     doc.print()
     doc.close()
-  }, [filteredByQuery, fromDate, toDate])
+  }, [filteredRows, fromDate, toDate])
  
    return (
      <div className="space-y-6">
@@ -272,10 +295,19 @@ import { format } from "date-fns"
           className="w-full max-w-xs px-3 py-2 rounded-md border border-input bg-background"
           placeholder="Search name / phone / GSTIN"
           value={query}
-          onChange={(e) => setQuery(e.target.value)}
+          onChange={(e) => {
+            setQuery(e.target.value)
+            resetScroll()
+          }}
         />
         <div className="w-full max-w-[200px]">
-          <Select value={partyType} onValueChange={(v) => setPartyType(v as typeof partyType)}>
+          <Select
+            value={partyType}
+            onValueChange={(v) => {
+              setPartyType(v as typeof partyType)
+              resetScroll()
+            }}
+          >
             <SelectTrigger>
               <SelectValue placeholder="All parties" />
             </SelectTrigger>
@@ -286,32 +318,59 @@ import { format } from "date-fns"
             </SelectContent>
           </Select>
         </div>
+        <div className="w-full max-w-[170px]">
+          <Select
+            value={status}
+            onValueChange={(v) => {
+              setStatus(v as PartyOutstandingStatusFilter)
+              resetScroll()
+            }}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__ALL__">All</SelectItem>
+              <SelectItem value="UNPAID">Unpaid</SelectItem>
+              <SelectItem value="PENDING">Pending</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
         <input
           className="w-full max-w-[170px] px-3 py-2 rounded-md border border-input bg-background"
           type="date"
           value={fromDate}
-          onChange={(e) => setFromDate(e.target.value)}
+          onChange={(e) => {
+            setFromDate(e.target.value)
+            resetScroll()
+          }}
         />
         <input
           className="w-full max-w-[170px] px-3 py-2 rounded-md border border-input bg-background"
           type="date"
           value={toDate}
-          onChange={(e) => setToDate(e.target.value)}
+          onChange={(e) => {
+            setToDate(e.target.value)
+            resetScroll()
+          }}
         />
         <input
           className="w-full max-w-[170px] px-3 py-2 rounded-md border border-input bg-background"
           placeholder="Min outstanding"
           inputMode="decimal"
           value={minOutstanding}
-          onChange={(e) => setMinOutstanding(e.target.value)}
+          onChange={(e) => {
+            setMinOutstanding(e.target.value)
+            resetScroll()
+          }}
         />
         <Button variant="outline" onClick={load} disabled={loading}>
           Refresh
         </Button>
-        <Button variant="outline" onClick={exportCsv} disabled={loading || filteredByQuery.length === 0}>
+        <Button variant="outline" onClick={exportCsv} disabled={loading || filteredRows.length === 0}>
           Export CSV
         </Button>
-        <Button variant="outline" onClick={exportPdf} disabled={loading || filteredByQuery.length === 0}>
+        <Button variant="outline" onClick={exportPdf} disabled={loading || filteredRows.length === 0}>
           Export PDF
         </Button>
       </div>
@@ -321,6 +380,12 @@ import { format } from "date-fns"
         <StatCard title="Total Payable" loading={loading} value={`₹${allTotals.payable.toFixed(2)}`} />
         <StatCard title="Net" loading={loading} value={`₹${allTotals.net.toFixed(2)}`} />
       </div>
+
+      {!loading && !error && filteredRows.length === 0 ? (
+        <div className="rounded-2xl border border-border bg-muted/10 px-6 py-5 text-sm text-muted-foreground">
+          No parties match the current filters.
+        </div>
+      ) : null}
 
       <div className="space-y-4">
         <div className="rounded-2xl border border-border overflow-hidden">
@@ -343,7 +408,8 @@ import { format } from "date-fns"
             </div>
           </div>
           <div className={vendorsCollapsed ? "hidden" : "block"}>
-            <DataTablePro
+            <div ref={vendorBodyRef} className="max-w-full overflow-x-auto">
+              <DataTablePro
               columns={[
                 {
                   key: "partyName",
@@ -360,6 +426,17 @@ import { format } from "date-fns"
                         {[row.phone, row.gstin].filter(Boolean).join(" • ")}
                       </div>
                     </button>
+                  ),
+                },
+                {
+                  key: "status",
+                  header: "Status",
+                  sortable: true,
+                  className: "w-[110px]",
+                  cell: (row: RowWithStatus) => (
+                    <span className={row.status === "UNPAID" ? "text-destructive" : "text-muted-foreground"}>
+                      {row.status === "UNPAID" ? "Unpaid" : "Pending"}
+                    </span>
                   ),
                 },
                 {
@@ -406,7 +483,8 @@ import { format } from "date-fns"
                 title: "No vendor outstanding",
                 description: "No vendors match the current filters",
               }}
-            />
+              />
+            </div>
           </div>
         </div>
 
@@ -430,7 +508,8 @@ import { format } from "date-fns"
             </div>
           </div>
           <div className={customersCollapsed ? "hidden" : "block"}>
-            <DataTablePro
+            <div ref={customerBodyRef} className="max-w-full overflow-x-auto">
+              <DataTablePro
               columns={[
                 {
                   key: "partyName",
@@ -447,6 +526,17 @@ import { format } from "date-fns"
                         {[row.phone, row.gstin].filter(Boolean).join(" • ")}
                       </div>
                     </button>
+                  ),
+                },
+                {
+                  key: "status",
+                  header: "Status",
+                  sortable: true,
+                  className: "w-[110px]",
+                  cell: (row: RowWithStatus) => (
+                    <span className={row.status === "UNPAID" ? "text-destructive" : "text-muted-foreground"}>
+                      {row.status === "UNPAID" ? "Unpaid" : "Pending"}
+                    </span>
                   ),
                 },
                 {
@@ -493,49 +583,119 @@ import { format } from "date-fns"
                 title: "No customer outstanding",
                 description: "No customers match the current filters",
               }}
-            />
+              />
+            </div>
           </div>
         </div>
       </div>
 
       <Dialog open={ledgerOpen} onOpenChange={setLedgerOpen}>
-        <DialogContent className="max-w-3xl">
-          <DialogHeader>
-            <DialogTitle>{ledgerParty ? ledgerParty.partyName : "Party Ledger"}</DialogTitle>
-          </DialogHeader>
-          {ledgerError ? <div className="text-sm text-destructive">{ledgerError}</div> : null}
-          <div className="text-sm text-muted-foreground">
-            {fromDate || toDate ? (
-              <>
-                Range: {fromDate || "All"} to {toDate || "-"}
-              </>
-            ) : null}
+        <DialogContent
+          className="max-w-3xl w-[calc(100vw-2rem)] sm:w-full p-0 flex flex-col overflow-hidden"
+          onOpenAutoFocus={(e) => {
+            e.preventDefault()
+            ledgerBodyRef.current?.focus()
+          }}
+        >
+          <div className="p-6 pb-4 border-b border-border">
+            <DialogHeader className="space-y-2">
+              <DialogTitle>{ledgerParty ? ledgerParty.partyName : "Party Ledger"}</DialogTitle>
+              <div className="text-sm text-muted-foreground">
+                {fromDate || toDate ? (
+                  <>
+                    Range: {fromDate || "All"} to {toDate || "-"}
+                  </>
+                ) : null}
+              </div>
+              {ledgerError ? <div className="text-sm text-destructive">{ledgerError}</div> : null}
+            </DialogHeader>
           </div>
-          <DataTablePro
-            columns={[
-              {
-                key: "date",
-                header: "Date",
-                sortable: true,
-                cell: (row) => format(new Date(row.date), "dd MMM yyyy"),
-              },
-              { key: "refType", header: "Ref", sortable: true },
-              { key: "description", header: "Description" },
-              {
-                key: "amount",
-                header: "Amount",
-                sortable: true,
-                cell: (row) => `₹${(row.amount || 0).toFixed(2)}`,
-              },
-            ]}
-            data={ledgerRows}
-            loading={ledgerLoading}
-            actions={null}
-            empty={{
-              title: "No entries",
-              description: "No outstanding-related ledger entries found for this party",
+
+          <div
+            ref={ledgerBodyRef}
+            tabIndex={0}
+            className="max-h-[80vh] overflow-y-auto overflow-x-hidden scroll-smooth px-6 py-4 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background"
+            onKeyDownCapture={(e) => {
+              const target = e.target as HTMLElement | null
+              const tag = target?.tagName
+              if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return
+              if (e.altKey || e.ctrlKey || e.metaKey) return
+
+              const el = ledgerBodyRef.current
+              if (!el) return
+
+              if (e.key === "ArrowDown") {
+                e.preventDefault()
+                el.scrollBy({ top: 40, behavior: "smooth" })
+                return
+              }
+              if (e.key === "ArrowUp") {
+                e.preventDefault()
+                el.scrollBy({ top: -40, behavior: "smooth" })
+                return
+              }
+              if (e.key === "PageDown") {
+                e.preventDefault()
+                el.scrollBy({ top: Math.round(el.clientHeight * 0.9), behavior: "smooth" })
+                return
+              }
+              if (e.key === "PageUp") {
+                e.preventDefault()
+                el.scrollBy({ top: -Math.round(el.clientHeight * 0.9), behavior: "smooth" })
+                return
+              }
+              if (e.key === "Home") {
+                e.preventDefault()
+                el.scrollTo({ top: 0, behavior: "smooth" })
+                return
+              }
+              if (e.key === "End") {
+                e.preventDefault()
+                el.scrollTo({ top: el.scrollHeight, behavior: "smooth" })
+              }
             }}
-          />
+          >
+            <DataTablePro
+              stickyHeader
+              columns={[
+                {
+                  key: "date",
+                  header: "Date",
+                  sortable: true,
+                  className: "w-[130px]",
+                  cell: (row) => format(new Date(row.date), "dd MMM yyyy"),
+                },
+                { key: "refType", header: "Ref", sortable: true, className: "w-[140px]" },
+                {
+                  key: "description",
+                  header: "Description",
+                  cell: (row) => (
+                    <div className="break-words whitespace-normal">{row.description || ""}</div>
+                  ),
+                },
+                {
+                  key: "amount",
+                  header: "Amount",
+                  sortable: true,
+                  className: "w-[140px] text-right",
+                  cell: (row) => `₹${(row.amount || 0).toFixed(2)}`,
+                },
+              ]}
+              data={ledgerRows}
+              loading={ledgerLoading}
+              actions={null}
+              empty={{
+                title: "No entries",
+                description: "No outstanding-related ledger entries found for this party",
+              }}
+            />
+          </div>
+
+          <DialogFooter className="p-4 border-t border-border">
+            <DialogClose asChild>
+              <Button variant="outline">Close</Button>
+            </DialogClose>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
      </div>

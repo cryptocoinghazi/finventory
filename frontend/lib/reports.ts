@@ -1,5 +1,5 @@
 
-import { apiFetch } from "@/lib/api"
+import { apiFetch } from "./api"
 
 export interface GstRegisterEntry {
   invoiceNumber: string
@@ -51,6 +51,42 @@ export interface PartyOutstanding {
   age31to60?: number | null
   age61to90?: number | null
   age90Plus?: number | null
+}
+
+export type PartyOutstandingStatus = "UNPAID" | "PENDING"
+export type PartyOutstandingStatusFilter = "__ALL__" | PartyOutstandingStatus
+
+export function getPartyOutstandingStatus(row: PartyOutstanding): PartyOutstandingStatus {
+  const overdue =
+    Math.abs(Number(row.age31to60 || 0)) +
+    Math.abs(Number(row.age61to90 || 0)) +
+    Math.abs(Number(row.age90Plus || 0))
+  if (overdue > 0) return "UNPAID"
+  return "PENDING"
+}
+
+export function matchesPartyOutstandingSearch(row: PartyOutstanding, query: string): boolean {
+  const q = query.trim().toLowerCase()
+  if (!q) return true
+  return (
+    row.partyName.toLowerCase().includes(q) ||
+    (row.phone || "").toLowerCase().includes(q) ||
+    (row.gstin || "").toLowerCase().includes(q)
+  )
+}
+
+export function filterPartyOutstandingRows(
+  rows: PartyOutstanding[],
+  params: { query?: string; status?: PartyOutstandingStatusFilter }
+): PartyOutstanding[] {
+  const query = params.query ?? ""
+  const status = params.status ?? "__ALL__"
+
+  return rows.filter((r) => {
+    if (!matchesPartyOutstandingSearch(r, query)) return false
+    if (status === "__ALL__") return true
+    return getPartyOutstandingStatus(r) === status
+  })
 }
 
 export interface PartyLedgerEntry {

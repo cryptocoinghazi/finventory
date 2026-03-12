@@ -6,7 +6,8 @@
     "dev": "..\\\\tools\\\\node-v20.11.1-win-x64\\\\node.exe .\\\\node_modules\\\\next\\\\dist\\\\bin\\\\next dev",
     "build": "..\\\\tools\\\\node-v20.11.1-win-x64\\\\node.exe .\\\\node_modules\\\\next\\\\dist\\\\bin\\\\next build",
     "start": "..\\\\tools\\\\node-v20.11.1-win-x64\\\\node.exe .\\\\node_modules\\\\next\\\\dist\\\\bin\\\\next start",
-    "lint": "..\\\\tools\\\\node-v20.11.1-win-x64\\\\node.exe .\\\\node_modules\\\\next\\\\dist\\\\bin\\\\next lint"
+    "lint": "..\\\\tools\\\\node-v20.11.1-win-x64\\\\node.exe .\\\\node_modules\\\\next\\\\dist\\\\bin\\\\next lint",
+    "test": "..\\\\tools\\\\node-v20.11.1-win-x64\\\\node.exe .\\\\node_modules\\\\vitest\\\\vitest.mjs run"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",
@@ -58,6 +59,7 @@
     "shadcn": "^4.0.2",
     "tailwindcss": "^3.4.19",
     "tsconfig-paths": "^4.2.0",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.0.18"
   }
 }

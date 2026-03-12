@@ -2,6 +2,7 @@ import * as React from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { EmptyState } from "./EmptyState"
+import { cn } from "@/lib/utils"
 import {
   useReactTable,
   getCoreRowModel,
@@ -62,6 +63,7 @@ export function DataTablePro<T>({
   pageSize,
   total,
   onPageChange,
+  stickyHeader,
 }: {
   columns: Column<T>[]
   data: T[]
@@ -74,6 +76,7 @@ export function DataTablePro<T>({
   pageSize?: number
   total?: number
   onPageChange?: (nextPage: number) => void
+  stickyHeader?: boolean
 }) {
   const totalPages =
     page !== undefined && pageSize && total !== undefined
@@ -174,7 +177,15 @@ export function DataTablePro<T>({
             {table.getHeaderGroups().map((hg) => (
               <tr key={hg.id} className="text-left">
                 {hg.headers.map((header) => (
-                  <th key={header.id} className="p-3 font-medium select-none">
+                  <th
+                    key={header.id}
+                    className={cn(
+                      "p-3 font-medium select-none",
+                      stickyHeader ? "sticky top-0 z-10 bg-muted/50" : undefined,
+                      (header.column.columnDef.meta as { className?: string } | undefined)
+                        ?.className
+                    )}
+                  >
                     {flexRender(header.column.columnDef.header, header.getContext())}
                   </th>
                 ))}
@@ -214,7 +225,14 @@ export function DataTablePro<T>({
               table.getRowModel().rows.map((row) => (
                 <tr key={row.id} className="border-t border-border">
                   {row.getVisibleCells().map((cell) => (
-                    <td key={cell.id} className="p-3">
+                    <td
+                      key={cell.id}
+                      className={cn(
+                        "p-3",
+                        (cell.column.columnDef.meta as { className?: string } | undefined)
+                          ?.className
+                      )}
+                    >
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}
                     </td>
                   ))}
