@@ -36,6 +36,7 @@ public class ItemService {
 
     private final ItemRepository itemRepository;
     private final PartyRepository partyRepository;
+    private final AuditLogService auditLogService;
 
     @Value("${application.uploads.dir:uploads}")
     private String uploadsDir;
@@ -167,6 +168,20 @@ public class ItemService {
                         .build();
 
         Item saved = itemRepository.save(item);
+        auditLogService.log(
+                "ITEM_CREATED",
+                "ITEM",
+                saved.getId(),
+                "code="
+                        + saved.getCode()
+                        + "; name="
+                        + saved.getName()
+                        + "; unitPrice="
+                        + saved.getUnitPrice()
+                        + "; uom="
+                        + saved.getUom()
+                        + "; barcode="
+                        + saved.getBarcode());
         return mapToDto(saved);
     }
 

@@ -35,6 +35,9 @@ export type SalesInvoice = {
   totalSgstAmount?: number
   totalIgstAmount?: number
   grandTotal?: number
+  offerId?: string | null
+  offerCode?: string | null
+  offerDiscountAmount?: number | null
 }
 
 export type SalesInvoiceInput = Omit<SalesInvoice, "id">

@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
-import { ReactNode, useEffect, useState } from "react"
+import { ReactNode, useEffect, useRef, useState } from "react"
 import {
   ClipboardList,
   FileText,
@@ -13,6 +13,7 @@ import {
   Settings,
   ShoppingCart,
   Store,
+  Tag,
   Users,
   Warehouse,
 } from "lucide-react"
@@ -70,6 +71,7 @@ const NAV: NavSection[] = [
     title: "Sales",
     items: [
       { title: "Invoices", href: "/sales/invoices", icon: FileText },
+      { title: "Offers & Coupons", href: "/sales/offers", icon: Tag, keywords: "offers coupons discount promo" },
       { title: "Quick POS", href: "/pos", icon: ShoppingCart, keywords: "pos quick thermal receipt" },
       { title: "Returns", href: "/sales/returns", icon: ShoppingCart },
     ],
@@ -110,6 +112,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [collapsed, setCollapsed] = useState(false)
   const [commandOpen, setCommandOpen] = useState(false)
   const [role, setRole] = useState<string | null>(null)
+  const navRef = useRef<HTMLElement | null>(null)
 
   useEffect(() => {
     setRole(window.localStorage.getItem("role"))
@@ -124,13 +127,18 @@ export function AppShell({ children }: { children: ReactNode }) {
     return () => window.removeEventListener("keydown", onKeyDown)
   }, [])
 
+  useEffect(() => {
+    const el = navRef.current?.querySelector('[data-active="true"]') as HTMLElement | null
+    el?.scrollIntoView({ block: "nearest" })
+  }, [pathname])
+
   return (
     <TooltipProvider delayDuration={150}>
       <div className="min-h-screen bg-app-bg text-foreground">
         <div className="flex">
           <motion.aside
             className={cn(
-              "h-screen sticky top-0 border-r border-sidebar-border bg-sidebar text-sidebar-foreground print:hidden"
+              "h-screen sticky top-0 border-r border-sidebar-border bg-sidebar text-sidebar-foreground print:hidden flex flex-col"
             )}
             animate={{ width: collapsed ? 76 : 288 }}
             transition={{ duration: 0.15, ease: "easeInOut" }}
@@ -197,7 +205,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               </Button>
             </div>
 
-            <nav className="px-2 pb-6 space-y-1">
+            <nav ref={navRef} className="flex-1 min-h-0 overflow-y-auto px-2 pb-6 space-y-1">
               {NAV.filter((section) => section.title !== "Admin" || role === "ADMIN").map((section) => (
                 <div key={section.title} className="pt-2">
                   {collapsed ? null : (
@@ -211,6 +219,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                       <Link
                         key={item.href}
                         href={item.href}
+                        data-active={isActive ? "true" : "false"}
                         className={cn(
                           "group flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
                           isActive ? "bg-sidebar-accent text-sidebar-accent-foreground" : "text-sidebar-foreground/70",

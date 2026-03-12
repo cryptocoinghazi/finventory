@@ -1,9 +1,12 @@
 package com.finventory.service;
 
 import com.finventory.dto.ActivityFeedEntryDto;
+import com.finventory.dto.PartyLedgerEntryDto;
 import com.finventory.dto.PartyOutstandingDto;
 import com.finventory.dto.StockSummaryDto;
 import com.finventory.dto.SystemStatusDto;
+import com.finventory.model.GLTransaction;
+import com.finventory.model.Party;
 import com.finventory.repository.GLTransactionRepository;
 import com.finventory.repository.ItemRepository;
 import com.finventory.repository.PartyRepository;
@@ -16,9 +19,13 @@ import com.finventory.repository.StockLedgerRepository;
 import com.finventory.repository.WarehouseRepository;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
@@ -29,6 +36,9 @@ import org.springframework.transaction.annotation.Transactional;
 public class ReportsService {
 
     private static final int MAX_ACTIVITY_LIMIT = 50;
+    private static final long AGE_BUCKET_0_30_MAX = 30L;
+    private static final long AGE_BUCKET_31_60_MAX = 60L;
+    private static final long AGE_BUCKET_61_90_MAX = 90L;
 
     private final StockLedgerRepository stockLedgerRepository;
     private final GLTransactionRepository glTransactionRepository;
@@ -64,7 +74,139 @@ public class ReportsService {
 
     @Transactional(readOnly = true)
     public List<PartyOutstandingDto> getPartyOutstanding() {
-        return glTransactionRepository.findPartyOutstanding();
+        return getPartyOutstanding(null, null, null, null, LocalDate.now());
+    }
+
+    @Transactional(readOnly = true)
+    public List<PartyOutstandingDto> getPartyOutstanding(
+            LocalDate fromDate,
+            LocalDate toDate,
+            Party.PartyType partyType,
+            java.math.BigDecimal minOutstanding,
+            LocalDate asOfDate) {
+        LocalDate effectiveAsOf = asOfDate != null ? asOfDate : LocalDate.now();
+        LocalDate effectiveTo = toDate != null ? toDate : effectiveAsOf;
+
+        List<GLTransaction> transactions =
+                glTransactionRepository.findOutstandingTransactions(fromDate, effectiveTo, partyType);
+
+        Map<UUID, PartyOutstandingDto> byParty = new LinkedHashMap<>();
+
+        for (GLTransaction t : transactions) {
+            Party party = t.getParty();
+            if (party == null) {
+                continue;
+            }
+
+            java.math.BigDecimal netAmount = getOutstandingNetAmount(t);
+            if (netAmount.compareTo(java.math.BigDecimal.ZERO) == 0) {
+                continue;
+            }
+
+            PartyOutstandingDto agg =
+                    byParty.computeIfAbsent(
+                            party.getId(),
+                            (id) ->
+                                    PartyOutstandingDto.builder()
+                                            .partyId(party.getId())
+                                            .partyName(party.getName())
+                                            .partyType(party.getType().name())
+                                            .phone(party.getPhone())
+                                            .gstin(party.getGstin())
+                                            .totalReceivable(java.math.BigDecimal.ZERO)
+                                            .totalPayable(java.math.BigDecimal.ZERO)
+                                            .netBalance(java.math.BigDecimal.ZERO)
+                                            .age0to30(java.math.BigDecimal.ZERO)
+                                            .age31to60(java.math.BigDecimal.ZERO)
+                                            .age61to90(java.math.BigDecimal.ZERO)
+                                            .age90Plus(java.math.BigDecimal.ZERO)
+                                            .build());
+
+            agg.setNetBalance(agg.getNetBalance().add(netAmount));
+            if (netAmount.compareTo(java.math.BigDecimal.ZERO) > 0) {
+                agg.setTotalReceivable(agg.getTotalReceivable().add(netAmount));
+            } else {
+                agg.setTotalPayable(agg.getTotalPayable().add(netAmount.abs()));
+            }
+
+            long ageDays = ChronoUnit.DAYS.between(t.getDate(), effectiveAsOf);
+            if (ageDays < 0) {
+                ageDays = 0;
+            }
+
+            if (ageDays <= AGE_BUCKET_0_30_MAX) {
+                agg.setAge0to30(agg.getAge0to30().add(netAmount));
+            } else if (ageDays <= AGE_BUCKET_31_60_MAX) {
+                agg.setAge31to60(agg.getAge31to60().add(netAmount));
+            } else if (ageDays <= AGE_BUCKET_61_90_MAX) {
+                agg.setAge61to90(agg.getAge61to90().add(netAmount));
+            } else {
+                agg.setAge90Plus(agg.getAge90Plus().add(netAmount));
+            }
+        }
+
+        List<PartyOutstandingDto> out = new ArrayList<>(byParty.values());
+        out.removeIf(
+                (r) -> r.getNetBalance() == null || r.getNetBalance().compareTo(java.math.BigDecimal.ZERO) == 0);
+        if (minOutstanding != null && minOutstanding.compareTo(java.math.BigDecimal.ZERO) > 0) {
+            out.removeIf((r) -> r.getNetBalance().abs().compareTo(minOutstanding) < 0);
+        }
+
+        out.sort(Comparator.comparing(PartyOutstandingDto::getPartyName, String.CASE_INSENSITIVE_ORDER));
+        return out;
+    }
+
+    @Transactional(readOnly = true)
+    public List<PartyLedgerEntryDto> getPartyOutstandingLedger(
+            UUID partyId, LocalDate fromDate, LocalDate toDate) {
+        if (partyId == null) {
+            throw new IllegalArgumentException("partyId is required");
+        }
+
+        List<GLTransaction> transactions =
+                glTransactionRepository.findOutstandingTransactionsForParty(partyId, fromDate, toDate);
+
+        List<PartyLedgerEntryDto> entries = new ArrayList<>();
+        for (GLTransaction t : transactions) {
+            java.math.BigDecimal netAmount = getOutstandingNetAmount(t);
+            if (netAmount.compareTo(java.math.BigDecimal.ZERO) == 0) {
+                continue;
+            }
+
+            entries.add(
+                    PartyLedgerEntryDto.builder()
+                            .date(t.getDate())
+                            .refType(t.getRefType() != null ? t.getRefType().name() : null)
+                            .refId(t.getRefId())
+                            .description(t.getDescription())
+                            .amount(netAmount)
+                            .build());
+        }
+        entries.sort(
+                Comparator.comparing(PartyLedgerEntryDto::getDate, Comparator.nullsLast(Comparator.naturalOrder()))
+                        .reversed());
+        return entries;
+    }
+
+    private static java.math.BigDecimal getOutstandingNetAmount(GLTransaction transaction) {
+        java.math.BigDecimal net = java.math.BigDecimal.ZERO;
+        if (transaction.getLines() == null) {
+            return net;
+        }
+
+        for (var line : transaction.getLines()) {
+            if (line == null) {
+                continue;
+            }
+            String head = line.getAccountHead();
+            if (!"ACCOUNTS_RECEIVABLE".equals(head) && !"ACCOUNTS_PAYABLE".equals(head)) {
+                continue;
+            }
+            java.math.BigDecimal debit = line.getDebit() != null ? line.getDebit() : java.math.BigDecimal.ZERO;
+            java.math.BigDecimal credit = line.getCredit() != null ? line.getCredit() : java.math.BigDecimal.ZERO;
+            net = net.add(debit.subtract(credit));
+        }
+        return net;
     }
 
     @Transactional(readOnly = true)

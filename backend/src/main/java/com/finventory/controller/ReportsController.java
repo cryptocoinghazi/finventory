@@ -1,11 +1,15 @@
 package com.finventory.controller;
 
 import com.finventory.dto.ActivityFeedEntryDto;
+import com.finventory.dto.PartyLedgerEntryDto;
 import com.finventory.dto.PartyOutstandingDto;
 import com.finventory.dto.StockSummaryDto;
 import com.finventory.dto.SystemStatusDto;
 import com.finventory.service.ReportsService;
+import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -31,8 +35,52 @@ public class ReportsController {
     }
 
     @GetMapping("/party-outstanding")
-    public ResponseEntity<List<PartyOutstandingDto>> getPartyOutstanding() {
-        return ResponseEntity.ok(reportsService.getPartyOutstanding());
+    public ResponseEntity<List<PartyOutstandingDto>> getPartyOutstanding(
+            @RequestParam(name = "fromDate", required = false) String fromDate,
+            @RequestParam(name = "toDate", required = false) String toDate,
+            @RequestParam(name = "asOfDate", required = false) String asOfDate,
+            @RequestParam(name = "partyType", required = false) String partyType,
+            @RequestParam(name = "minOutstanding", required = false) BigDecimal minOutstanding) {
+        LocalDate parsedFromDate = parseDate(fromDate, "fromDate");
+        LocalDate parsedToDate = parseDate(toDate, "toDate");
+        LocalDate parsedAsOfDate = parseDate(asOfDate, "asOfDate");
+        com.finventory.model.Party.PartyType parsedPartyType = parsePartyType(partyType);
+
+        return ResponseEntity.ok(
+                reportsService.getPartyOutstanding(
+                        parsedFromDate, parsedToDate, parsedPartyType, minOutstanding, parsedAsOfDate));
+    }
+
+    @GetMapping("/party-outstanding/ledger")
+    public ResponseEntity<List<PartyLedgerEntryDto>> getPartyOutstandingLedger(
+            @RequestParam(name = "partyId") UUID partyId,
+            @RequestParam(name = "fromDate", required = false) String fromDate,
+            @RequestParam(name = "toDate", required = false) String toDate) {
+        LocalDate parsedFromDate = parseDate(fromDate, "fromDate");
+        LocalDate parsedToDate = parseDate(toDate, "toDate");
+        return ResponseEntity.ok(reportsService.getPartyOutstandingLedger(partyId, parsedFromDate, parsedToDate));
+    }
+
+    private static LocalDate parseDate(String value, String fieldName) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        try {
+            return LocalDate.parse(value);
+        } catch (Exception e) {
+            throw new IllegalArgumentException(fieldName + " must be ISO date (yyyy-MM-dd)");
+        }
+    }
+
+    private static com.finventory.model.Party.PartyType parsePartyType(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        try {
+            return com.finventory.model.Party.PartyType.valueOf(value);
+        } catch (Exception e) {
+            throw new IllegalArgumentException("partyType must be CUSTOMER or VENDOR");
+        }
     }
 
     @GetMapping("/gstr-1")

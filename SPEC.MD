@@ -1,297 +1,354 @@
-Build a complete **Label Printing Module** for Finventory, similar to NexoPOS label printing, focused on retail apparel use cases such as dresses, hijabs, and general items.
+Design and implement the following Finventory product improvements as a structured, production-ready enhancement set.
 
 IMPORTANT:
-- Build this as a proper Finventory module, not a demo
-- Reuse existing Finventory backend + frontend architecture
-- Keep the UI clean, fast, and easy for store staff
-- Do not break existing item, POS, or barcode workflows
-- The printed labels must be scannable in Quick POS using a standard barcode scanner
-
-GOAL
-Allow users to select one or multiple items from Finventory and print barcode sticker labels for attaching to dresses/items. These labels will later be scanned in Quick POS for checkout.
-
-==================================================
-1. CORE USER FLOW
-==================================================
-
-User flow should be:
-
-1. User opens Items page
-2. User selects one or more items
-3. User clicks “Print Labels”
-4. A label printing dialog/page opens
-5. User can:
-   - review selected items
-   - enter sticker quantity for each item
-   - choose barcode format if needed
-   - choose label size/template
-6. User previews the labels
-7. User confirms print
-8. Labels are printed through browser/system printer
-9. Print activity is logged for audit
+- Build this inside the existing Finventory architecture
+- Keep code modular and production-grade
+- Do not break current working modules
+- Reuse existing UI patterns, backend architecture, auth, routing, and design system
+- Apply changes step by step, but design them as a coherent product enhancement plan
+- Add database migrations where needed
+- Add backend + frontend validation
+- Add tests where practical
+- Keep role-based access in mind
+- Prefer clear modules over hacks
 
 ==================================================
-2. MAIN REQUIREMENTS
+1. DELETE SALES / PURCHASE INVOICE
 ==================================================
 
-A) ITEM SELECTION
-- Support printing labels for:
-  - single item
-  - multiple selected items
-- Add bulk action from Items list:
-  - “Print Labels”
-- Also support printing from item detail page for a single item
-
-B) LABEL DATA
-Each label must include:
-- Barcode
-- Item name
-- Selling price
-Optional:
-- SKU / item code
-- short category/vendor text if space allows
-
-C) BARCODE
-- Use the item’s existing barcode
-- Barcode must be scannable by standard POS barcode scanners
-- Prefer Code 128 by default
-- Support EAN-13 if item barcode matches EAN-13 rules
-- Validate barcode before allowing print
-- If barcode missing or invalid, show clear error and block printing for that item
-
-D) QUANTITY PER ITEM
-- User must enter label quantity per selected item
-- Default quantity = 1
-- Quantity must be positive integer
-- Support fast editing for multiple rows
-- Show total label count live
-
-E) LABEL SIZE / TEMPLATE
-Support configurable label templates
-Default template:
-- 2 inch x 1 inch
-
-Also structure code so more templates can be added later.
-
-Default label design:
-- Barcode centered
-- Item name clearly readable
-- Selling price bold and visible
-- clean thermal-printer friendly layout
-- optimized for sticker sheets / thermal label printers
-
-F) PRINT PREVIEW
-Provide print preview before final printing:
-- show exact labels as they will print
-- support zoom in/out
-- support pagination if many labels
-- show template size
-- print-friendly layout
-
-G) PRINT ACTION
-- Use browser/system print flow
-- Open print-friendly label sheet/page or modal
-- Ensure CSS print layout is optimized
-- Labels must align consistently on desktop/tablet browsers
-
-H) VALIDATION
-Before printing:
-- barcode must exist
-- barcode must be valid for selected format
-- selling price must exist
-- quantity must be > 0
-
-If some selected items are invalid:
-- show list of invalid items
-- allow user to remove invalid items from print batch
-
-I) AUDIT LOGGING
-Log every label print action with:
-- timestamp
-- logged-in user
-- item ids
-- item names
-- barcode values
-- quantity per item
-- total labels
-- template used
-- success/failure status
-
-==================================================
-3. FRONTEND REQUIREMENTS
-==================================================
-
-Tech:
-- Use existing Finventory frontend stack
-- Reuse existing UI system/components
-- Keep it responsive for desktop and tablet
-
-Build these UI pieces:
-
-1. Items table bulk action
-- Add checkbox multi-select if not already present
-- Add “Print Labels” bulk action button
-
-2. Label Print Dialog / Drawer / Page
-Must include:
-- selected items table
-- item image optional if already available
-- editable quantity field per item
-- barcode preview/validation indicator
-- selling price preview
-- total label count
-- template selector
-- barcode format selector (default Code 128, auto-use EAN-13 where valid if supported)
-
-3. Print Preview section
-- preview generated labels
-- zoom control
-- page count / total labels
-- print button
-- cancel button
-
-4. Error handling UI
-- inline validation errors
-- banner for batch issues
-- failed item rows highlighted
-
-UX requirements:
-- very easy for non-technical store staff
-- minimal steps
-- clean, compact, efficient workflow
-- works well for printing many labels quickly
-
-==================================================
-4. BACKEND REQUIREMENTS
-==================================================
-
-Build backend support where needed.
-
-Required backend features:
-
-A) Label print request model
-Accept:
-- item ids
-- quantity per item
-- template
-- barcode format
-
-B) Validation service
-Validate:
-- item exists
-- selling price exists
-- barcode exists
-- barcode format valid
-
-C) Audit logging persistence
-Create print audit entity/table if needed:
-Suggested fields:
-- id
-- user_id
-- printed_at
-- total_labels
-- template_name
-- barcode_format
-- status
-- details_json
-
-D) Optional preview payload endpoint
-If useful, provide backend-prepared preview data for label rendering
-
-IMPORTANT:
-- Do not overcomplicate backend if frontend can safely render labels from existing item data
-- But audit logging must be persisted
-
-==================================================
-5. LABEL RENDERING REQUIREMENTS
-==================================================
-
-Use a reliable barcode rendering library.
+Add safe delete functionality for:
+- Sales Invoices
+- Purchase Invoices
 
 Requirements:
-- barcode must render clearly in browser
-- printable at small label size
-- high contrast
-- no blurry scaling
-- thermal-printer friendly
-- name and price should not overlap barcode
+- Soft delete preferred if accounting/stock implications exist
+- If hard delete is unsafe, implement cancel/archive/reverse logic instead
+- Prevent deleting posted/finalized invoices without proper safeguards
+- If delete affects stock/accounting, reverse stock and journal impact correctly
+- Add confirmation dialog with warning text
+- Show delete action only to authorized users
+- Audit log all delete operations
 
-Print CSS must:
-- remove unnecessary margins
-- enforce correct label dimensions
-- repeat labels according to quantity
-- support multiple pages
-- keep page breaks stable
+UI:
+- Delete action in invoice list and invoice detail page
+- Show deleted/cancelled status clearly
 
 ==================================================
-6. PERFORMANCE REQUIREMENTS
+2. PARTY OUTSTANDING PAGE IMPROVEMENTS
 ==================================================
 
-- Must handle 50 labels smoothly
-- Preview/render should feel responsive
-- Printing preparation should complete quickly
-- Avoid unnecessary API calls per label
-- Generate labels in batch
+Improve Party Outstanding page and make it more useful.
+
+Add features:
+- Filter by customer/vendor
+- Filter by date range
+- Search by party name, phone, GSTIN
+- Show ageing buckets:
+  - 0–30
+  - 31–60
+  - 61–90
+  - 90+
+- Show total receivable / payable summary cards
+- Export CSV / PDF
+- Click party to open detailed ledger/outstanding breakdown
+- Add “mark reminder sent” / note field if useful
+- Better sorting and cleaner table layout
+- Improve empty states and loading states
+
+STATUS: DONE (2026-03-12)
 
 ==================================================
-7. EDGE CASES
+3. DATABASE BACKUP FUNCTIONALITY
 ==================================================
 
-Handle these cases:
-- item without barcode
-- invalid barcode format
-- item without selling price
-- zero quantity
-- negative quantity
-- duplicate selected items
-- large batch print
-- mixed valid/invalid selection
-- user cancels preview
-- print action opened but not completed
+Create a backup module for Finventory database.
+
+Requirements:
+- Allow admin to trigger manual backup from UI
+- Show backup history
+- Show backup timestamp, size, status
+- Support downloadable SQL/backup file if feasible
+- Support local filesystem storage for backups initially
+- Add retention rule configuration if feasible
+- Add restore placeholder or restore design hooks, but do not implement destructive restore unless safe
+- Secure admin-only access
+- Add logging for backup actions
+
+UI:
+- New “Database Backup” page under Settings/Admin/System
+- “Create Backup” button
+- Backup list/history table
+- Status badges
 
 ==================================================
-8. TESTS
+4. NOTIFICATIONS / ALERTS MODULE
 ==================================================
 
-Add tests for:
-- single item label printing flow
-- multiple item batch printing
-- quantity validation
-- barcode validation
-- missing price handling
-- preview generation
-- total label count calculation
-- audit log creation
+Design and implement useful notifications for Finventory.
 
-If frontend tests exist:
-- test label dialog interactions
-- test invalid item blocking
-- test preview rendering logic
+First define practical, useful notifications.
+Implement a notification center / alerts system.
 
-If backend tests exist:
-- test validation service
-- test audit log persistence
+Suggested useful notifications:
+- Low stock alert
+- Out of stock alert
+- Pending invoice overdue
+- Payment pending reminder
+- Backup completed / backup failed
+- Backup overdue
+- New expense added
+- Large discount/coupon applied
+- Invoice deleted / reversed
+- Migration completed / failed (if migration module remains)
+- Daily sales summary
+- Monthly sales target / milestone alert
+- System warning / configuration issue
+
+Requirements:
+- Notifications bell in header/topbar
+- Unread count badge
+- Notification drawer/dropdown
+- Mark as read / mark all as read
+- Deep link to related page/entity
+- Store notifications in DB
+- Add notification types, severity, timestamps
+- Admin settings for which alerts are enabled
+
+Also propose which notifications should be:
+- real-time / immediate
+- daily summary
+- admin-only
+- cashier-visible
 
 ==================================================
-9. DELIVERABLES
+5. SIDEBAR SCROLLABLE FIX
+==================================================
+
+Fix sidebar usability.
+
+Current issue:
+- last settings option is not visible unless browser zooms out
+
+Requirements:
+- Make sidebar vertically scrollable
+- Keep header/top brand area fixed if appropriate
+- Keep active item visible
+- Ensure sidebar works well on laptop screens
+- Ensure bottom options remain reachable
+- Preserve responsive/mobile behavior
+
+STATUS: DONE (2026-03-12)
+
+==================================================
+6. QUICK POS: ADD NEW ITEM FROM BILLING SCREEN
+==================================================
+
+In Quick POS, if an item is not available while billing, allow creating a new item directly from POS.
+
+Requirements:
+- Add “Add New Item” button / action in POS
+- Open modal/dialog from POS screen
+- Minimal fast-create form:
+  - item name
+  - barcode
+  - price
+  - category/vendor optional
+  - stock optional
+  - unit optional
+- Save item without leaving POS
+- Newly created item should become searchable/selectable immediately in POS
+- Validation for required fields
+- Role-based permission for who can add items from POS
+- Audit log this action
+
+UX:
+- Must be fast and cashier-friendly
+- Do not disrupt billing flow
+- After create, focus should return to POS item search
+
+STATUS: DONE (2026-03-12)
+
+==================================================
+7. OFFERS / COUPONS MODULE
+==================================================
+
+Create an Offers / Coupons module and integrate it with Quick POS.
+
+Requirements:
+- Create module for offers/coupons
+- Add navigation placement appropriately in app
+- Support:
+  - flat discount
+  - percentage discount
+  - item-specific offer
+  - cart-level coupon
+  - date validity
+  - active/inactive status
+  - usage limits if feasible
+  - minimum bill amount if needed
+- Allow offers on:
+  - individual items
+  - full bill/cart
+- Coupon code support
+- Apply coupon in Quick POS during billing
+- Show discount impact clearly in cart summary
+- Prevent invalid/expired coupons
+- Keep audit trail of applied offers/coupons
+
+UI:
+- Offers/Coupons list page
+- Create/edit form
+- POS coupon apply modal/input
+- Display applied discount line in POS summary
+
+==================================================
+8. ACCOUNTING MODULE WITH EXPENSES
+==================================================
+
+Create an Accounting module, starting with Expenses.
+
+Requirements:
+- Add “Accounting” module in sidebar/navigation
+- Initial submodules:
+  - Expenses
+  - basic ledgers if needed
+  - future-ready structure for income/expense/account reports
+
+Expenses requirements:
+- Add expense categories
+- Create expense entries with:
+  - title
+  - category
+  - amount
+  - date
+  - note
+  - payment method optional
+  - attachment placeholder optional
+- Expense list page
+- Create/edit/delete expense
+- Search and filter by date/category/amount
+- Expense totals summary
+- Link expenses into accounting reports
+
+==================================================
+9. REPORTS MODULE EXPANSION
+==================================================
+
+Enhance Reports with:
+- Sales report
+- Stock report
+- Income and Loss report
+- Annual report
+- Custom date range report
+
+Detailed requirements:
+
+A) Sales Report
+- sales by day/week/month/custom range
+- filter by item, category, customer, invoice status
+- totals, discounts, paid/pending split
+- export CSV/PDF
+
+B) Stock Report
+- stock summary
+- low stock / out of stock
+- stock movement if available
+- item-wise quantity and valuation if feasible
+
+C) Income and Loss Report
+- revenue
+- discounts
+- expenses
+- profit/loss view
+- date range filter
+
+D) Annual Report
+- yearly summary
+- sales trends
+- expenses trends
+- profit trend
+- top items / top customers if feasible
+
+E) Custom Date Report
+- generic date range selection
+- applies across reports
+- reusable date filter component
+
+==================================================
+10. INFORMATION ARCHITECTURE / PLACEMENT
+==================================================
+
+Place modules appropriately in the app.
+
+Suggested sidebar structure:
+- Dashboard
+- Masters
+- Sales
+- Purchase
+- POS / Quick POS
+- Accounting
+- Reports
+- Offers / Coupons
+- Notifications
+- Settings / Admin / System
+
+Refine placement so the app feels clean and logical.
+
+==================================================
+11. UX / UI EXPECTATIONS
+==================================================
+
+All new modules must:
+- follow existing Finventory design system
+- be clean, modern, and usable
+- work on laptop and tablet
+- have proper empty states, loading states, error states
+- use confirmation dialogs for dangerous actions
+- maintain consistency with current app styling
+
+==================================================
+12. BACKEND / DATA / SAFETY
+==================================================
+
+Requirements:
+- add proper Flyway migrations
+- add entities/repositories/services/controllers as needed
+- keep APIs structured and RESTful
+- add validation and error handling
+- add audit logging where important
+- do not break existing auth/security
+- add permissions where relevant
+
+==================================================
+13. IMPLEMENTATION APPROACH
+==================================================
+
+Implement in manageable slices, but prepare the complete design.
+
+Suggested execution order:
+1. Sidebar scroll fix
+2. Party outstanding improvements
+3. Quick POS add item modal
+4. Offers / Coupons module + POS integration
+5. Accounting module with Expenses
+6. Reports expansion
+7. Notifications center
+8. Backup module
+9. Safe invoice delete/cancel/reverse
+
+But first provide a clear implementation plan before coding.
+
+==================================================
+14. OUTPUT REQUIRED
 ==================================================
 
 When done, provide:
-1. files added/changed
-2. backend changes made
-3. frontend screens/components added
-4. how label printing is triggered from Items
-5. how preview works
-6. how audit logging works
-7. supported barcode formats
-8. limitations if any
-
-==================================================
-10. IMPLEMENTATION STYLE
-==================================================
-
-- Keep code production-ready
-- Keep module extensible for future templates
-- Keep UI simple and professional
-- Do not break Quick POS barcode scanning compatibility
-- Prioritize real usability for retail staff
+1. implementation plan/module breakdown
+2. DB changes / migrations added
+3. backend modules added/changed
+4. frontend pages/components added/changed
+5. navigation/sidebar changes
+6. notification types implemented
+7. accounting/report structures implemented
+8. limitations / future enhancements
+9. testing done

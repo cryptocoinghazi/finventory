@@ -242,7 +242,7 @@ function LabelPage({
         {includeItemCode ? <div className="truncate text-[9px]">{code}</div> : null}
       </div>
 
-      <div className="px-[0.06in]">
+      <div className="px-[0.1in]">
         <BarcodeSvg value={barcode} format={format} height={barcodeHeight} />
       </div>
 
@@ -385,7 +385,7 @@ export function LabelPrintDialog({
       .store { font-size: 8px; font-weight: 600; }
       .name { font-weight: 600; }
       .code { font-size: 9px; }
-      .barcode { padding: 0 0.06in; }
+      .barcode { padding: 0 0.1in; }
       .barcode svg { width: 100%; height: auto; shape-rendering: crispEdges; }
       .bottom { display: flex; align-items: center; justify-content: space-between; padding: 0 0.06in 0.05in; font-size: 10px; }
       .barcodeText { font-size: 8.5px; }

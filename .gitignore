@@ -28,5 +28,8 @@ Thumbs.db
 node_modules/
 dist/
 build/
+.next/
+.next-build/
+out/
 .env
 .env.local

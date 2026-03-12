@@ -42,9 +42,23 @@ export interface PartyOutstanding {
   partyId: string
   partyName: string
   partyType: string
+  phone?: string | null
+  gstin?: string | null
   totalReceivable: number
   totalPayable: number
   netBalance: number
+  age0to30?: number | null
+  age31to60?: number | null
+  age61to90?: number | null
+  age90Plus?: number | null
+}
+
+export interface PartyLedgerEntry {
+  date: string
+  refType: string | null
+  refId: string
+  description: string | null
+  amount: number
 }
 
 export interface DashboardStats {
@@ -114,9 +128,40 @@ export async function getStockSummary(): Promise<StockSummary[]> {
   return res.json()
 }
 
-export async function getPartyOutstanding(): Promise<PartyOutstanding[]> {
-  const res = await apiFetch("/api/reports/party-outstanding")
+export async function getPartyOutstanding(params?: {
+  fromDate?: string
+  toDate?: string
+  asOfDate?: string
+  partyType?: string
+  minOutstanding?: number
+}): Promise<PartyOutstanding[]> {
+  const qs = new URLSearchParams()
+  if (params?.fromDate) qs.set("fromDate", params.fromDate)
+  if (params?.toDate) qs.set("toDate", params.toDate)
+  if (params?.asOfDate) qs.set("asOfDate", params.asOfDate)
+  if (params?.partyType) qs.set("partyType", params.partyType)
+  if (params?.minOutstanding != null && Number.isFinite(params.minOutstanding))
+    qs.set("minOutstanding", String(params.minOutstanding))
+
+  const res = await apiFetch(
+    `/api/reports/party-outstanding${qs.toString() ? `?${qs.toString()}` : ""}`
+  )
   if (!res.ok) throw new Error("Failed to fetch party outstanding")
+  return res.json()
+}
+
+export async function getPartyOutstandingLedger(params: {
+  partyId: string
+  fromDate?: string
+  toDate?: string
+}): Promise<PartyLedgerEntry[]> {
+  const qs = new URLSearchParams()
+  qs.set("partyId", params.partyId)
+  if (params.fromDate) qs.set("fromDate", params.fromDate)
+  if (params.toDate) qs.set("toDate", params.toDate)
+
+  const res = await apiFetch(`/api/reports/party-outstanding/ledger?${qs.toString()}`)
+  if (!res.ok) throw new Error("Failed to fetch party ledger")
   return res.json()
 }
 

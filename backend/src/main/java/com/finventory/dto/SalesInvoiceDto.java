@@ -50,6 +50,11 @@ public class SalesInvoiceDto {
     private BigDecimal totalSgstAmount;
     private BigDecimal totalIgstAmount;
     private BigDecimal grandTotal;
+
+    private UUID offerId;
+    private String offerCode;
+    private BigDecimal offerDiscountAmount;
+
     private BigDecimal paidAmount;
     private BigDecimal balanceAmount;
 

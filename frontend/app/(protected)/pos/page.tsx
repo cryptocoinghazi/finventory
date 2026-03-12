@@ -2,18 +2,20 @@
 
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { PageHeader } from "@/components/ui/page-header"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent } from "@/components/ui/card"
 import { SmartSelect } from "@/components/ui-kit/SmartSelect"
 import { Trash2 } from "lucide-react"
-import { listItems, Item } from "@/lib/items"
+import { createItem, listItems, Item } from "@/lib/items"
 import { createParty, listParties, Party } from "@/lib/parties"
 import { listWarehouses, Warehouse } from "@/lib/warehouses"
 import { createSalesInvoice, SalesInvoiceInput, SalesInvoice } from "@/lib/sales-invoices"
+import { OfferValidationResponse, validateOffer } from "@/lib/offers"
 import { getOrganizationProfile, OrganizationProfile } from "@/lib/settings"
+import { getCurrentUser } from "@/lib/users"
 import {
   Dialog,
   DialogContent,
@@ -48,11 +50,26 @@ export default function PosPage() {
   const [submitting, setSubmitting] = useState(false)
   const [discountMode, setDiscountMode] = useState<"PERCENT" | "FLAT">("PERCENT")
   const [discountValue, setDiscountValue] = useState(0)
+  const [couponCode, setCouponCode] = useState("")
+  const [couponError, setCouponError] = useState<string | null>(null)
+  const [couponLoading, setCouponLoading] = useState(false)
+  const [appliedOffer, setAppliedOffer] = useState<OfferValidationResponse | null>(null)
 
   const [createCustomerOpen, setCreateCustomerOpen] = useState(false)
   const [newCustomerName, setNewCustomerName] = useState("")
   const [newCustomerPhone, setNewCustomerPhone] = useState("")
   const [creatingCustomer, setCreatingCustomer] = useState(false)
+  const [canCreateItems, setCanCreateItems] = useState<boolean | null>(null)
+  const [createItemOpen, setCreateItemOpen] = useState(false)
+  const [newItemName, setNewItemName] = useState("")
+  const [newItemCode, setNewItemCode] = useState("")
+  const [newItemBarcode, setNewItemBarcode] = useState("")
+  const [newItemUnitPrice, setNewItemUnitPrice] = useState<number>(0)
+  const [newItemTaxRate, setNewItemTaxRate] = useState<number>(0)
+  const [newItemUom, setNewItemUom] = useState("PCS")
+  const [newItemCodeEdited, setNewItemCodeEdited] = useState(false)
+  const [creatingItem, setCreatingItem] = useState(false)
+  const [createItemError, setCreateItemError] = useState<string | null>(null)
   const [barcodeValue, setBarcodeValue] = useState("")
   const [barcodeError, setBarcodeError] = useState<string | null>(null)
   const barcodeRef = useRef<HTMLInputElement>(null)
@@ -63,10 +80,16 @@ export default function PosPage() {
       setLoading(true)
       setError(null)
       try {
-        const [p, w, i] = await Promise.all([listParties(), listWarehouses(), listItems()])
+        const [p, w, i, user] = await Promise.all([
+          listParties(),
+          listWarehouses(),
+          listItems(),
+          getCurrentUser().catch(() => null),
+        ])
         setParties(p)
         setWarehouses(w)
         setItems(i)
+        setCanCreateItems(user ? user.role === "ADMIN" : null)
 
         const defaultCustomer =
           p.find((x) => x.type === "CUSTOMER" && /walk/i.test(x.name)) ??
@@ -107,47 +130,6 @@ export default function PosPage() {
     })
   }, [createCustomerOpen, loading])
 
-  useEffect(() => {
-    function isEditableTarget(target: EventTarget | null) {
-      const el = target as HTMLElement | null
-      if (!el) return false
-      if ((el as unknown as { isContentEditable?: boolean }).isContentEditable) return true
-      const tag = (el.tagName || "").toLowerCase()
-      return tag === "input" || tag === "textarea" || tag === "select"
-    }
-
-    function onKeyDown(e: KeyboardEvent) {
-      if (createCustomerOpen) return
-      if (isEditableTarget(e.target)) return
-      if (e.ctrlKey || e.altKey || e.metaKey) return
-
-      if (e.key === "Enter") {
-        e.preventDefault()
-        handleBarcodeScanSubmit(barcodeValueRef.current)
-        return
-      }
-
-      if (e.key === "Backspace") {
-        e.preventDefault()
-        barcodeValueRef.current = barcodeValueRef.current.slice(0, -1)
-        setBarcodeValue(barcodeValueRef.current)
-        requestAnimationFrame(() => barcodeRef.current?.focus())
-        return
-      }
-
-      if (e.key.length === 1) {
-        e.preventDefault()
-        barcodeValueRef.current = barcodeValueRef.current + e.key
-        setBarcodeValue(barcodeValueRef.current)
-        if (barcodeError) setBarcodeError(null)
-        requestAnimationFrame(() => barcodeRef.current?.focus())
-      }
-    }
-
-    window.addEventListener("keydown", onKeyDown, true)
-    return () => window.removeEventListener("keydown", onKeyDown, true)
-  }, [barcodeError, createCustomerOpen])
-
   const customers = useMemo(() => parties.filter((p) => p.type === "CUSTOMER"), [parties])
 
   const itemById = useMemo(() => {
@@ -172,6 +154,7 @@ export default function PosPage() {
 
   const preview = useMemo(() => {
     const subtotal = lines.reduce((acc, l) => acc + Number(l.quantity) * Number(l.unitPrice), 0)
+    const couponDiscountAmount = appliedOffer ? Number(appliedOffer.discountAmount) : 0
     const rawDiscount =
       discountValue > 0
         ? discountMode === "PERCENT"
@@ -179,9 +162,9 @@ export default function PosPage() {
           : discountValue
         : 0
     const discountAmount = Math.max(0, Math.min(subtotal, rawDiscount))
-    const grandTotal = Math.max(0, subtotal - discountAmount)
-    return { subtotal, discountAmount, grandTotal }
-  }, [discountMode, discountValue, lines])
+    const grandTotal = Math.max(0, subtotal - discountAmount - couponDiscountAmount)
+    return { subtotal, discountAmount, couponDiscountAmount, grandTotal }
+  }, [appliedOffer, discountMode, discountValue, lines])
 
   const effectiveLines = useMemo(() => {
     const subtotal = preview.subtotal
@@ -243,9 +226,77 @@ export default function PosPage() {
     setReceiptDateTime(new Date().toISOString())
     setDiscountMode("PERCENT")
     setDiscountValue(0)
+    setCouponCode("")
+    setCouponError(null)
+    setCouponLoading(false)
+    setAppliedOffer(null)
   }
 
-  function addItem(itemId: string) {
+  async function applyCoupon(codeRaw: string) {
+    const code = codeRaw.trim()
+    if (!code) {
+      setCouponError("Enter a coupon code")
+      setAppliedOffer(null)
+      return
+    }
+
+    setCouponLoading(true)
+    setCouponError(null)
+    try {
+      if (discountValue !== 0) {
+        setDiscountValue(0)
+      }
+      const taxableSubtotal = lines.reduce((acc, l) => acc + Number(l.quantity) * Number(l.unitPrice), 0)
+      const result = await validateOffer({
+        code,
+        asOfDate: invoiceDate,
+        taxableSubtotal,
+        lines: lines.map((l) => ({
+          itemId: l.itemId,
+          quantity: Number(l.quantity),
+          unitPrice: Number(l.unitPrice),
+        })),
+      })
+      setAppliedOffer(result)
+      setCouponCode(result.code)
+    } catch (err) {
+      setAppliedOffer(null)
+      setCouponError(err instanceof Error ? err.message : "Failed to apply coupon")
+    } finally {
+      setCouponLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    if (!appliedOffer) return
+    const code = (couponCode || appliedOffer.code || "").trim()
+    if (!code) return
+
+    const t = window.setTimeout(async () => {
+      try {
+        const taxableSubtotal = lines.reduce((acc, l) => acc + Number(l.quantity) * Number(l.unitPrice), 0)
+        const result = await validateOffer({
+          code,
+          asOfDate: invoiceDate,
+          taxableSubtotal,
+          lines: lines.map((l) => ({
+            itemId: l.itemId,
+            quantity: Number(l.quantity),
+            unitPrice: Number(l.unitPrice),
+          })),
+        })
+        setAppliedOffer(result)
+        setCouponError(null)
+      } catch (err) {
+        setAppliedOffer(null)
+        setCouponError(err instanceof Error ? err.message : "Coupon is no longer valid")
+      }
+    }, 300)
+
+    return () => window.clearTimeout(t)
+  }, [appliedOffer, couponCode, invoiceDate, lines])
+
+  const addItem = useCallback((itemId: string) => {
     const item = itemById.get(itemId)
     if (!item) return
 
@@ -258,9 +309,9 @@ export default function PosPage() {
       }
       return [...prev, { itemId, quantity: 1, unitPrice: Number(item.unitPrice) || 0 }]
     })
-  }
+  }, [itemById])
 
-  function handleBarcodeScanSubmit(scannedRaw?: string) {
+  const handleBarcodeScanSubmit = useCallback((scannedRaw?: string) => {
     const scanned = (scannedRaw ?? barcodeValueRef.current).trim()
     if (!scanned) return
 
@@ -277,7 +328,48 @@ export default function PosPage() {
     setBarcodeValue("")
     addItem(itemId)
     requestAnimationFrame(() => barcodeRef.current?.focus())
-  }
+  }, [addItem, itemIdByBarcode])
+
+  useEffect(() => {
+    function isEditableTarget(target: EventTarget | null) {
+      const el = target as HTMLElement | null
+      if (!el) return false
+      if ((el as unknown as { isContentEditable?: boolean }).isContentEditable) return true
+      const tag = (el.tagName || "").toLowerCase()
+      return tag === "input" || tag === "textarea" || tag === "select"
+    }
+
+    function onKeyDown(e: KeyboardEvent) {
+      if (createCustomerOpen) return
+      if (isEditableTarget(e.target)) return
+      if (e.ctrlKey || e.altKey || e.metaKey) return
+
+      if (e.key === "Enter") {
+        e.preventDefault()
+        handleBarcodeScanSubmit(barcodeValueRef.current)
+        return
+      }
+
+      if (e.key === "Backspace") {
+        e.preventDefault()
+        barcodeValueRef.current = barcodeValueRef.current.slice(0, -1)
+        setBarcodeValue(barcodeValueRef.current)
+        requestAnimationFrame(() => barcodeRef.current?.focus())
+        return
+      }
+
+      if (e.key.length === 1) {
+        e.preventDefault()
+        barcodeValueRef.current = barcodeValueRef.current + e.key
+        setBarcodeValue(barcodeValueRef.current)
+        setBarcodeError(null)
+        requestAnimationFrame(() => barcodeRef.current?.focus())
+      }
+    }
+
+    window.addEventListener("keydown", onKeyDown, true)
+    return () => window.removeEventListener("keydown", onKeyDown, true)
+  }, [createCustomerOpen, handleBarcodeScanSubmit])
 
   function updateLine(index: number, patch: Partial<PosLine>) {
     setLines((prev) => {
@@ -320,6 +412,98 @@ export default function PosPage() {
     }
   }
 
+  function computeItemCodeBase(name: string) {
+    return (
+      name
+        .trim()
+        .toUpperCase()
+        .replace(/[^A-Z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "")
+        .slice(0, 12) || "ITEM"
+    )
+  }
+
+  function computeDefaultItemCode(name: string) {
+    const base = computeItemCodeBase(name)
+    const suffix = String(Date.now()).slice(-4)
+    return `${base}-${suffix}`
+  }
+
+  function openCreateItemDialog(prefillName?: string) {
+    const name = (prefillName ?? "").trim()
+    const code = computeDefaultItemCode(name || "ITEM")
+    setCreateItemError(null)
+    setNewItemCodeEdited(false)
+    setNewItemName(name)
+    setNewItemCode(code)
+    setNewItemBarcode("")
+    setNewItemUnitPrice(0)
+    setNewItemTaxRate(0)
+    setNewItemUom("PCS")
+    setCreateItemOpen(true)
+  }
+
+  async function submitCreateItem() {
+    if (!canCreateItems) {
+      setCreateItemError("You don't have permission to add items")
+      return
+    }
+
+    const name = newItemName.trim()
+    const code = newItemCode.trim()
+    const barcode = newItemBarcode.trim()
+    const uom = newItemUom.trim()
+    const unitPrice = Number(newItemUnitPrice)
+    const taxRate = Number(newItemTaxRate)
+
+    if (!name) {
+      setCreateItemError("Item name is required")
+      return
+    }
+    if (!code) {
+      setCreateItemError("Item code is required")
+      return
+    }
+    if (!uom) {
+      setCreateItemError("UOM is required")
+      return
+    }
+    if (Number.isNaN(unitPrice) || unitPrice < 0) {
+      setCreateItemError("Unit price must be zero or positive")
+      return
+    }
+    if (Number.isNaN(taxRate) || taxRate < 0) {
+      setCreateItemError("Tax rate must be zero or positive")
+      return
+    }
+
+    setCreatingItem(true)
+    setCreateItemError(null)
+    try {
+      const createdItem = await createItem({
+        name,
+        code,
+        barcode: barcode.length > 0 ? barcode : undefined,
+        hsnCode: undefined,
+        taxRate,
+        unitPrice,
+        cogs: undefined,
+        uom,
+        imageUrl: undefined,
+        vendorId: undefined,
+      })
+
+      setItems((prev) => [createdItem, ...prev])
+      setCreateItemOpen(false)
+      addItem(createdItem.id)
+      requestAnimationFrame(() => barcodeRef.current?.focus())
+    } catch (err) {
+      setCreateItemError(err instanceof Error ? err.message : "Failed to add item")
+    } finally {
+      setCreatingItem(false)
+    }
+  }
+
   async function createAndPrint() {
     setError(null)
     setCreated(null)
@@ -345,6 +529,7 @@ export default function PosPage() {
       partyId,
       warehouseId,
       invoiceNumber: null,
+      offerCode: appliedOffer?.code ?? null,
       lines: effectiveLines.map((l) => ({
         itemId: l.itemId,
         quantity: Number(l.quantity),
@@ -502,7 +687,21 @@ export default function PosPage() {
 
           <Card>
             <CardContent className="p-4 space-y-3">
-              <div className="text-sm font-medium">Add Item</div>
+              <div className="flex items-center justify-between gap-2">
+                <div className="text-sm font-medium">Add Item</div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => openCreateItemDialog()}
+                  disabled={!canCreateItems}
+                >
+                  Add New
+                </Button>
+              </div>
+              {canCreateItems === false ? (
+                <div className="text-xs text-muted-foreground">Only admins can add new items.</div>
+              ) : null}
               <SmartSelect<Item>
                 value={undefined}
                 onSelect={(id) => {
@@ -514,6 +713,8 @@ export default function PosPage() {
                 options={items}
                 labelKey="name"
                 valueKey="id"
+                onCreate={canCreateItems ? (q) => openCreateItemDialog(q) : undefined}
+                createLabel={(q) => `Add item "${q}"`}
                 renderOption={(it) => (
                   <div className="flex flex-col">
                     <span className="text-sm">
@@ -545,7 +746,7 @@ export default function PosPage() {
                     const v = e.target.value
                     barcodeValueRef.current = v
                     setBarcodeValue(v)
-                    if (barcodeError) setBarcodeError(null)
+                    setBarcodeError(null)
                   }}
                   onKeyDown={(e) => {
                     if (e.key === "Enter") {
@@ -602,6 +803,7 @@ export default function PosPage() {
                   type="button"
                   variant={discountMode === "PERCENT" ? "default" : "outline"}
                   onClick={() => setDiscountMode("PERCENT")}
+                  disabled={!!appliedOffer}
                 >
                   %
                 </Button>
@@ -609,6 +811,7 @@ export default function PosPage() {
                   type="button"
                   variant={discountMode === "FLAT" ? "default" : "outline"}
                   onClick={() => setDiscountMode("FLAT")}
+                  disabled={!!appliedOffer}
                 >
                   Flat
                 </Button>
@@ -618,13 +821,57 @@ export default function PosPage() {
                   step="0.01"
                   value={discountValue}
                   onChange={(e) => setDiscountValue(Number(e.target.value))}
+                  disabled={!!appliedOffer}
                 />
               </div>
               <div className="text-xs text-muted-foreground">
-                {discountMode === "PERCENT"
-                  ? "Applies percentage discount to all items."
-                  : "Flat discount is distributed across items."}
+                {appliedOffer
+                  ? "Manual discount is disabled while a coupon is applied."
+                  : discountMode === "PERCENT"
+                    ? "Applies percentage discount to all items."
+                    : "Flat discount is distributed across items."}
               </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-4 space-y-3">
+              <div className="text-sm font-medium">Coupon</div>
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Enter coupon code"
+                  value={couponCode}
+                  onChange={(e) => {
+                    setCouponCode(e.target.value)
+                    setCouponError(null)
+                    setAppliedOffer(null)
+                  }}
+                  disabled={couponLoading}
+                />
+                {appliedOffer ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      setAppliedOffer(null)
+                      setCouponError(null)
+                      setCouponCode("")
+                    }}
+                  >
+                    Clear
+                  </Button>
+                ) : (
+                  <Button type="button" onClick={() => applyCoupon(couponCode)} disabled={couponLoading}>
+                    {couponLoading ? "Applying..." : "Apply"}
+                  </Button>
+                )}
+              </div>
+              {couponError ? <div className="text-xs text-destructive">{couponError}</div> : null}
+              {appliedOffer ? (
+                <div className="text-xs text-muted-foreground">
+                  Applied: {appliedOffer.name} (−₹{Number(appliedOffer.discountAmount).toFixed(2)})
+                </div>
+              ) : null}
             </CardContent>
           </Card>
 
@@ -710,10 +957,22 @@ export default function PosPage() {
                     <span>Subtotal</span>
                     <span>₹{preview.subtotal.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span>Discount</span>
-                    <span>₹{preview.discountAmount.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                  </div>
+                  {preview.discountAmount > 0 ? (
+                    <div className="flex justify-between">
+                      <span>Manual Discount</span>
+                      <span>
+                        ₹{preview.discountAmount.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </span>
+                    </div>
+                  ) : null}
+                  {(created?.offerDiscountAmount ?? preview.couponDiscountAmount) > 0 ? (
+                    <div className="flex justify-between">
+                      <span>Coupon{created?.offerCode ? ` (${created.offerCode})` : appliedOffer?.code ? ` (${appliedOffer.code})` : ""}</span>
+                      <span>
+                        ₹{(created?.offerDiscountAmount ?? preview.couponDiscountAmount).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </span>
+                    </div>
+                  ) : null}
                   <div className="flex justify-between font-semibold">
                     <span>Total</span>
                     <span>
@@ -751,6 +1010,93 @@ export default function PosPage() {
             </Button>
             <Button onClick={submitCreateCustomer} disabled={creatingCustomer}>
               {creatingCustomer ? "Saving..." : "Save"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={createItemOpen}
+        onOpenChange={(open) => {
+          setCreateItemOpen(open)
+          if (!open) requestAnimationFrame(() => barcodeRef.current?.focus())
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add Item</DialogTitle>
+            <DialogDescription>Create a new item and add it to the bill.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <div className="text-sm font-medium mb-1">Name</div>
+              <Input
+                value={newItemName}
+                onChange={(e) => {
+                  const v = e.target.value
+                  setNewItemName(v)
+                  if (!newItemCodeEdited) {
+                    const suffix = newItemCode.split("-").pop() || String(Date.now()).slice(-4)
+                    setNewItemCode(`${computeItemCodeBase(v || "ITEM")}-${suffix}`)
+                  }
+                }}
+              />
+            </div>
+            <div>
+              <div className="text-sm font-medium mb-1">Code</div>
+              <Input
+                value={newItemCode}
+                onChange={(e) => {
+                  setNewItemCodeEdited(true)
+                  setNewItemCode(e.target.value)
+                }}
+              />
+            </div>
+            <div>
+              <div className="text-sm font-medium mb-1">Barcode (optional)</div>
+              <Input value={newItemBarcode} onChange={(e) => setNewItemBarcode(e.target.value)} />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div>
+                <div className="text-sm font-medium mb-1">UOM</div>
+                <Input value={newItemUom} onChange={(e) => setNewItemUom(e.target.value)} />
+              </div>
+              <div>
+                <div className="text-sm font-medium mb-1">Unit Price</div>
+                <Input
+                  type="number"
+                  min={0}
+                  step={0.01}
+                  value={newItemUnitPrice}
+                  onChange={(e) => setNewItemUnitPrice(Number(e.target.value))}
+                />
+              </div>
+              <div>
+                <div className="text-sm font-medium mb-1">Tax Rate (%)</div>
+                <Input
+                  type="number"
+                  min={0}
+                  step={0.01}
+                  value={newItemTaxRate}
+                  onChange={(e) => setNewItemTaxRate(Number(e.target.value))}
+                />
+              </div>
+            </div>
+            {createItemError ? <div className="text-sm text-destructive">{createItemError}</div> : null}
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setCreateItemOpen(false)
+                requestAnimationFrame(() => barcodeRef.current?.focus())
+              }}
+            >
+              Cancel
+            </Button>
+            <Button onClick={submitCreateItem} disabled={creatingItem}>
+              {creatingItem ? "Saving..." : "Save & Add"}
             </Button>
           </DialogFooter>
         </DialogContent>

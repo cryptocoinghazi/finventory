@@ -9,6 +9,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
@@ -47,6 +48,17 @@ public class SalesInvoice {
     @ManyToOne
     @JoinColumn(name = "warehouse_id", nullable = false)
     private Warehouse warehouse;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "offer_id")
+    private Offer offer;
+
+    @Column(name = "offer_code")
+    private String offerCode;
+
+    @Builder.Default
+    @Column(name = "offer_discount_amount", nullable = false)
+    private BigDecimal offerDiscountAmount = BigDecimal.ZERO;
 
     @Column(name = "total_taxable_amount", nullable = false)
     private BigDecimal totalTaxableAmount;

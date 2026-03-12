@@ -26,7 +26,8 @@ public class GLPostingService {
             BigDecimal totalCgst,
             BigDecimal totalSgst,
             BigDecimal totalIgst,
-            BigDecimal grandTotal) {
+            BigDecimal grandTotal,
+            BigDecimal discountAmount) {
         GLTransaction transaction =
                 GLTransaction.builder()
                         .date(date)
@@ -58,6 +59,17 @@ public class GLPostingService {
 
         transaction.getLines().add(debitAR);
         transaction.getLines().add(creditSales);
+
+        if (discountAmount != null && discountAmount.compareTo(BigDecimal.ZERO) > 0) {
+            GLLine debitDiscount =
+                    GLLine.builder()
+                            .transaction(transaction)
+                            .accountHead("SALES_DISCOUNT_ACCOUNT")
+                            .debit(discountAmount)
+                            .credit(BigDecimal.ZERO)
+                            .build();
+            transaction.getLines().add(debitDiscount);
+        }
 
         // Credit Output Tax - CGST
         if (totalCgst.compareTo(BigDecimal.ZERO) > 0) {
