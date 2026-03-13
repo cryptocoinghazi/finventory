@@ -137,6 +137,76 @@ public class SalesInvoiceService {
     }
 
     @Transactional
+    public int applyStandardDiscountToAllSalesInvoices(BigDecimal percent) {
+        if (percent == null) {
+            throw new IllegalArgumentException("Percent is required");
+        }
+        if (percent.compareTo(BigDecimal.ZERO) < 0 || percent.compareTo(HUNDRED) > 0) {
+            throw new IllegalArgumentException("Percent must be between 0 and 100");
+        }
+
+        List<SalesInvoice> invoices = salesInvoiceRepository.findAll();
+        int updated = 0;
+        String code = standardDiscountCode(percent);
+
+        for (SalesInvoice invoice : invoices) {
+            BigDecimal taxable =
+                    invoice.getTotalTaxableAmount() != null
+                            ? invoice.getTotalTaxableAmount()
+                            : BigDecimal.ZERO;
+            BigDecimal tax =
+                    invoice.getTotalTaxAmount() != null
+                            ? invoice.getTotalTaxAmount()
+                            : BigDecimal.ZERO;
+            BigDecimal gross = taxable.add(tax);
+
+            BigDecimal discount =
+                    gross.multiply(percent).divide(HUNDRED, MONEY_SCALE, RoundingMode.HALF_UP);
+            if (discount.compareTo(gross) > 0) {
+                discount = gross;
+            }
+
+            BigDecimal previousDiscount =
+                    invoice.getOfferDiscountAmount() != null
+                            ? invoice.getOfferDiscountAmount()
+                            : BigDecimal.ZERO;
+
+            invoice.setOffer(null);
+            invoice.setOfferCode(code);
+            invoice.setOfferDiscountAmount(discount);
+
+            BigDecimal newGrand =
+                    gross.subtract(discount).setScale(MONEY_SCALE, RoundingMode.HALF_UP);
+            if (newGrand.compareTo(BigDecimal.ZERO) < 0) {
+                newGrand = BigDecimal.ZERO;
+            }
+            invoice.setGrandTotal(newGrand);
+
+            BigDecimal paid =
+                    invoice.getPaidAmount() != null ? invoice.getPaidAmount() : BigDecimal.ZERO;
+            if (paid.compareTo(newGrand) > 0) {
+                paid = newGrand;
+                invoice.setPaidAmount(paid);
+            }
+            invoice.setPaymentStatus(computePaymentStatus(newGrand, paid));
+
+            auditLogService.log(
+                    "SALES_INVOICE_STANDARD_DISCOUNT_APPLIED",
+                    "SALES_INVOICE",
+                    invoice.getId(),
+                    "percent="
+                            + percent
+                            + ", previousDiscount="
+                            + previousDiscount
+                            + ", newDiscount="
+                            + discount);
+            updated++;
+        }
+
+        return updated;
+    }
+
+    @Transactional
     public SalesInvoiceDto updatePaymentStatus(UUID id, InvoicePaymentStatus status) {
         SalesInvoice invoice =
                 salesInvoiceRepository
@@ -473,6 +543,22 @@ public class SalesInvoiceService {
             invoice.setOfferCode(dto.getOfferCode() != null ? dto.getOfferCode() : offer.getCode());
             invoice.setOfferDiscountAmount(discountAmount);
         }
+
+        BigDecimal directDiscount =
+                dto.getOfferDiscountAmount() != null
+                        ? dto.getOfferDiscountAmount()
+                        : BigDecimal.ZERO;
+        if (directDiscount.compareTo(BigDecimal.ZERO) < 0) {
+            throw new IllegalArgumentException("Offer discount amount must be >= 0");
+        }
+        if (dto.getOfferId() == null
+                && (dto.getOfferCode() == null || dto.getOfferCode().trim().isBlank())
+                && directDiscount.compareTo(BigDecimal.ZERO) > 0) {
+            invoice.setOffer(null);
+            invoice.setOfferCode(null);
+            invoice.setOfferDiscountAmount(
+                    directDiscount.setScale(MONEY_SCALE, RoundingMode.HALF_UP));
+        }
     }
 
     private void logOfferAppliedIfPresent(SalesInvoice invoice) {
@@ -489,5 +575,23 @@ public class SalesInvoiceService {
                         + invoice.getOfferDiscountAmount();
         auditLogService.log(
                 "SALES_INVOICE_OFFER_APPLIED", "SALES_INVOICE", invoice.getId(), details);
+    }
+
+    private static InvoicePaymentStatus computePaymentStatus(
+            BigDecimal grandTotal, BigDecimal paidAmount) {
+        BigDecimal gt = grandTotal != null ? grandTotal : BigDecimal.ZERO;
+        BigDecimal paid = paidAmount != null ? paidAmount : BigDecimal.ZERO;
+        if (paid.compareTo(BigDecimal.ZERO) <= 0) {
+            return InvoicePaymentStatus.PENDING;
+        }
+        if (paid.compareTo(gt) >= 0) {
+            return InvoicePaymentStatus.PAID;
+        }
+        return InvoicePaymentStatus.PARTIAL;
+    }
+
+    private static String standardDiscountCode(BigDecimal percent) {
+        String pct = percent.stripTrailingZeros().toPlainString();
+        return "STD" + pct.replace(".", "_");
     }
 }

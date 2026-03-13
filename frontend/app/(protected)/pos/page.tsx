@@ -166,45 +166,6 @@ export default function PosPage() {
     return { subtotal, discountAmount, couponDiscountAmount, grandTotal }
   }, [appliedOffer, discountMode, discountValue, lines])
 
-  const effectiveLines = useMemo(() => {
-    const subtotal = preview.subtotal
-    const discountAmount = preview.discountAmount
-    if (subtotal <= 0 || discountAmount <= 0) return lines
-
-    const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100
-
-    if (discountMode === "PERCENT") {
-      const factor = Math.max(0, 1 - discountValue / 100)
-      return lines.map((l) => ({
-        ...l,
-        unitPrice: round2(Number(l.unitPrice) * factor),
-      }))
-    }
-
-    const lineTotals = lines.map((l) => ({
-      qty: Number(l.quantity) || 0,
-      amount: (Number(l.quantity) || 0) * (Number(l.unitPrice) || 0),
-    }))
-
-    let remainingDiscount = discountAmount
-    return lines.map((l, idx) => {
-      const qty = lineTotals[idx].qty
-      const amt = lineTotals[idx].amount
-      if (qty <= 0 || amt <= 0) return { ...l }
-
-      const share =
-        idx === lines.length - 1
-          ? remainingDiscount
-          : round2((discountAmount * amt) / subtotal)
-
-      remainingDiscount = round2(remainingDiscount - share)
-
-      const discountedAmount = Math.max(0, amt - share)
-      const newUnitPrice = round2(discountedAmount / qty)
-      return { ...l, unitPrice: newUnitPrice }
-    })
-  }, [discountMode, discountValue, lines, preview.discountAmount, preview.subtotal])
-
   const receiptDateTimeLabel = useMemo(() => {
     const d = new Date(receiptDateTime)
     if (Number.isNaN(d.getTime())) return receiptDateTime
@@ -524,13 +485,15 @@ export default function PosPage() {
 
     setReceiptDateTime(new Date().toISOString())
     setSubmitting(true)
+    const manualDiscountAmount = !appliedOffer && preview.discountAmount > 0 ? preview.discountAmount : 0
     const payload: SalesInvoiceInput = {
       invoiceDate,
       partyId,
       warehouseId,
       invoiceNumber: null,
       offerCode: appliedOffer?.code ?? null,
-      lines: effectiveLines.map((l) => ({
+      offerDiscountAmount: manualDiscountAmount > 0 ? manualDiscountAmount : null,
+      lines: lines.map((l) => ({
         itemId: l.itemId,
         quantity: Number(l.quantity),
         unitPrice: Number(l.unitPrice),
@@ -937,7 +900,7 @@ export default function PosPage() {
                     <div className="text-right">Qty</div>
                     <div className="text-right">Amt</div>
                   </div>
-                  {(created?.lines || effectiveLines).map((l, idx) => {
+                  {(created?.lines || lines).map((l, idx) => {
                     const it = itemById.get(l.itemId)
                     const qty = Number(l.quantity)
                     const unit = Number(l.unitPrice)
@@ -957,15 +920,21 @@ export default function PosPage() {
                     <span>Subtotal</span>
                     <span>₹{preview.subtotal.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                   </div>
-                  {preview.discountAmount > 0 ? (
+                  {(created
+                    ? !created.offerCode && Number(created.offerDiscountAmount ?? 0) > 0
+                    : preview.discountAmount > 0) ? (
                     <div className="flex justify-between">
                       <span>Manual Discount</span>
                       <span>
-                        ₹{preview.discountAmount.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        ₹{(created
+                          ? Number(created.offerDiscountAmount ?? 0)
+                          : preview.discountAmount
+                        ).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </span>
                     </div>
                   ) : null}
-                  {(created?.offerDiscountAmount ?? preview.couponDiscountAmount) > 0 ? (
+                  {((created?.offerCode || appliedOffer?.code) &&
+                  Number(created?.offerDiscountAmount ?? preview.couponDiscountAmount) > 0) ? (
                     <div className="flex justify-between">
                       <span>Coupon{created?.offerCode ? ` (${created.offerCode})` : appliedOffer?.code ? ` (${appliedOffer.code})` : ""}</span>
                       <span>

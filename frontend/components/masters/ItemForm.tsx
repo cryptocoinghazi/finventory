@@ -24,6 +24,7 @@ const itemSchema = z.object({
   hsnCode: z.string().optional(),
   uom: z.string().min(1, "UOM is required"),
   unitPrice: z.coerce.number().min(0, "Price must be >= 0"),
+  cogs: z.coerce.number().min(0, "COGS must be >= 0"),
   taxRate: z.coerce.number().min(0, "Tax rate must be >= 0"),
   vendorId: z.string().optional(),
 })
@@ -62,6 +63,7 @@ export function ItemForm({
       hsnCode: initialValue?.hsnCode ?? "",
       uom: initialValue?.uom ?? "",
       unitPrice: initialValue?.unitPrice ?? 0,
+      cogs: initialValue?.cogs ?? 0,
       taxRate: initialValue?.taxRate ?? 0,
       vendorId: initialValue?.vendorId ?? undefined,
     },
@@ -247,6 +249,20 @@ export function ItemForm({
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Unit Price (₹)</FormLabel>
+                    <FormControl>
+                      <Input type="number" step="0.01" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="cogs"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>COGS (₹)</FormLabel>
                     <FormControl>
                       <Input type="number" step="0.01" {...field} />
                     </FormControl>

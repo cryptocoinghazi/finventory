@@ -331,6 +331,14 @@ export default function SalesInvoiceDetailPage() {
                 <span className="text-muted-foreground">Total Tax:</span>
                 <span>{(invoice.totalTaxAmount || 0).toFixed(2)}</span>
               </div>
+              {(invoice.offerDiscountAmount || 0) > 0 ? (
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">
+                    Discount{invoice.offerCode ? ` (${invoice.offerCode})` : ""}:
+                  </span>
+                  <span>-{(invoice.offerDiscountAmount || 0).toFixed(2)}</span>
+                </div>
+              ) : null}
               <Separator />
               <div className="flex justify-between pt-2 text-lg font-bold">
                 <span>Grand Total:</span>
