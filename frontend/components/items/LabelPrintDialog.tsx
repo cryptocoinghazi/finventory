@@ -28,6 +28,8 @@ const A4_WIDTH_MM = 210
 const A4_HEIGHT_MM = 297
 const A4_MARGIN_MM = 10
 const A4_GAP_MM = 2
+const A4_MARGIN_MIN_MM = 0
+const A4_MARGIN_MAX_MM = 30
 
 const LABEL_TEMPLATES: Record<
   LabelTemplateName,
@@ -44,6 +46,12 @@ function clampInt(value: string, fallback: number) {
   const n = Number.parseInt(value, 10)
   if (!Number.isFinite(n) || n < 1) return fallback
   return n
+}
+
+function clampMm(value: string, fallback: number) {
+  const n = Number(value)
+  if (!Number.isFinite(n)) return fallback
+  return Math.min(A4_MARGIN_MAX_MM, Math.max(A4_MARGIN_MIN_MM, n))
 }
 
 function escapeHtml(value: string) {
@@ -230,7 +238,7 @@ function LabelPage({
   templateName: LabelTemplateName
 }) {
   const tmpl = LABEL_TEMPLATES[templateName]
-  const barcodeHeight = tmpl.heightIn >= 2 ? 44 : 34
+  const barcodeHeight = tmpl.heightIn >= 2 ? 40 : 30
   return (
     <div
       className="label-page box-border flex flex-col justify-between overflow-hidden border border-black bg-white text-black"
@@ -246,9 +254,13 @@ function LabelPage({
         <BarcodeSvg value={barcode} format={format} height={barcodeHeight} />
       </div>
 
-      <div className="flex items-center justify-between px-[0.06in] pb-[0.05in] text-[10px]">
-        <div className="font-semibold">₹{Number(unitPrice ?? 0).toLocaleString("en-IN")}</div>
-        <div className="text-[8.5px]">{barcode}</div>
+      <div className="flex items-end justify-between gap-1 px-[0.06in] pb-[0.04in] text-[9.5px] leading-none">
+        <div className="shrink-0 font-semibold leading-none">
+          ₹{Number(unitPrice ?? 0).toLocaleString("en-IN")}
+        </div>
+        <div className="min-w-0 flex-1 truncate text-right text-[7.5px] leading-none">
+          {barcode}
+        </div>
       </div>
     </div>
   )
@@ -269,6 +281,8 @@ export function LabelPrintDialog({
   const [includeItemCode, setIncludeItemCode] = useState(false)
   const [printPaper, setPrintPaper] = useState<PrintPaper>("ROLL")
   const [a4Columns, setA4Columns] = useState(4)
+  const [a4MarginTopMm, setA4MarginTopMm] = useState(A4_MARGIN_MM)
+  const [a4MarginBottomMm, setA4MarginBottomMm] = useState(A4_MARGIN_MM)
   const [preparing, setPreparing] = useState(false)
   const [prepared, setPrepared] = useState<LabelPrintPrepareResponse | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -287,6 +301,8 @@ export function LabelPrintDialog({
     setIncludeItemCode(false)
     setPrintPaper("ROLL")
     setA4Columns(4)
+    setA4MarginTopMm(A4_MARGIN_MM)
+    setA4MarginBottomMm(A4_MARGIN_MM)
     setPrepared(null)
     setError(null)
     setStatusSyncMessage(null)
@@ -310,7 +326,7 @@ export function LabelPrintDialog({
   const labelWidthMm = template.widthIn * 25.4
   const labelHeightMm = template.heightIn * 25.4
   const a4UsableWidthMm = A4_WIDTH_MM - A4_MARGIN_MM * 2
-  const a4UsableHeightMm = A4_HEIGHT_MM - A4_MARGIN_MM * 2
+  const a4UsableHeightMm = A4_HEIGHT_MM - a4MarginTopMm - a4MarginBottomMm
   const a4MaxColumns = Math.max(
     1,
     Math.floor((a4UsableWidthMm + A4_GAP_MM) / (labelWidthMm + A4_GAP_MM))
@@ -360,7 +376,7 @@ export function LabelPrintDialog({
     if (!prepared) return
 
     const tmpl = LABEL_TEMPLATES[templateName]
-    const barcodeHeight = tmpl.heightIn >= 2 ? 44 : 34
+    const barcodeHeight = tmpl.heightIn >= 2 ? 40 : 30
     const all = buildLabelPages(prepared)
 
     const barcodeCache = new Map<string, string>()
@@ -387,8 +403,9 @@ export function LabelPrintDialog({
       .code { font-size: 9px; }
       .barcode { padding: 0 0.1in; }
       .barcode svg { width: 100%; height: auto; shape-rendering: crispEdges; }
-      .bottom { display: flex; align-items: center; justify-content: space-between; padding: 0 0.06in 0.05in; font-size: 10px; }
-      .barcodeText { font-size: 8.5px; }
+      .bottom { display: flex; align-items: flex-end; justify-content: space-between; gap: 4px; padding: 0 0.06in 0.04in; font-size: 9.5px; line-height: 1; }
+      .price { font-weight: 700; white-space: nowrap; line-height: 1; }
+      .barcodeText { font-size: 7.5px; line-height: 1; flex: 1; text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     `
 
     function labelHtml(opts: {
@@ -423,8 +440,8 @@ export function LabelPrintDialog({
 
     if (printPaper === "A4") {
       const cols = effectiveA4Columns
-      const sheetWidthMm = A4_WIDTH_MM - A4_MARGIN_MM * 2
-      const sheetHeightMm = A4_HEIGHT_MM - A4_MARGIN_MM * 2
+      const sheetWidthMm = A4_WIDTH_MM
+      const sheetHeightMm = A4_HEIGHT_MM
       const perPage = Math.max(1, a4PerPage)
       const sheets: typeof all[] = []
       for (let i = 0; i < all.length; i += perPage) {
@@ -446,7 +463,9 @@ export function LabelPrintDialog({
           )
           return `
             <div class="sheet">
-              ${labels.join("")}
+              <div class="sheetInner">
+                ${labels.join("")}
+              </div>
             </div>
           `
         })
@@ -454,18 +473,26 @@ export function LabelPrintDialog({
 
       bodyHtml = renderedSheets.join("")
       pageCss = `
-        @page { size: A4; margin: ${A4_MARGIN_MM}mm; }
+        @page { size: A4; margin: 0; }
         .sheet {
           width: ${sheetWidthMm}mm;
           height: ${sheetHeightMm}mm;
+          padding: ${a4MarginTopMm}mm ${A4_MARGIN_MM}mm ${a4MarginBottomMm}mm ${A4_MARGIN_MM}mm;
+          display: flex;
+          justify-content: center;
+          align-items: flex-start;
+          page-break-after: always;
+          break-after: page;
+        }
+        .sheetInner {
+          width: ${a4UsableWidthMm}mm;
+          height: ${a4UsableHeightMm}mm;
           display: grid;
           grid-template-columns: repeat(${cols}, ${tmpl.widthIn}in);
           grid-auto-rows: ${tmpl.heightIn}in;
           gap: ${A4_GAP_MM}mm;
           justify-content: center;
           align-content: start;
-          page-break-after: always;
-          break-after: page;
         }
         .sheet:last-child { page-break-after: auto; break-after: auto; }
       `
@@ -712,8 +739,42 @@ export function LabelPrintDialog({
               </div>
 
               {printPaper === "A4" ? (
-                <div className="text-xs text-muted-foreground">
-                  A4 capacity: {effectiveA4Columns} × {a4Rows} = {a4PerPage} labels per page
+                <div className="space-y-3">
+                  <div className="text-xs text-muted-foreground">
+                    A4 capacity: {effectiveA4Columns} × {a4Rows} = {a4PerPage} labels per page
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label>Header margin (mm)</Label>
+                      <Input
+                        type="number"
+                        inputMode="decimal"
+                        min={A4_MARGIN_MIN_MM}
+                        max={A4_MARGIN_MAX_MM}
+                        step="0.5"
+                        value={String(a4MarginTopMm)}
+                        onChange={(e) => {
+                          setA4MarginTopMm(clampMm(e.target.value, A4_MARGIN_MM))
+                          setPrepared(null)
+                        }}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Footer margin (mm)</Label>
+                      <Input
+                        type="number"
+                        inputMode="decimal"
+                        min={A4_MARGIN_MIN_MM}
+                        max={A4_MARGIN_MAX_MM}
+                        step="0.5"
+                        value={String(a4MarginBottomMm)}
+                        onChange={(e) => {
+                          setA4MarginBottomMm(clampMm(e.target.value, A4_MARGIN_MM))
+                          setPrepared(null)
+                        }}
+                      />
+                    </div>
+                  </div>
                 </div>
               ) : null}
 
@@ -832,6 +893,12 @@ export function LabelPrintDialog({
                             className="rounded border bg-white p-2"
                             style={{
                               width: `${A4_WIDTH_MM}mm`,
+                              height: `${A4_HEIGHT_MM}mm`,
+                              boxSizing: "border-box",
+                              paddingTop: `${a4MarginTopMm}mm`,
+                              paddingBottom: `${a4MarginBottomMm}mm`,
+                              paddingLeft: `${A4_MARGIN_MM}mm`,
+                              paddingRight: `${A4_MARGIN_MM}mm`,
                             }}
                           >
                             <div

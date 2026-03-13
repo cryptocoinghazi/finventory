@@ -611,17 +611,28 @@ public class ItemService {
     }
 
     private Party getOrCreateDefaultVendor() {
-        List<Party> vendors = partyRepository.findByType(Party.PartyType.VENDOR);
-        if (!vendors.isEmpty()) {
-            return vendors.get(0);
+        List<Party> matches =
+                partyRepository.findByNameIgnoreCaseAndType("Unassigned", Party.PartyType.VENDOR);
+        if (matches != null && !matches.isEmpty()) {
+            return matches.get(0);
         }
-        Party defaultVendor =
-                Party.builder()
-                        .name("General Vendor")
-                        .type(Party.PartyType.VENDOR)
-                        .address("Default Address")
-                        .build();
-        return partyRepository.save(defaultVendor);
+
+        Party created =
+                Party.builder().name("Unassigned").type(Party.PartyType.VENDOR).build();
+        try {
+            return partyRepository.save(created);
+        } catch (Exception ignored) {
+            List<Party> vendors = partyRepository.findByType(Party.PartyType.VENDOR);
+            if (vendors != null && !vendors.isEmpty()) {
+                return vendors.get(0);
+            }
+            Party fallback =
+                    Party.builder()
+                            .name("Unassigned")
+                            .type(Party.PartyType.VENDOR)
+                            .build();
+            return partyRepository.save(fallback);
+        }
     }
 
     private ItemDto mapToDto(Item item) {
