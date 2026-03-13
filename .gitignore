@@ -29,6 +29,13 @@ scripts/pgpass.txt
 .DS_Store
 Thumbs.db
 
+# Local specs / trackers (project management)
+ROADMAP_FEATURES_FOR_UI_TRACKER.MD
+SPEC.MD
+TRACKER.md
+UI_DEVELOPMENT_PLAN.md
+UI_TRACKER.md
+
 # Frontend (Future)
 node_modules/
 dist/
