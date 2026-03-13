@@ -277,6 +277,7 @@ E) Custom Date Report
 - applies across reports
 - reusable date filter component
 
+STATUS: DONE (2026-03-12)
 ==================================================
 10. INFORMATION ARCHITECTURE / PLACEMENT
 ==================================================
