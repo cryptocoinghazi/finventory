@@ -27,8 +27,13 @@ public class ItemController {
     private final ItemService itemService;
 
     @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<List<ItemDto>> uploadItems(@RequestParam("file") MultipartFile file) {
-        return ResponseEntity.ok(itemService.uploadItems(file));
+    public ResponseEntity<Object> uploadItems(
+            @RequestParam("file") MultipartFile file,
+            @RequestParam(name = "report", defaultValue = "false") boolean report) {
+        if (report) {
+            return ResponseEntity.ok(itemService.uploadItemsReport(file));
+        }
+        return ResponseEntity.ok(itemService.uploadItemsLegacy(file));
     }
 
     @PostMapping

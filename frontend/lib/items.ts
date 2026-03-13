@@ -18,6 +18,36 @@ export type Item = {
 
 export type ItemInput = Omit<Item, "id" | "vendorName">
 
+export type BulkItemUploadRowStatus =
+  | "CREATED"
+  | "SKIPPED"
+  | "FAILED"
+  | "CREATED_WITH_WARNING"
+
+export type BulkItemUploadRowResult = {
+  rowNumber: number
+  status: BulkItemUploadRowStatus
+  message: string
+  itemId?: string | null
+  warning?: string | null
+}
+
+export type BulkItemCreatedWithoutImage = {
+  itemId: string
+  code: string
+  name: string
+  vendorName?: string | null
+}
+
+export type BulkItemUploadResponse = {
+  totalRows: number
+  createdCount: number
+  skippedCount: number
+  failedCount: number
+  details: BulkItemUploadRowResult[]
+  missingImages: BulkItemCreatedWithoutImage[]
+}
+
 export async function listItems(): Promise<Item[]> {
   const res = await apiFetch("/api/v1/items", { cache: "no-store" })
   return readJsonOrThrow<Item[]>(res)
@@ -30,12 +60,14 @@ export async function getItem(id: string): Promise<Item> {
   return readJsonOrThrow<Item>(res)
 }
 
-export async function uploadItems(formData: FormData): Promise<Item[]> {
-  const res = await apiFetch("/api/v1/items/upload", {
+export async function uploadItems(
+  formData: FormData
+): Promise<BulkItemUploadResponse> {
+  const res = await apiFetch("/api/v1/items/upload?report=true", {
     method: "POST",
     body: formData,
   })
-  return readJsonOrThrow<Item[]>(res)
+  return readJsonOrThrow<BulkItemUploadResponse>(res)
 }
 
 export async function uploadItemImage(id: string, file: File): Promise<Item> {

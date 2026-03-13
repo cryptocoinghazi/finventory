@@ -19,6 +19,7 @@ logs/
 # Database backups
 backups/
 backend/backups/
+backend/uploads/
 
 # Tools and Local Environment (Heavy binaries and data)
 tools/
