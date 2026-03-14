@@ -43,6 +43,8 @@ import com.finventory.repository.WarehouseRepository;
 import com.finventory.service.NexoDumpSqlService;
 import com.finventory.service.NexoMigrationItemsStagesService;
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
@@ -352,7 +354,7 @@ class MastersIntegrationTest {
 
     @Test
     void testImportItems_UsesUnitQuantitiesForMissingPriceAndCogs() throws Exception {
-        Path dumpPath = Path.of("..", "docs", "nexo.sql").toAbsolutePath().normalize();
+        Path dumpPath = createTestNexoDumpSql();
 
         Map<Long, Pricing> unitQuantitiesPricing = loadUnitQuantitiesPricing(dumpPath);
         Assertions.assertFalse(unitQuantitiesPricing.isEmpty());
@@ -446,7 +448,7 @@ class MastersIntegrationTest {
 
     @Test
     void testMigrationDryRunFullSafePipeline() throws Exception {
-        String dumpPath = Path.of("..", "docs", "nexo.sql").toAbsolutePath().normalize().toString();
+        String dumpPath = createTestNexoDumpSql().toString();
 
         CreateMigrationRunRequest createRequest =
                 CreateMigrationRunRequest.builder()
@@ -683,6 +685,23 @@ class MastersIntegrationTest {
             return saleCompare > 0;
         }
         return candidate.cogs.compareTo(existing.cogs) > 0;
+    }
+
+    private Path createTestNexoDumpSql() throws Exception {
+        Path dumpPath = Files.createTempFile("nexo-test-", ".sql").toAbsolutePath().normalize();
+        dumpPath.toFile().deleteOnExit();
+
+        String sql =
+                """
+INSERT INTO `ns_nexopos_products` (`id`,`name`,`sku`,`barcode`,`unit_group`,`category_id`,`tax_group_id`,`tax_id`) VALUES
+(1001,'Test Product','SKU-1001',NULL,NULL,NULL,NULL,NULL);
+
+INSERT INTO `ns_nexopos_products_unit_quantities` (`id`,`product_id`,`type`,`visible`,`convert_unit_id`,`sale_price`,`cogs`) VALUES
+(1,1001,'product',1,NULL,123.45,67.89);
+""";
+
+        Files.writeString(dumpPath, sql, StandardCharsets.UTF_8);
+        return dumpPath;
     }
 
     private record Pricing(BigDecimal salePrice, BigDecimal cogs, boolean baseUnit) {}
