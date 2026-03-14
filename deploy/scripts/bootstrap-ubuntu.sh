@@ -11,7 +11,7 @@ UPLOADS_DIR="${UPLOADS_DIR:-/var/lib/finventory/uploads}"
 
 DB_NAME="${FINVENTORY_DB_NAME:-finventory}"
 DB_USER="${FINVENTORY_DB_USER:-finventory}"
-DB_PASSWORD="${FINVENTORY_DB_PASSWORD:-StrongPassword}"
+DB_PASSWORD="${FINVENTORY_DB_PASSWORD:-}"
 
 DOMAIN_NAME="${FINVENTORY_DOMAIN_NAME:-}"
 SSL_EMAIL="${FINVENTORY_SSL_EMAIL:-}"
@@ -20,6 +20,11 @@ GIT_BRANCH="${FINVENTORY_GIT_BRANCH:-main}"
 
 if [[ "$(id -u)" -ne 0 ]]; then
   echo "Run as root (sudo)."
+  exit 1
+fi
+
+if [[ -z "$DB_PASSWORD" ]]; then
+  echo "Set FINVENTORY_DB_PASSWORD before running."
   exit 1
 fi
 
@@ -52,6 +57,15 @@ if [[ -n "$GIT_URL" ]]; then
     install -d -m 0750 -o "$APP_USER" -g "$APP_GROUP" "$APP_REPO_DIR"
     sudo -u "$APP_USER" -H git clone --branch "$GIT_BRANCH" "$GIT_URL" "$APP_REPO_DIR"
   fi
+fi
+
+if [[ ! -d "$APP_REPO_DIR/.git" ]]; then
+  echo "Repo not found at $APP_REPO_DIR. Clone the repo there or set FINVENTORY_GIT_URL to auto-clone."
+  exit 1
+fi
+if [[ ! -d "$APP_REPO_DIR/backend" ]] || [[ ! -d "$APP_REPO_DIR/frontend" ]]; then
+  echo "Repo at $APP_REPO_DIR is missing backend/ or frontend/ directories."
+  exit 1
 fi
 
 systemctl enable --now postgresql

@@ -1,6 +1,7 @@
 [Unit]
 Description=Finventory Backend
 After=network.target postgresql.service
+Requires=postgresql.service
 
 [Service]
 Type=simple

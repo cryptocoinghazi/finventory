@@ -16,7 +16,11 @@ if [[ "$(id -u)" -ne 0 ]]; then
 fi
 
 if [[ ! -d "$APP_REPO_DIR/.git" ]]; then
-  echo "Repo not found at $APP_REPO_DIR"
+  echo "Repo not found at $APP_REPO_DIR. Clone the repo there before deploying."
+  exit 1
+fi
+if [[ ! -d "$APP_REPO_DIR/backend" ]] || [[ ! -d "$APP_REPO_DIR/frontend" ]]; then
+  echo "Repo at $APP_REPO_DIR is missing backend/ or frontend/ directories."
   exit 1
 fi
 
