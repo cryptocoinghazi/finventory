@@ -48,6 +48,9 @@ public class ApplicationConfig implements WebMvcConfigurer {
     @Value("${application.security.bootstrap-admin.password:admin123}")
     private String bootstrapAdminPassword;
 
+    @Value("${application.security.bootstrap-admin.force-reset:false}")
+    private boolean bootstrapAdminForceReset;
+
     @Bean
     public UserDetailsService userDetailsService() {
         return username ->
@@ -72,6 +75,11 @@ public class ApplicationConfig implements WebMvcConfigurer {
                     .findByUsername(bootstrapAdminUsername)
                     .ifPresentOrElse(
                             user -> {
+                                if (bootstrapAdminForceReset) {
+                                    user.setPassword(passwordEncoder.encode(bootstrapAdminPassword));
+                                    userRepository.save(user);
+                                    return;
+                                }
                                 if (SEEDED_ADMIN_PASSWORD_BCRYPT.equals(user.getPassword())) {
                                     user.setPassword(passwordEncoder.encode(bootstrapAdminPassword));
                                     userRepository.save(user);
@@ -87,6 +95,13 @@ public class ApplicationConfig implements WebMvcConfigurer {
                                                 .build();
                                 userRepository.save(user);
                             });
+
+            for (User user : userRepository.findAll()) {
+                if (SEEDED_ADMIN_PASSWORD_BCRYPT.equals(user.getPassword())) {
+                    user.setPassword(passwordEncoder.encode(bootstrapAdminPassword));
+                    userRepository.save(user);
+                }
+            }
         };
     }
 
