@@ -59,6 +59,20 @@ if [[ -f "$APP_REPO_DIR/deploy/nginx/finventory.conf" ]]; then
 ' /etc/nginx/sites-available/finventory
   fi
 
+  if ! grep -qE "location \\^~ /api/auth/" /etc/nginx/sites-available/finventory; then
+    sed -i '/^}$/i\
+\
+  location ^~ /api/auth/ {\
+    proxy_pass http://127.0.0.1:3000;\
+    proxy_http_version 1.1;\
+    proxy_set_header Host $host;\
+    proxy_set_header X-Real-IP $remote_addr;\
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;\
+    proxy_set_header X-Forwarded-Proto $scheme;\
+  }\
+' /etc/nginx/sites-available/finventory
+  fi
+
   ln -sf /etc/nginx/sites-available/finventory /etc/nginx/sites-enabled/finventory
   rm -f /etc/nginx/sites-enabled/default
 fi
