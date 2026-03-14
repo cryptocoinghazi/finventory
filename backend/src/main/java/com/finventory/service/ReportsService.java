@@ -601,9 +601,11 @@ public class ReportsService {
             summaryByKey.put(s.getItemId() + ":" + s.getWarehouseId(), s);
         }
 
-        List<StockReportDto.Row> rows = new ArrayList<>(items.size() * Math.max(warehouses.size(), 1));
+        List<StockReportDto.Row> rows =
+                new ArrayList<>(items.size() * Math.max(warehouses.size(), 1));
         for (var item : items) {
-            BigDecimal unitPrice = item.getUnitPrice() != null ? item.getUnitPrice() : BigDecimal.ZERO;
+            BigDecimal unitPrice =
+                    item.getUnitPrice() != null ? item.getUnitPrice() : BigDecimal.ZERO;
             var vendor = item.getVendor();
             UUID vendorId = vendor != null ? vendor.getId() : null;
             String vendorName = vendor != null ? vendor.getName() : null;
@@ -629,8 +631,12 @@ public class ReportsService {
         }
 
         rows.sort(
-                java.util.Comparator.comparing(StockReportDto.Row::getItemName, java.util.Comparator.nullsLast(String::compareToIgnoreCase))
-                        .thenComparing(StockReportDto.Row::getWarehouseName, java.util.Comparator.nullsLast(String::compareToIgnoreCase)));
+                Comparator.comparing(
+                                StockReportDto.Row::getItemName,
+                                Comparator.nullsLast(String::compareToIgnoreCase))
+                        .thenComparing(
+                                StockReportDto.Row::getWarehouseName,
+                                Comparator.nullsLast(String::compareToIgnoreCase)));
         return rows;
     }
 
