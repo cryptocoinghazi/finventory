@@ -87,6 +87,12 @@ export default function StockSummaryPage() {
     }
   }, [movementFromDate, movementItemId, movementToDate, movementWarehouseId])
 
+  const handleAdjustmentSuccess = useCallback(() => {
+    if (tab === "summary") return loadSummary()
+    if (tab === "low") return loadLow()
+    if (tab === "movement") return loadMovement()
+  }, [loadLow, loadMovement, loadSummary, tab])
+
   useEffect(() => {
     if (tab === "summary") loadSummary()
     if (tab === "low") loadLow()
@@ -158,6 +164,14 @@ export default function StockSummaryPage() {
       <PageHeader
         title="Stock Report"
         description="Current stock, low stock, and movement by item and warehouse."
+        actions={
+          <StockAdjustmentDialog
+            items={items}
+            warehouses={warehouses}
+            onSuccess={handleAdjustmentSuccess}
+            trigger={<Button disabled={loading || items.length === 0 || warehouses.length === 0}>Adjust Stock</Button>}
+          />
+        }
       />
 
       {error ? <div className="text-sm text-destructive">{error}</div> : null}
