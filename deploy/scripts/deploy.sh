@@ -35,8 +35,16 @@ fi
 if [[ -f "$APP_REPO_DIR/deploy/systemd/finventory-frontend.service" ]]; then
   install -m 0644 "$APP_REPO_DIR/deploy/systemd/finventory-frontend.service" /etc/systemd/system/finventory-frontend.service
 fi
-if [[ -f "$APP_REPO_DIR/deploy/nginx/finventory.conf" ]] && [[ ! -f /etc/nginx/sites-available/finventory ]]; then
-  install -m 0644 "$APP_REPO_DIR/deploy/nginx/finventory.conf" /etc/nginx/sites-available/finventory
+
+if [[ -f "$APP_REPO_DIR/deploy/nginx/finventory.conf" ]]; then
+  if [[ ! -f /etc/nginx/sites-available/finventory ]]; then
+    install -m 0644 "$APP_REPO_DIR/deploy/nginx/finventory.conf" /etc/nginx/sites-available/finventory
+  fi
+
+  if grep -qE "location \\^~ /api/v1/" /etc/nginx/sites-available/finventory; then
+    sed -i "s#location \\^~ /api/v1/#location ^~ /api/#" /etc/nginx/sites-available/finventory
+  fi
+
   ln -sf /etc/nginx/sites-available/finventory /etc/nginx/sites-enabled/finventory
   rm -f /etc/nginx/sites-enabled/default
 fi

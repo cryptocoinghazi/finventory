@@ -127,13 +127,31 @@ fi
 if [[ -f "$APP_REPO_DIR/deploy/nginx/finventory.conf" ]]; then
   if [[ ! -f /etc/nginx/sites-available/finventory ]]; then
     install -m 0644 "$APP_REPO_DIR/deploy/nginx/finventory.conf" /etc/nginx/sites-available/finventory
-    if [[ -n "$DOMAIN_NAME" ]]; then
-      sed -i "s/server_name .*/server_name ${DOMAIN_NAME};/" /etc/nginx/sites-available/finventory
-    else
-      sed -i "s/server_name .*/server_name _;/" /etc/nginx/sites-available/finventory
-    fi
+  fi
+
+  if [[ -n "$DOMAIN_NAME" ]]; then
+    sed -i "s/server_name .*/server_name ${DOMAIN_NAME};/" /etc/nginx/sites-available/finventory
+  else
+    sed -i "s/server_name .*/server_name _;/" /etc/nginx/sites-available/finventory
+  fi
+
+  nginx_needs_reload=0
+  if grep -qE "location \\^~ /api/v1/" /etc/nginx/sites-available/finventory; then
+    sed -i "s#location \\^~ /api/v1/#location ^~ /api/#" /etc/nginx/sites-available/finventory
+    nginx_needs_reload=1
+  fi
+
+  if [[ ! -e /etc/nginx/sites-enabled/finventory ]]; then
     ln -sf /etc/nginx/sites-available/finventory /etc/nginx/sites-enabled/finventory
+    nginx_needs_reload=1
+  fi
+
+  if [[ -e /etc/nginx/sites-enabled/default ]]; then
     rm -f /etc/nginx/sites-enabled/default
+    nginx_needs_reload=1
+  fi
+
+  if [[ "$nginx_needs_reload" -eq 1 ]]; then
     nginx -t
     systemctl reload nginx
   fi
