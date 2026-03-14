@@ -2,6 +2,7 @@ package com.finventory.service;
 
 import com.finventory.dto.PurchaseInvoiceDto;
 import com.finventory.dto.PurchaseInvoiceLineDto;
+import com.finventory.model.InvoicePaymentStatus;
 import com.finventory.model.Item;
 import com.finventory.model.Party;
 import com.finventory.model.PurchaseInvoice;
@@ -12,11 +13,17 @@ import com.finventory.model.Warehouse;
 import com.finventory.repository.ItemRepository;
 import com.finventory.repository.PartyRepository;
 import com.finventory.repository.PurchaseInvoiceRepository;
+import com.finventory.repository.PurchaseReturnRepository;
 import com.finventory.repository.WarehouseRepository;
 import jakarta.persistence.EntityNotFoundException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.LocalDate;
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -29,12 +36,14 @@ public class PurchaseInvoiceService {
     private static final BigDecimal TWO = new BigDecimal("2");
 
     private final PurchaseInvoiceRepository purchaseInvoiceRepository;
+    private final PurchaseReturnRepository purchaseReturnRepository;
     private final PartyRepository partyRepository;
     private final ItemRepository itemRepository;
     private final WarehouseRepository warehouseRepository;
     private final SequenceGeneratorService sequenceGeneratorService;
     private final StockPostingService stockPostingService;
     private final GLPostingService glPostingService;
+    private final AuditLogService auditLogService;
 
     @Transactional
     public PurchaseInvoiceDto createPurchaseInvoice(PurchaseInvoiceDto dto) {
@@ -65,6 +74,10 @@ public class PurchaseInvoiceService {
                         .invoiceDate(dto.getInvoiceDate())
                         .party(party)
                         .warehouse(warehouse)
+                        .paymentStatus(
+                                dto.getPaymentStatus() != null
+                                        ? dto.getPaymentStatus()
+                                        : InvoicePaymentStatus.PENDING)
                         .lines(new ArrayList<>())
                         .build();
 
@@ -175,6 +188,90 @@ public class PurchaseInvoiceService {
         return mapToDto(savedInvoice);
     }
 
+    public PurchaseInvoiceDto getPurchaseInvoice(UUID id) {
+        PurchaseInvoice invoice =
+                purchaseInvoiceRepository
+                        .findById(id)
+                        .orElseThrow(() -> new EntityNotFoundException("Invoice not found"));
+        return mapToDto(invoice);
+    }
+
+    public List<PurchaseInvoiceDto> getAllPurchaseInvoices(
+            InvoicePaymentStatus paymentStatus, LocalDate fromDate, LocalDate toDate) {
+        return purchaseInvoiceRepository
+                .findAllWithFilters(paymentStatus, fromDate, toDate)
+                .stream()
+                .map(this::mapToDto)
+                .collect(Collectors.toList());
+    }
+
+    @Transactional
+    public PurchaseInvoiceDto updatePaymentStatus(UUID id, InvoicePaymentStatus status) {
+        PurchaseInvoice invoice =
+                purchaseInvoiceRepository
+                        .findById(id)
+                        .orElseThrow(() -> new EntityNotFoundException("Invoice not found"));
+        if (invoice.getDeletedAt() != null) {
+            throw new IllegalStateException("Invoice is cancelled");
+        }
+        invoice.setPaymentStatus(status);
+        return mapToDto(purchaseInvoiceRepository.save(invoice));
+    }
+
+    @Transactional
+    public PurchaseInvoiceDto applyPayment(
+            UUID id, InvoicePaymentStatus status, BigDecimal paymentAmount) {
+        PurchaseInvoice invoice =
+                purchaseInvoiceRepository
+                        .findById(id)
+                        .orElseThrow(() -> new EntityNotFoundException("Invoice not found"));
+        if (invoice.getDeletedAt() != null) {
+            throw new IllegalStateException("Invoice is cancelled");
+        }
+
+        BigDecimal grandTotal =
+                invoice.getGrandTotal() != null ? invoice.getGrandTotal() : BigDecimal.ZERO;
+        BigDecimal paidSoFar =
+                invoice.getPaidAmount() != null ? invoice.getPaidAmount() : BigDecimal.ZERO;
+        BigDecimal balance = grandTotal.subtract(paidSoFar);
+
+        if (status == null) {
+            throw new IllegalArgumentException("Payment status is required");
+        }
+
+        if (paymentAmount == null) {
+            paymentAmount = BigDecimal.ZERO;
+        }
+
+        if (paymentAmount.compareTo(BigDecimal.ZERO) < 0) {
+            throw new IllegalArgumentException("Payment amount must be >= 0");
+        }
+
+        if (paymentAmount.compareTo(balance) > 0) {
+            throw new IllegalArgumentException("Payment amount exceeds outstanding balance");
+        }
+
+        if (status == InvoicePaymentStatus.PENDING) {
+            invoice.setPaidAmount(BigDecimal.ZERO);
+            invoice.setPaymentStatus(InvoicePaymentStatus.PENDING);
+        } else {
+            BigDecimal nextPaid =
+                    status == InvoicePaymentStatus.PAID ? grandTotal : paidSoFar.add(paymentAmount);
+            invoice.setPaidAmount(nextPaid);
+
+            if (nextPaid.compareTo(BigDecimal.ZERO) == 0) {
+                invoice.setPaymentStatus(InvoicePaymentStatus.PENDING);
+            } else if (nextPaid.compareTo(grandTotal) >= 0) {
+                invoice.setPaidAmount(grandTotal);
+                invoice.setPaymentStatus(InvoicePaymentStatus.PAID);
+            } else {
+                invoice.setPaymentStatus(InvoicePaymentStatus.PARTIAL);
+            }
+        }
+
+        return mapToDto(purchaseInvoiceRepository.save(invoice));
+    }
+
     private PurchaseInvoiceDto mapToDto(PurchaseInvoice invoice) {
         return PurchaseInvoiceDto.builder()
                 .id(invoice.getId())
@@ -182,13 +279,28 @@ public class PurchaseInvoiceService {
                 .vendorInvoiceNumber(invoice.getVendorInvoiceNumber())
                 .invoiceDate(invoice.getInvoiceDate())
                 .partyId(invoice.getParty().getId())
+                .partyName(invoice.getParty().getName())
                 .warehouseId(invoice.getWarehouse().getId())
+                .warehouseName(invoice.getWarehouse().getName())
                 .totalTaxableAmount(invoice.getTotalTaxableAmount())
                 .totalTaxAmount(invoice.getTotalTaxAmount())
                 .totalCgstAmount(invoice.getTotalCgstAmount())
                 .totalSgstAmount(invoice.getTotalSgstAmount())
                 .totalIgstAmount(invoice.getTotalIgstAmount())
                 .grandTotal(invoice.getGrandTotal())
+                .paidAmount(invoice.getPaidAmount())
+                .balanceAmount(
+                        invoice.getGrandTotal() != null
+                                ? invoice.getGrandTotal()
+                                        .subtract(
+                                                invoice.getPaidAmount() != null
+                                                        ? invoice.getPaidAmount()
+                                                        : BigDecimal.ZERO)
+                                : BigDecimal.ZERO)
+                .paymentStatus(invoice.getPaymentStatus())
+                .cancelledAt(invoice.getCancelledAt())
+                .deletedAt(invoice.getDeletedAt())
+                .cancelReason(invoice.getCancelReason())
                 .lines(
                         invoice.getLines().stream()
                                 .map(
@@ -196,6 +308,8 @@ public class PurchaseInvoiceService {
                                                 PurchaseInvoiceLineDto.builder()
                                                         .id(line.getId())
                                                         .itemId(line.getItem().getId())
+                                                        .itemName(line.getItem().getName())
+                                                        .itemCode(line.getItem().getCode())
                                                         .quantity(line.getQuantity())
                                                         .unitPrice(line.getUnitPrice())
                                                         .taxRate(line.getTaxRate())
@@ -207,5 +321,57 @@ public class PurchaseInvoiceService {
                                                         .build())
                                 .toList())
                 .build();
+    }
+
+    @Transactional
+    public PurchaseInvoiceDto cancelPurchaseInvoice(UUID id, String reason) {
+        PurchaseInvoice invoice =
+                purchaseInvoiceRepository
+                        .findById(id)
+                        .orElseThrow(() -> new EntityNotFoundException("Invoice not found"));
+
+        if (invoice.getDeletedAt() != null) {
+            return mapToDto(invoice);
+        }
+        if (!purchaseReturnRepository.findByPurchaseInvoiceId(id).isEmpty()) {
+            throw new IllegalStateException("Cannot cancel invoice with returns");
+        }
+
+        OffsetDateTime now = OffsetDateTime.now();
+        invoice.setCancelledAt(now);
+        invoice.setDeletedAt(now);
+        invoice.setCancelReason(reason);
+        PurchaseInvoice saved = purchaseInvoiceRepository.save(invoice);
+
+        LocalDate postingDate = LocalDate.now();
+        for (PurchaseInvoiceLine line : saved.getLines()) {
+            stockPostingService.postStockOut(
+                    postingDate,
+                    line.getItem(),
+                    saved.getWarehouse(),
+                    line.getQuantity(),
+                    StockLedgerEntry.ReferenceType.PURCHASE_INVOICE,
+                    saved.getId());
+        }
+
+        glPostingService.postPurchaseInvoiceReversal(
+                postingDate,
+                saved.getId(),
+                saved.getParty(),
+                saved.getTotalTaxableAmount() != null
+                        ? saved.getTotalTaxableAmount()
+                        : BigDecimal.ZERO,
+                saved.getTotalCgstAmount() != null ? saved.getTotalCgstAmount() : BigDecimal.ZERO,
+                saved.getTotalSgstAmount() != null ? saved.getTotalSgstAmount() : BigDecimal.ZERO,
+                saved.getTotalIgstAmount() != null ? saved.getTotalIgstAmount() : BigDecimal.ZERO,
+                saved.getGrandTotal() != null ? saved.getGrandTotal() : BigDecimal.ZERO);
+
+        auditLogService.log(
+                "PURCHASE_INVOICE_CANCELLED",
+                "PURCHASE_INVOICE",
+                saved.getId(),
+                reason != null ? reason : "");
+
+        return mapToDto(saved);
     }
 }

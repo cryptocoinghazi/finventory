@@ -3,6 +3,8 @@ package com.finventory.model;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -12,6 +14,7 @@ import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -68,6 +71,24 @@ public class PurchaseInvoice {
     private BigDecimal grandTotal;
 
     @Builder.Default
+    @Column(name = "paid_amount", nullable = false)
+    private BigDecimal paidAmount = BigDecimal.ZERO;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "payment_status", nullable = false)
+    @Builder.Default
+    private InvoicePaymentStatus paymentStatus = InvoicePaymentStatus.PENDING;
+
+    @Builder.Default
     @OneToMany(mappedBy = "purchaseInvoice", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<PurchaseInvoiceLine> lines = new ArrayList<>();
+
+    @Column(name = "cancelled_at")
+    private OffsetDateTime cancelledAt;
+
+    @Column(name = "deleted_at")
+    private OffsetDateTime deletedAt;
+
+    @Column(name = "cancel_reason", columnDefinition = "text")
+    private String cancelReason;
 }

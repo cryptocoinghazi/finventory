@@ -12,7 +12,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/api/purchase-returns")
+@RequestMapping("/api/v1/purchase-returns")
 @RequiredArgsConstructor
 public class PurchaseReturnController {
 
@@ -23,5 +23,16 @@ public class PurchaseReturnController {
             @Valid @RequestBody PurchaseReturnDto dto) {
         PurchaseReturnDto created = purchaseReturnService.createPurchaseReturn(dto);
         return new ResponseEntity<>(created, HttpStatus.CREATED);
+    }
+
+    @org.springframework.web.bind.annotation.GetMapping
+    public ResponseEntity<java.util.List<PurchaseReturnDto>> getAllPurchaseReturns() {
+        return ResponseEntity.ok(purchaseReturnService.getAllPurchaseReturns());
+    }
+
+    @org.springframework.web.bind.annotation.GetMapping("/{id}")
+    public ResponseEntity<PurchaseReturnDto> getPurchaseReturn(
+            @org.springframework.web.bind.annotation.PathVariable java.util.UUID id) {
+        return ResponseEntity.ok(purchaseReturnService.getPurchaseReturn(id));
     }
 }

@@ -20,6 +20,8 @@ import lombok.NoArgsConstructor;
 @Entity
 @Table(name = "items")
 public class Item {
+    private static final int IMAGE_URL_MAX_LENGTH = 512;
+    private static final int BARCODE_MAX_LENGTH = 64;
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
@@ -34,12 +36,28 @@ public class Item {
     @Column(name = "hsn_code")
     private String hsnCode;
 
+    @Column(name = "category")
+    private String category;
+
     @Column(name = "tax_rate", nullable = false)
     private BigDecimal taxRate;
 
     @Column(name = "unit_price", nullable = false)
     private BigDecimal unitPrice;
 
+    @Column(name = "cogs")
+    private BigDecimal cogs;
+
     @Column(nullable = false)
     private String uom; // Unit of Measurement (e.g., PCS, KGS)
+
+    @Column(name = "image_url", length = IMAGE_URL_MAX_LENGTH)
+    private String imageUrl;
+
+    @Column(length = BARCODE_MAX_LENGTH, unique = true)
+    private String barcode;
+
+    @jakarta.persistence.ManyToOne
+    @jakarta.persistence.JoinColumn(name = "vendor_id")
+    private Party vendor;
 }

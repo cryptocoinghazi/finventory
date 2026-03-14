@@ -1,5 +1,6 @@
 package com.finventory.controller;
 
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -29,6 +30,7 @@ import com.finventory.repository.WarehouseRepository;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.UUID;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -76,8 +78,8 @@ class PurchaseInvoiceIntegrationTest {
         purchaseInvoiceRepository.deleteAll();
         salesReturnRepository.deleteAll();
         salesInvoiceRepository.deleteAll();
-        partyRepository.deleteAll();
         itemRepository.deleteAll();
+        partyRepository.deleteAll();
         warehouseRepository.deleteAll();
         userRepository.deleteAll();
 
@@ -157,7 +159,7 @@ class PurchaseInvoiceIntegrationTest {
                         .build();
 
         mockMvc.perform(
-                        post("/api/purchase-invoices")
+                        post("/api/v1/purchase-invoices")
                                 .header("Authorization", jwtToken)
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(objectMapper.writeValueAsString(request)))
@@ -188,7 +190,7 @@ class PurchaseInvoiceIntegrationTest {
                         .build();
 
         mockMvc.perform(
-                        post("/api/purchase-invoices")
+                        post("/api/v1/purchase-invoices")
                                 .header("Authorization", jwtToken)
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(objectMapper.writeValueAsString(invoiceDto)))
@@ -205,5 +207,120 @@ class PurchaseInvoiceIntegrationTest {
         Assertions.assertEquals(1, glTransactionRepository.count());
         Assertions.assertEquals(
                 4, glLineRepository.count(), "Should create 4 GL lines (AP, Purchase, CGST, SGST)");
+    }
+
+    @Test
+    void cancelPurchaseInvoice_ShouldReverseStockAndGL() throws Exception {
+        PurchaseInvoiceLineDto lineDto =
+                PurchaseInvoiceLineDto.builder()
+                        .itemId(testItem.getId())
+                        .quantity(new BigDecimal("10"))
+                        .unitPrice(new BigDecimal("50.00"))
+                        .taxRate(new BigDecimal("18.00"))
+                        .build();
+
+        PurchaseInvoiceDto invoiceDto =
+                PurchaseInvoiceDto.builder()
+                        .invoiceNumber("PINV-CANCEL-001")
+                        .vendorInvoiceNumber("VINV-CANCEL-001")
+                        .invoiceDate(LocalDate.now())
+                        .partyId(testParty.getId())
+                        .warehouseId(testWarehouse.getId())
+                        .lines(List.of(lineDto))
+                        .build();
+
+        String createdJson =
+                mockMvc.perform(
+                                post("/api/v1/purchase-invoices")
+                                        .header("Authorization", jwtToken)
+                                        .contentType(MediaType.APPLICATION_JSON)
+                                        .content(objectMapper.writeValueAsString(invoiceDto)))
+                        .andExpect(status().isCreated())
+                        .andReturn()
+                        .getResponse()
+                        .getContentAsString();
+
+        PurchaseInvoiceDto created = objectMapper.readValue(createdJson, PurchaseInvoiceDto.class);
+        UUID invoiceId = created.getId();
+
+        Assertions.assertEquals(1, stockLedgerRepository.count());
+        Assertions.assertEquals(1, glTransactionRepository.count());
+        Assertions.assertEquals(4, glLineRepository.count());
+
+        mockMvc.perform(
+                        delete("/api/v1/purchase-invoices/{id}", invoiceId)
+                                .header("Authorization", jwtToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.deletedAt").isNotEmpty())
+                .andExpect(jsonPath("$.cancelledAt").isNotEmpty());
+
+        Assertions.assertEquals(2, stockLedgerRepository.count());
+        Assertions.assertEquals(2, glTransactionRepository.count());
+        Assertions.assertEquals(8, glLineRepository.count());
+    }
+
+    @Test
+    void cancelPurchaseInvoice_ShouldRequireAdmin() throws Exception {
+        User user =
+                User.builder()
+                        .username("user")
+                        .email("user@finventory.com")
+                        .password(passwordEncoder.encode("user123"))
+                        .role(Role.USER)
+                        .build();
+        userRepository.save(user);
+
+        AuthenticationRequest loginRequest =
+                AuthenticationRequest.builder().username("user").password("user123").build();
+
+        String loginResponse =
+                mockMvc.perform(
+                                post("/api/v1/auth/login")
+                                        .contentType(MediaType.APPLICATION_JSON)
+                                        .content(objectMapper.writeValueAsString(loginRequest)))
+                        .andExpect(status().isOk())
+                        .andReturn()
+                        .getResponse()
+                        .getContentAsString();
+
+        AuthenticationResponse authResponse =
+                objectMapper.readValue(loginResponse, AuthenticationResponse.class);
+        String userToken = "Bearer " + authResponse.getToken();
+
+        PurchaseInvoiceLineDto lineDto =
+                PurchaseInvoiceLineDto.builder()
+                        .itemId(testItem.getId())
+                        .quantity(new BigDecimal("1"))
+                        .unitPrice(new BigDecimal("50.00"))
+                        .taxRate(new BigDecimal("18.00"))
+                        .build();
+
+        PurchaseInvoiceDto invoiceDto =
+                PurchaseInvoiceDto.builder()
+                        .invoiceNumber("PINV-CANCEL-002")
+                        .vendorInvoiceNumber("VINV-CANCEL-002")
+                        .invoiceDate(LocalDate.now())
+                        .partyId(testParty.getId())
+                        .warehouseId(testWarehouse.getId())
+                        .lines(List.of(lineDto))
+                        .build();
+
+        String createdJson =
+                mockMvc.perform(
+                                post("/api/v1/purchase-invoices")
+                                        .header("Authorization", jwtToken)
+                                        .contentType(MediaType.APPLICATION_JSON)
+                                        .content(objectMapper.writeValueAsString(invoiceDto)))
+                        .andExpect(status().isCreated())
+                        .andReturn()
+                        .getResponse()
+                        .getContentAsString();
+
+        PurchaseInvoiceDto created = objectMapper.readValue(createdJson, PurchaseInvoiceDto.class);
+
+        mockMvc.perform(
+                        delete("/api/v1/purchase-invoices/{id}", created.getId())
+                                .header("Authorization", userToken))
+                .andExpect(status().isForbidden());
     }
 }

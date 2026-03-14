@@ -19,7 +19,11 @@ public class ItemDto {
     @NotBlank(message = "Item code is required")
     private String code;
 
+    private String barcode;
+
     private String hsnCode;
+
+    private String category;
 
     @NotNull(message = "Tax rate is required")
     @DecimalMin(value = "0.0", inclusive = true, message = "Tax rate must be positive or zero")
@@ -29,6 +33,14 @@ public class ItemDto {
     @DecimalMin(value = "0.0", inclusive = true, message = "Unit price must be positive or zero")
     private BigDecimal unitPrice;
 
+    @DecimalMin(value = "0.0", inclusive = true, message = "COGS must be positive or zero")
+    private BigDecimal cogs;
+
     @NotBlank(message = "Unit of measurement (UOM) is required")
     private String uom;
+
+    private String imageUrl;
+
+    private UUID vendorId;
+    private String vendorName;
 }

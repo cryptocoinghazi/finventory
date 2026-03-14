@@ -19,6 +19,7 @@ import com.finventory.repository.ItemRepository;
 import com.finventory.repository.PartyRepository;
 import com.finventory.repository.PurchaseReturnRepository;
 import com.finventory.repository.SalesReturnRepository;
+import com.finventory.repository.StockAdjustmentRepository;
 import com.finventory.repository.StockLedgerRepository;
 import com.finventory.repository.UserRepository;
 import com.finventory.repository.WarehouseRepository;
@@ -68,6 +69,8 @@ public class ReportsControllerTest {
 
     @Autowired private SalesReturnRepository salesReturnRepository;
 
+    @Autowired private StockAdjustmentRepository stockAdjustmentRepository;
+
     private String jwtToken;
     private Item testItem;
     private Warehouse testWarehouse;
@@ -79,6 +82,7 @@ public class ReportsControllerTest {
         salesInvoiceRepository.deleteAll();
         purchaseReturnRepository.deleteAll();
         purchaseInvoiceRepository.deleteAll();
+        stockAdjustmentRepository.deleteAll();
         stockLedgerRepository.deleteAll();
         glLineRepository.deleteAll();
         glTransactionRepository.deleteAll();
@@ -215,6 +219,52 @@ public class ReportsControllerTest {
     }
 
     @Test
+    void getPartyOutstanding_ShouldUseNetForReceivableAndPayable() throws Exception {
+        GLTransaction debitTx =
+                GLTransaction.builder()
+                        .date(LocalDate.now().minusDays(1))
+                        .refType(GLTransaction.ReferenceType.SALES_INVOICE)
+                        .refId(UUID.randomUUID())
+                        .party(testParty)
+                        .description("Sales Invoice")
+                        .build();
+        debitTx.getLines()
+                .add(
+                        GLLine.builder()
+                                .transaction(debitTx)
+                                .accountHead("ACCOUNTS_RECEIVABLE")
+                                .debit(new BigDecimal("2000.00"))
+                                .credit(BigDecimal.ZERO)
+                                .build());
+        glTransactionRepository.save(debitTx);
+
+        GLTransaction creditTx =
+                GLTransaction.builder()
+                        .date(LocalDate.now())
+                        .refType(GLTransaction.ReferenceType.SALES_INVOICE)
+                        .refId(UUID.randomUUID())
+                        .party(testParty)
+                        .description("Sales Invoice Reversal")
+                        .build();
+        creditTx.getLines()
+                .add(
+                        GLLine.builder()
+                                .transaction(creditTx)
+                                .accountHead("ACCOUNTS_RECEIVABLE")
+                                .debit(BigDecimal.ZERO)
+                                .credit(new BigDecimal("1000.00"))
+                                .build());
+        glTransactionRepository.save(creditTx);
+
+        mockMvc.perform(get("/api/reports/party-outstanding").header("Authorization", jwtToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].partyName").value("Test Customer"))
+                .andExpect(jsonPath("$[0].netBalance").value(1000.0))
+                .andExpect(jsonPath("$[0].totalReceivable").value(1000.0))
+                .andExpect(jsonPath("$[0].totalPayable").value(0.0));
+    }
+
+    @Test
     void getGstr3b_ShouldReturnCorrectData() throws Exception {
         // 1. Setup Sales Invoice
         com.finventory.model.SalesInvoice salesInvoice =
@@ -257,5 +307,71 @@ public class ReportsControllerTest {
                 .andExpect(jsonPath("$.itcCgst").value(4.5))
                 .andExpect(jsonPath("$.itcSgst").value(4.5))
                 .andExpect(jsonPath("$.netTaxPayable").value(9.0));
+    }
+
+    @Test
+    void getSystemStatus_ShouldReturnCounts() throws Exception {
+        mockMvc.perform(get("/api/reports/system-status").header("Authorization", jwtToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.dbUp").value(true))
+                .andExpect(jsonPath("$.items").value(1))
+                .andExpect(jsonPath("$.warehouses").value(1))
+                .andExpect(jsonPath("$.parties").value(1));
+    }
+
+    @Test
+    void getActivityFeed_ShouldReturnRecentEntries() throws Exception {
+        com.finventory.model.SalesInvoice salesInvoice =
+                com.finventory.model.SalesInvoice.builder()
+                        .invoiceNumber("INV-ACT-001")
+                        .invoiceDate(LocalDate.now())
+                        .party(testParty)
+                        .warehouse(testWarehouse)
+                        .totalTaxableAmount(new BigDecimal("100.00"))
+                        .totalTaxAmount(new BigDecimal("18.00"))
+                        .totalCgstAmount(new BigDecimal("9.00"))
+                        .totalSgstAmount(new BigDecimal("9.00"))
+                        .totalIgstAmount(BigDecimal.ZERO)
+                        .grandTotal(new BigDecimal("118.00"))
+                        .build();
+        salesInvoiceRepository.save(salesInvoice);
+
+        Party vendor =
+                partyRepository.save(
+                        Party.builder()
+                                .name("Test Vendor")
+                                .type(Party.PartyType.VENDOR)
+                                .stateCode("27")
+                                .build());
+        com.finventory.model.PurchaseInvoice purchaseInvoice =
+                com.finventory.model.PurchaseInvoice.builder()
+                        .invoiceNumber("PINV-ACT-001")
+                        .invoiceDate(LocalDate.now().minusDays(1))
+                        .party(vendor)
+                        .warehouse(testWarehouse)
+                        .totalTaxableAmount(new BigDecimal("50.00"))
+                        .totalTaxAmount(new BigDecimal("9.00"))
+                        .totalCgstAmount(new BigDecimal("4.50"))
+                        .totalSgstAmount(new BigDecimal("4.50"))
+                        .totalIgstAmount(BigDecimal.ZERO)
+                        .grandTotal(new BigDecimal("59.00"))
+                        .build();
+        purchaseInvoiceRepository.save(purchaseInvoice);
+
+        com.finventory.model.StockAdjustment adjustment =
+                com.finventory.model.StockAdjustment.builder()
+                        .adjustmentNumber("ADJ-ACT-001")
+                        .adjustmentDate(LocalDate.now().minusDays(2))
+                        .warehouse(testWarehouse)
+                        .item(testItem)
+                        .quantity(new BigDecimal("-1"))
+                        .reason("Damaged")
+                        .build();
+        stockAdjustmentRepository.save(adjustment);
+
+        mockMvc.perform(get("/api/reports/activity?limit=5").header("Authorization", jwtToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].kind").value("SALES_INVOICE"))
+                .andExpect(jsonPath("$[0].title").value("Sales Invoice • INV-ACT-001"));
     }
 }

@@ -27,10 +27,44 @@ public class TaxSlabService {
         return mapToDto(taxSlabRepository.save(taxSlab));
     }
 
-    public List<TaxSlabDto> getAllTaxSlabs() {
-        return taxSlabRepository.findAll().stream()
+    public List<TaxSlabDto> getAllTaxSlabs(String search) {
+        List<TaxSlab> slabs;
+        if (search == null || search.isBlank()) {
+            slabs = taxSlabRepository.findAll();
+        } else {
+            slabs = taxSlabRepository.findByDescriptionContainingIgnoreCase(search);
+        }
+        return slabs.stream().map(this::mapToDto).collect(Collectors.toList());
+    }
+
+    public TaxSlabDto getTaxSlabById(UUID id) {
+        return taxSlabRepository
+                .findById(id)
                 .map(this::mapToDto)
-                .collect(Collectors.toList());
+                .orElseThrow(
+                        () -> new IllegalArgumentException("Tax slab not found with id: " + id));
+    }
+
+    public TaxSlabDto updateTaxSlab(UUID id, TaxSlabDto dto) {
+        TaxSlab taxSlab =
+                taxSlabRepository
+                        .findById(id)
+                        .orElseThrow(
+                                () ->
+                                        new IllegalArgumentException(
+                                                "Tax slab not found with id: " + id));
+
+        // Check rate uniqueness if changed
+        if (taxSlab.getRate().compareTo(dto.getRate()) != 0
+                && taxSlabRepository.existsByRate(dto.getRate())) {
+            throw new IllegalArgumentException(
+                    "Tax slab with rate " + dto.getRate() + " already exists");
+        }
+
+        taxSlab.setRate(dto.getRate());
+        taxSlab.setDescription(dto.getDescription());
+
+        return mapToDto(taxSlabRepository.save(taxSlab));
     }
 
     public void deleteTaxSlab(UUID id) {

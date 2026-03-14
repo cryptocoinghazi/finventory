@@ -5,6 +5,7 @@ import com.finventory.dto.PurchaseReturnLineDto;
 import com.finventory.model.Item;
 import com.finventory.model.Party;
 import com.finventory.model.PurchaseInvoice;
+import com.finventory.model.PurchaseInvoiceLine;
 import com.finventory.model.PurchaseReturn;
 import com.finventory.model.PurchaseReturnLine;
 import com.finventory.model.StockLedgerEntry;
@@ -18,6 +19,10 @@ import jakarta.persistence.EntityNotFoundException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -36,6 +41,7 @@ public class PurchaseReturnService {
     private final WarehouseRepository warehouseRepository;
     private final StockPostingService stockPostingService;
     private final GLPostingService glPostingService;
+    private final SequenceGeneratorService sequenceGeneratorService;
 
     @Transactional
     public PurchaseReturnDto createPurchaseReturn(PurchaseReturnDto dto) {
@@ -62,11 +68,53 @@ public class PurchaseReturnService {
                                     () ->
                                             new EntityNotFoundException(
                                                     "Purchase Invoice not found"));
+
+            // Validate return quantities against original invoice quantities
+            Map<java.util.UUID, BigDecimal> invoiceItemQuantities =
+                    purchaseInvoice.getLines().stream()
+                            .collect(
+                                    Collectors.toMap(
+                                            line -> line.getItem().getId(),
+                                            PurchaseInvoiceLine::getQuantity));
+
+            List<PurchaseReturn> existingReturns =
+                    purchaseReturnRepository.findByPurchaseInvoiceId(purchaseInvoice.getId());
+            Map<java.util.UUID, BigDecimal> returnedItemQuantities = new HashMap<>();
+
+            for (PurchaseReturn existingReturn : existingReturns) {
+                for (PurchaseReturnLine line : existingReturn.getLines()) {
+                    returnedItemQuantities.merge(
+                            line.getItem().getId(), line.getQuantity(), BigDecimal::add);
+                }
+            }
+
+            for (PurchaseReturnLineDto lineDto : dto.getLines()) {
+                BigDecimal originalQuantity =
+                        invoiceItemQuantities.getOrDefault(lineDto.getItemId(), BigDecimal.ZERO);
+                BigDecimal alreadyReturned =
+                        returnedItemQuantities.getOrDefault(lineDto.getItemId(), BigDecimal.ZERO);
+                BigDecimal currentReturn = lineDto.getQuantity();
+
+                if (alreadyReturned.add(currentReturn).compareTo(originalQuantity) > 0) {
+                    throw new IllegalArgumentException(
+                            "Return quantity exceeds available quantity for item: "
+                                    + lineDto.getItemId());
+                }
+            }
+        }
+
+        String returnNumber = dto.getReturnNumber();
+        if (returnNumber == null || returnNumber.trim().isEmpty()) {
+            returnNumber =
+                    sequenceGeneratorService.generateSequence(
+                            com.finventory.model.SequenceType.PURCHASE_RETURN,
+                            warehouse,
+                            dto.getReturnDate());
         }
 
         PurchaseReturn purchaseReturn =
                 PurchaseReturn.builder()
-                        .returnNumber(dto.getReturnNumber())
+                        .returnNumber(returnNumber)
                         .purchaseInvoice(purchaseInvoice)
                         .returnDate(dto.getReturnDate())
                         .party(party)
@@ -92,6 +140,43 @@ public class PurchaseReturnService {
         if (partyState != null && warehouseState != null) {
             isInterState = !partyState.equalsIgnoreCase(warehouseState);
         }
+
+        calculateReturnTotals(purchaseReturn, dto, isInterState);
+
+        PurchaseReturn savedReturn = purchaseReturnRepository.save(purchaseReturn);
+
+        // Post to Stock (OUT)
+        for (PurchaseReturnLine line : savedReturn.getLines()) {
+            stockPostingService.postStockOut(
+                    savedReturn.getReturnDate(),
+                    line.getItem(),
+                    savedReturn.getWarehouse(),
+                    line.getQuantity(),
+                    StockLedgerEntry.ReferenceType.PURCHASE_RETURN,
+                    savedReturn.getId());
+        }
+
+        // Post to GL
+        glPostingService.postPurchaseReturn(
+                savedReturn.getReturnDate(),
+                savedReturn.getId(),
+                savedReturn.getParty(),
+                savedReturn.getTotalTaxableAmount(),
+                savedReturn.getTotalCgstAmount(),
+                savedReturn.getTotalSgstAmount(),
+                savedReturn.getTotalIgstAmount(),
+                savedReturn.getGrandTotal());
+
+        return mapToDto(savedReturn);
+    }
+
+    private void calculateReturnTotals(
+            PurchaseReturn purchaseReturn, PurchaseReturnDto dto, boolean isInterState) {
+        BigDecimal totalTaxable = BigDecimal.ZERO;
+        BigDecimal totalTax = BigDecimal.ZERO;
+        BigDecimal totalCgst = BigDecimal.ZERO;
+        BigDecimal totalSgst = BigDecimal.ZERO;
+        BigDecimal totalIgst = BigDecimal.ZERO;
 
         for (PurchaseReturnLineDto lineDto : dto.getLines()) {
             Item item =
@@ -153,32 +238,19 @@ public class PurchaseReturnService {
         purchaseReturn.setTotalSgstAmount(totalSgst);
         purchaseReturn.setTotalIgstAmount(totalIgst);
         purchaseReturn.setGrandTotal(totalTaxable.add(totalTax));
+    }
 
-        PurchaseReturn savedReturn = purchaseReturnRepository.save(purchaseReturn);
+    @Transactional(readOnly = true)
+    public java.util.List<PurchaseReturnDto> getAllPurchaseReturns() {
+        return purchaseReturnRepository.findAll().stream().map(this::mapToDto).toList();
+    }
 
-        // Post to Stock (OUT)
-        for (PurchaseReturnLine line : savedReturn.getLines()) {
-            stockPostingService.postStockOut(
-                    savedReturn.getReturnDate(),
-                    line.getItem(),
-                    savedReturn.getWarehouse(),
-                    line.getQuantity(),
-                    StockLedgerEntry.ReferenceType.PURCHASE_RETURN,
-                    savedReturn.getId());
-        }
-
-        // Post to GL
-        glPostingService.postPurchaseReturn(
-                savedReturn.getReturnDate(),
-                savedReturn.getId(),
-                savedReturn.getParty(),
-                savedReturn.getTotalTaxableAmount(),
-                savedReturn.getTotalCgstAmount(),
-                savedReturn.getTotalSgstAmount(),
-                savedReturn.getTotalIgstAmount(),
-                savedReturn.getGrandTotal());
-
-        return mapToDto(savedReturn);
+    @Transactional(readOnly = true)
+    public PurchaseReturnDto getPurchaseReturn(java.util.UUID id) {
+        return purchaseReturnRepository
+                .findById(id)
+                .map(this::mapToDto)
+                .orElseThrow(() -> new EntityNotFoundException("Purchase Return not found"));
     }
 
     private PurchaseReturnDto mapToDto(PurchaseReturn returnObj) {
@@ -191,7 +263,9 @@ public class PurchaseReturnService {
                                 : null)
                 .returnDate(returnObj.getReturnDate())
                 .partyId(returnObj.getParty().getId())
+                .partyName(returnObj.getParty().getName())
                 .warehouseId(returnObj.getWarehouse().getId())
+                .warehouseName(returnObj.getWarehouse().getName())
                 .totalTaxableAmount(returnObj.getTotalTaxableAmount())
                 .totalTaxAmount(returnObj.getTotalTaxAmount())
                 .totalCgstAmount(returnObj.getTotalCgstAmount())
@@ -205,6 +279,8 @@ public class PurchaseReturnService {
                                                 PurchaseReturnLineDto.builder()
                                                         .id(line.getId())
                                                         .itemId(line.getItem().getId())
+                                                        .itemName(line.getItem().getName())
+                                                        .itemCode(line.getItem().getCode())
                                                         .quantity(line.getQuantity())
                                                         .unitPrice(line.getUnitPrice())
                                                         .taxRate(line.getTaxRate())

@@ -1,6 +1,7 @@
 package com.finventory.controller;
 
 import com.finventory.dto.PartyDto;
+import com.finventory.model.Party;
 import com.finventory.service.PartyService;
 import jakarta.validation.Valid;
 import java.util.List;
@@ -14,6 +15,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -29,8 +31,9 @@ public class PartyController {
     }
 
     @GetMapping
-    public ResponseEntity<List<PartyDto>> getAllParties() {
-        return ResponseEntity.ok(partyService.getAllParties());
+    public ResponseEntity<List<PartyDto>> getAllParties(
+            @RequestParam(required = false) Party.PartyType type) {
+        return ResponseEntity.ok(partyService.getAllParties(type));
     }
 
     @GetMapping("/{id}")
@@ -45,8 +48,10 @@ public class PartyController {
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteParty(@PathVariable UUID id) {
-        partyService.deleteParty(id);
+    public ResponseEntity<Void> deleteParty(
+            @PathVariable UUID id,
+            @RequestParam(name = "force", defaultValue = "false") boolean force) {
+        partyService.deleteParty(id, force);
         return ResponseEntity.noContent().build();
     }
 }

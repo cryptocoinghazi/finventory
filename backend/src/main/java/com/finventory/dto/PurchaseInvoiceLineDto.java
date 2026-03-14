@@ -20,6 +20,9 @@ public class PurchaseInvoiceLineDto {
     @NotNull(message = "Item ID is required")
     private UUID itemId;
 
+    private String itemName;
+    private String itemCode;
+
     @NotNull(message = "Quantity is required")
     @DecimalMin(value = "0.01", message = "Quantity must be greater than 0")
     private BigDecimal quantity;

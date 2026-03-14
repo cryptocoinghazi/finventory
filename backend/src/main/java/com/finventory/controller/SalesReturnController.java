@@ -12,7 +12,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/api/sales-returns")
+@RequestMapping("/api/v1/sales-returns")
 @RequiredArgsConstructor
 public class SalesReturnController {
 
@@ -23,5 +23,16 @@ public class SalesReturnController {
             @Valid @RequestBody SalesReturnDto dto) {
         SalesReturnDto created = salesReturnService.createSalesReturn(dto);
         return new ResponseEntity<>(created, HttpStatus.CREATED);
+    }
+
+    @org.springframework.web.bind.annotation.GetMapping
+    public ResponseEntity<java.util.List<SalesReturnDto>> getAllSalesReturns() {
+        return ResponseEntity.ok(salesReturnService.getAllSalesReturns());
+    }
+
+    @org.springframework.web.bind.annotation.GetMapping("/{id}")
+    public ResponseEntity<SalesReturnDto> getSalesReturn(
+            @org.springframework.web.bind.annotation.PathVariable java.util.UUID id) {
+        return ResponseEntity.ok(salesReturnService.getSalesReturn(id));
     }
 }

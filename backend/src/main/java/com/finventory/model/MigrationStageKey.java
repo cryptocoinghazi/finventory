@@ -1,0 +1,14 @@
+package com.finventory.model;
+
+public enum MigrationStageKey {
+    ANALYZE_SOURCE,
+    IMPORT_UNITS,
+    IMPORT_TAX_SLABS,
+    IMPORT_WAREHOUSES,
+    IMPORT_PARTIES,
+    IMPORT_ITEMS,
+    IMPORT_OPENING_STOCK,
+    ANALYZE_ORDERS,
+    IMPORT_SALES_PILOT,
+    FINALIZE
+}

@@ -5,6 +5,7 @@ import com.finventory.dto.SalesReturnLineDto;
 import com.finventory.model.Item;
 import com.finventory.model.Party;
 import com.finventory.model.SalesInvoice;
+import com.finventory.model.SalesInvoiceLine;
 import com.finventory.model.SalesReturn;
 import com.finventory.model.SalesReturnLine;
 import com.finventory.model.StockLedgerEntry;
@@ -18,6 +19,10 @@ import jakarta.persistence.EntityNotFoundException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -36,6 +41,7 @@ public class SalesReturnService {
     private final ItemRepository itemRepository;
     private final StockPostingService stockPostingService;
     private final GLPostingService glPostingService;
+    private final SequenceGeneratorService sequenceGeneratorService;
 
     @Transactional
     public SalesReturnDto createSalesReturn(SalesReturnDto dto) {
@@ -56,23 +62,59 @@ public class SalesReturnService {
                             .findById(dto.getSalesInvoiceId())
                             .orElseThrow(
                                     () -> new EntityNotFoundException("Sales Invoice not found"));
+
+            // Validate return quantities against original invoice quantities
+            Map<java.util.UUID, BigDecimal> invoiceItemQuantities =
+                    salesInvoice.getLines().stream()
+                            .collect(
+                                    Collectors.toMap(
+                                            line -> line.getItem().getId(),
+                                            SalesInvoiceLine::getQuantity));
+
+            List<SalesReturn> existingReturns =
+                    salesReturnRepository.findBySalesInvoiceId(salesInvoice.getId());
+            Map<java.util.UUID, BigDecimal> returnedItemQuantities = new HashMap<>();
+
+            for (SalesReturn existingReturn : existingReturns) {
+                for (SalesReturnLine line : existingReturn.getLines()) {
+                    returnedItemQuantities.merge(
+                            line.getItem().getId(), line.getQuantity(), BigDecimal::add);
+                }
+            }
+
+            for (SalesReturnLineDto lineDto : dto.getLines()) {
+                BigDecimal originalQuantity =
+                        invoiceItemQuantities.getOrDefault(lineDto.getItemId(), BigDecimal.ZERO);
+                BigDecimal alreadyReturned =
+                        returnedItemQuantities.getOrDefault(lineDto.getItemId(), BigDecimal.ZERO);
+                BigDecimal currentReturn = lineDto.getQuantity();
+
+                if (alreadyReturned.add(currentReturn).compareTo(originalQuantity) > 0) {
+                    throw new IllegalArgumentException(
+                            "Return quantity exceeds available quantity for item: "
+                                    + lineDto.getItemId());
+                }
+            }
+        }
+
+        String returnNumber = dto.getReturnNumber();
+        if (returnNumber == null || returnNumber.trim().isEmpty()) {
+            returnNumber =
+                    sequenceGeneratorService.generateSequence(
+                            com.finventory.model.SequenceType.SALES_RETURN,
+                            warehouse,
+                            dto.getReturnDate());
         }
 
         SalesReturn salesReturn =
                 SalesReturn.builder()
-                        .returnNumber(dto.getReturnNumber())
+                        .returnNumber(returnNumber)
                         .salesInvoice(salesInvoice)
                         .returnDate(dto.getReturnDate())
                         .party(party)
                         .warehouse(warehouse)
                         .lines(new ArrayList<>())
                         .build();
-
-        BigDecimal totalTaxable = BigDecimal.ZERO;
-        BigDecimal totalTax = BigDecimal.ZERO;
-        BigDecimal totalCgst = BigDecimal.ZERO;
-        BigDecimal totalSgst = BigDecimal.ZERO;
-        BigDecimal totalIgst = BigDecimal.ZERO;
 
         // Determine Tax Type (Inter-state vs Intra-state)
         String partyState = party.getStateCode();
@@ -85,6 +127,43 @@ public class SalesReturnService {
         if (partyState != null && warehouseState != null) {
             isInterState = !partyState.equalsIgnoreCase(warehouseState);
         }
+
+        calculateReturnTotals(salesReturn, dto, isInterState);
+
+        SalesReturn savedReturn = salesReturnRepository.save(salesReturn);
+
+        // Stock Posting (Stock IN)
+        for (SalesReturnLine line : savedReturn.getLines()) {
+            stockPostingService.postStockIn(
+                    savedReturn.getReturnDate(),
+                    line.getItem(),
+                    savedReturn.getWarehouse(),
+                    line.getQuantity(),
+                    StockLedgerEntry.ReferenceType.SALES_RETURN,
+                    savedReturn.getId());
+        }
+
+        // GL Posting
+        glPostingService.postSalesReturn(
+                savedReturn.getReturnDate(),
+                savedReturn.getId(),
+                savedReturn.getParty(),
+                savedReturn.getTotalTaxableAmount(),
+                savedReturn.getTotalCgstAmount(),
+                savedReturn.getTotalSgstAmount(),
+                savedReturn.getTotalIgstAmount(),
+                savedReturn.getGrandTotal());
+
+        return mapToDto(savedReturn);
+    }
+
+    private void calculateReturnTotals(
+            SalesReturn salesReturn, SalesReturnDto dto, boolean isInterState) {
+        BigDecimal totalTaxable = BigDecimal.ZERO;
+        BigDecimal totalTax = BigDecimal.ZERO;
+        BigDecimal totalCgst = BigDecimal.ZERO;
+        BigDecimal totalSgst = BigDecimal.ZERO;
+        BigDecimal totalIgst = BigDecimal.ZERO;
 
         for (SalesReturnLineDto lineDto : dto.getLines()) {
             Item item =
@@ -146,32 +225,19 @@ public class SalesReturnService {
         salesReturn.setTotalSgstAmount(totalSgst);
         salesReturn.setTotalIgstAmount(totalIgst);
         salesReturn.setGrandTotal(totalTaxable.add(totalTax));
+    }
 
-        SalesReturn savedReturn = salesReturnRepository.save(salesReturn);
+    @Transactional(readOnly = true)
+    public java.util.List<SalesReturnDto> getAllSalesReturns() {
+        return salesReturnRepository.findAll().stream().map(this::mapToDto).toList();
+    }
 
-        // Stock Posting (Stock IN)
-        for (SalesReturnLine line : savedReturn.getLines()) {
-            stockPostingService.postStockIn(
-                    savedReturn.getReturnDate(),
-                    line.getItem(),
-                    savedReturn.getWarehouse(),
-                    line.getQuantity(),
-                    StockLedgerEntry.ReferenceType.SALES_RETURN,
-                    savedReturn.getId());
-        }
-
-        // GL Posting
-        glPostingService.postSalesReturn(
-                savedReturn.getReturnDate(),
-                savedReturn.getId(),
-                savedReturn.getParty(),
-                savedReturn.getTotalTaxableAmount(),
-                savedReturn.getTotalCgstAmount(),
-                savedReturn.getTotalSgstAmount(),
-                savedReturn.getTotalIgstAmount(),
-                savedReturn.getGrandTotal());
-
-        return mapToDto(savedReturn);
+    @Transactional(readOnly = true)
+    public SalesReturnDto getSalesReturn(java.util.UUID id) {
+        return salesReturnRepository
+                .findById(id)
+                .map(this::mapToDto)
+                .orElseThrow(() -> new EntityNotFoundException("Sales Return not found"));
     }
 
     private SalesReturnDto mapToDto(SalesReturn salesReturn) {
@@ -184,7 +250,9 @@ public class SalesReturnService {
                                 : null)
                 .returnDate(salesReturn.getReturnDate())
                 .partyId(salesReturn.getParty().getId())
+                .partyName(salesReturn.getParty().getName())
                 .warehouseId(salesReturn.getWarehouse().getId())
+                .warehouseName(salesReturn.getWarehouse().getName())
                 .totalTaxableAmount(salesReturn.getTotalTaxableAmount())
                 .totalTaxAmount(salesReturn.getTotalTaxAmount())
                 .totalCgstAmount(salesReturn.getTotalCgstAmount())
@@ -199,6 +267,8 @@ public class SalesReturnService {
         return SalesReturnLineDto.builder()
                 .id(line.getId())
                 .itemId(line.getItem().getId())
+                .itemName(line.getItem().getName())
+                .itemCode(line.getItem().getCode())
                 .quantity(line.getQuantity())
                 .unitPrice(line.getUnitPrice())
                 .taxRate(line.getTaxRate())

@@ -26,7 +26,8 @@ public class GLPostingService {
             BigDecimal totalCgst,
             BigDecimal totalSgst,
             BigDecimal totalIgst,
-            BigDecimal grandTotal) {
+            BigDecimal grandTotal,
+            BigDecimal discountAmount) {
         GLTransaction transaction =
                 GLTransaction.builder()
                         .date(date)
@@ -58,6 +59,17 @@ public class GLPostingService {
 
         transaction.getLines().add(debitAR);
         transaction.getLines().add(creditSales);
+
+        if (discountAmount != null && discountAmount.compareTo(BigDecimal.ZERO) > 0) {
+            GLLine debitDiscount =
+                    GLLine.builder()
+                            .transaction(transaction)
+                            .accountHead("SALES_DISCOUNT_ACCOUNT")
+                            .debit(discountAmount)
+                            .credit(BigDecimal.ZERO)
+                            .build();
+            transaction.getLines().add(debitDiscount);
+        }
 
         // Credit Output Tax - CGST
         if (totalCgst.compareTo(BigDecimal.ZERO) > 0) {
@@ -93,6 +105,99 @@ public class GLPostingService {
                             .credit(totalIgst)
                             .build();
             transaction.getLines().add(creditIgst);
+        }
+
+        glTransactionRepository.save(transaction);
+    }
+
+    @Transactional
+    @SuppressWarnings("checkstyle:ParameterNumber")
+    public void postSalesInvoiceReversal(
+            LocalDate date,
+            UUID invoiceId,
+            com.finventory.model.Party party,
+            BigDecimal totalTaxable,
+            BigDecimal totalCgst,
+            BigDecimal totalSgst,
+            BigDecimal totalIgst,
+            BigDecimal grandTotal,
+            BigDecimal discountAmount) {
+        totalTaxable = totalTaxable != null ? totalTaxable : BigDecimal.ZERO;
+        totalCgst = totalCgst != null ? totalCgst : BigDecimal.ZERO;
+        totalSgst = totalSgst != null ? totalSgst : BigDecimal.ZERO;
+        totalIgst = totalIgst != null ? totalIgst : BigDecimal.ZERO;
+        grandTotal = grandTotal != null ? grandTotal : BigDecimal.ZERO;
+
+        GLTransaction transaction =
+                GLTransaction.builder()
+                        .date(date)
+                        .refType(GLTransaction.ReferenceType.SALES_INVOICE)
+                        .refId(invoiceId)
+                        .party(party)
+                        .description("Sales Invoice Reversal - " + party.getName())
+                        .build();
+
+        GLLine creditAR =
+                GLLine.builder()
+                        .transaction(transaction)
+                        .accountHead("ACCOUNTS_RECEIVABLE")
+                        .debit(BigDecimal.ZERO)
+                        .credit(grandTotal)
+                        .build();
+
+        GLLine debitSales =
+                GLLine.builder()
+                        .transaction(transaction)
+                        .accountHead("SALES_ACCOUNT")
+                        .debit(totalTaxable)
+                        .credit(BigDecimal.ZERO)
+                        .build();
+
+        transaction.getLines().add(creditAR);
+        transaction.getLines().add(debitSales);
+
+        if (discountAmount != null && discountAmount.compareTo(BigDecimal.ZERO) > 0) {
+            GLLine creditDiscount =
+                    GLLine.builder()
+                            .transaction(transaction)
+                            .accountHead("SALES_DISCOUNT_ACCOUNT")
+                            .debit(BigDecimal.ZERO)
+                            .credit(discountAmount)
+                            .build();
+            transaction.getLines().add(creditDiscount);
+        }
+
+        if (totalCgst.compareTo(BigDecimal.ZERO) > 0) {
+            GLLine debitCgst =
+                    GLLine.builder()
+                            .transaction(transaction)
+                            .accountHead("OUTPUT_CGST")
+                            .debit(totalCgst)
+                            .credit(BigDecimal.ZERO)
+                            .build();
+            transaction.getLines().add(debitCgst);
+        }
+
+        if (totalSgst.compareTo(BigDecimal.ZERO) > 0) {
+            GLLine debitSgst =
+                    GLLine.builder()
+                            .transaction(transaction)
+                            .accountHead("OUTPUT_SGST")
+                            .debit(totalSgst)
+                            .credit(BigDecimal.ZERO)
+                            .build();
+            transaction.getLines().add(debitSgst);
+        }
+
+        if (totalIgst.compareTo(BigDecimal.ZERO) > 0) {
+            GLLine debitIgst =
+                    GLLine.builder()
+                            .transaction(transaction)
+                            .accountHead("OUTPUT_IGST")
+                            .debit(totalIgst)
+                            .credit(BigDecimal.ZERO)
+                            .build();
+            transaction.getLines().add(debitIgst);
         }
 
         glTransactionRepository.save(transaction);
@@ -172,6 +277,86 @@ public class GLPostingService {
                             .credit(BigDecimal.ZERO)
                             .build();
             transaction.getLines().add(debitIgst);
+        }
+
+        glTransactionRepository.save(transaction);
+    }
+
+    @Transactional
+    @SuppressWarnings("checkstyle:ParameterNumber")
+    public void postPurchaseInvoiceReversal(
+            LocalDate date,
+            UUID invoiceId,
+            com.finventory.model.Party party,
+            BigDecimal totalTaxable,
+            BigDecimal totalCgst,
+            BigDecimal totalSgst,
+            BigDecimal totalIgst,
+            BigDecimal grandTotal) {
+        totalTaxable = totalTaxable != null ? totalTaxable : BigDecimal.ZERO;
+        totalCgst = totalCgst != null ? totalCgst : BigDecimal.ZERO;
+        totalSgst = totalSgst != null ? totalSgst : BigDecimal.ZERO;
+        totalIgst = totalIgst != null ? totalIgst : BigDecimal.ZERO;
+        grandTotal = grandTotal != null ? grandTotal : BigDecimal.ZERO;
+
+        GLTransaction transaction =
+                GLTransaction.builder()
+                        .date(date)
+                        .refType(GLTransaction.ReferenceType.PURCHASE_INVOICE)
+                        .refId(invoiceId)
+                        .party(party)
+                        .description("Purchase Invoice Reversal - " + party.getName())
+                        .build();
+
+        GLLine debitAP =
+                GLLine.builder()
+                        .transaction(transaction)
+                        .accountHead("ACCOUNTS_PAYABLE")
+                        .debit(grandTotal)
+                        .credit(BigDecimal.ZERO)
+                        .build();
+        transaction.getLines().add(debitAP);
+
+        GLLine creditPurchase =
+                GLLine.builder()
+                        .transaction(transaction)
+                        .accountHead("PURCHASE_ACCOUNT")
+                        .debit(BigDecimal.ZERO)
+                        .credit(totalTaxable)
+                        .build();
+        transaction.getLines().add(creditPurchase);
+
+        if (totalCgst.compareTo(BigDecimal.ZERO) > 0) {
+            GLLine creditCgst =
+                    GLLine.builder()
+                            .transaction(transaction)
+                            .accountHead("INPUT_CGST")
+                            .debit(BigDecimal.ZERO)
+                            .credit(totalCgst)
+                            .build();
+            transaction.getLines().add(creditCgst);
+        }
+
+        if (totalSgst.compareTo(BigDecimal.ZERO) > 0) {
+            GLLine creditSgst =
+                    GLLine.builder()
+                            .transaction(transaction)
+                            .accountHead("INPUT_SGST")
+                            .debit(BigDecimal.ZERO)
+                            .credit(totalSgst)
+                            .build();
+            transaction.getLines().add(creditSgst);
+        }
+
+        if (totalIgst.compareTo(BigDecimal.ZERO) > 0) {
+            GLLine creditIgst =
+                    GLLine.builder()
+                            .transaction(transaction)
+                            .accountHead("INPUT_IGST")
+                            .debit(BigDecimal.ZERO)
+                            .credit(totalIgst)
+                            .build();
+            transaction.getLines().add(creditIgst);
         }
 
         glTransactionRepository.save(transaction);

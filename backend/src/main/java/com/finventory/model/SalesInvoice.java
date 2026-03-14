@@ -3,6 +3,9 @@ package com.finventory.model;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -12,6 +15,7 @@ import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -46,6 +50,17 @@ public class SalesInvoice {
     @JoinColumn(name = "warehouse_id", nullable = false)
     private Warehouse warehouse;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "offer_id")
+    private Offer offer;
+
+    @Column(name = "offer_code")
+    private String offerCode;
+
+    @Builder.Default
+    @Column(name = "offer_discount_amount", nullable = false)
+    private BigDecimal offerDiscountAmount = BigDecimal.ZERO;
+
     @Column(name = "total_taxable_amount", nullable = false)
     private BigDecimal totalTaxableAmount;
 
@@ -65,6 +80,24 @@ public class SalesInvoice {
     private BigDecimal grandTotal;
 
     @Builder.Default
+    @Column(name = "paid_amount", nullable = false)
+    private BigDecimal paidAmount = BigDecimal.ZERO;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "payment_status", nullable = false)
+    @Builder.Default
+    private InvoicePaymentStatus paymentStatus = InvoicePaymentStatus.PENDING;
+
+    @Builder.Default
     @OneToMany(mappedBy = "salesInvoice", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<SalesInvoiceLine> lines = new ArrayList<>();
+
+    @Column(name = "cancelled_at")
+    private OffsetDateTime cancelledAt;
+
+    @Column(name = "deleted_at")
+    private OffsetDateTime deletedAt;
+
+    @Column(name = "cancel_reason", columnDefinition = "text")
+    private String cancelReason;
 }

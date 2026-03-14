@@ -18,7 +18,6 @@ public class PurchaseReturnDto {
 
     private UUID id;
 
-    @NotNull(message = "Return number is required")
     private String returnNumber;
 
     private UUID purchaseInvoiceId;
@@ -29,8 +28,12 @@ public class PurchaseReturnDto {
     @NotNull(message = "Party ID is required")
     private UUID partyId;
 
+    private String partyName;
+
     @NotNull(message = "Warehouse ID is required")
     private UUID warehouseId;
+
+    private String warehouseName;
 
     private BigDecimal totalTaxableAmount;
     private BigDecimal totalTaxAmount;

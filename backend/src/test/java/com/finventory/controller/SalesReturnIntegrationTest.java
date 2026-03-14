@@ -73,8 +73,8 @@ class SalesReturnIntegrationTest {
         salesInvoiceRepository.deleteAll();
         purchaseReturnRepository.deleteAll();
         purchaseInvoiceRepository.deleteAll();
-        partyRepository.deleteAll();
         itemRepository.deleteAll();
+        partyRepository.deleteAll();
         warehouseRepository.deleteAll();
         userRepository.deleteAll();
 
@@ -156,7 +156,7 @@ class SalesReturnIntegrationTest {
                         .build();
 
         mockMvc.perform(
-                        post("/api/sales-returns")
+                        post("/api/v1/sales-returns")
                                 .header("Authorization", jwtToken)
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(objectMapper.writeValueAsString(returnDto)))
