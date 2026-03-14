@@ -1,5 +1,7 @@
 package com.finventory.config;
 
+import com.finventory.model.Role;
+import com.finventory.model.User;
 import com.finventory.repository.UserRepository;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -26,10 +28,25 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 @RequiredArgsConstructor
 public class ApplicationConfig implements WebMvcConfigurer {
 
+    private static final String SEEDED_ADMIN_PASSWORD_BCRYPT =
+            "$2a$10$wPHxwfsfTnOJAdgYcerBt.utdAvC24B/DWfuXfzKBSDHO0etB1ica";
+
     private final UserRepository userRepository;
 
     @Value("${application.uploads.dir:uploads}")
     private String uploadsDir;
+
+    @Value("${application.security.bootstrap-admin.enabled:true}")
+    private boolean bootstrapAdminEnabled;
+
+    @Value("${application.security.bootstrap-admin.username:admin}")
+    private String bootstrapAdminUsername;
+
+    @Value("${application.security.bootstrap-admin.email:admin@finventory.com}")
+    private String bootstrapAdminEmail;
+
+    @Value("${application.security.bootstrap-admin.password:admin123}")
+    private String bootstrapAdminPassword;
 
     @Bean
     public UserDetailsService userDetailsService() {
@@ -42,6 +59,35 @@ public class ApplicationConfig implements WebMvcConfigurer {
     @Bean
     public ApplicationRunner ensureUploadsDirectoryExists() {
         return args -> Files.createDirectories(getUploadsPath());
+    }
+
+    @Bean
+    public ApplicationRunner ensureBootstrapAdminUser(PasswordEncoder passwordEncoder) {
+        return args -> {
+            if (!bootstrapAdminEnabled) {
+                return;
+            }
+
+            userRepository
+                    .findByUsername(bootstrapAdminUsername)
+                    .ifPresentOrElse(
+                            user -> {
+                                if (SEEDED_ADMIN_PASSWORD_BCRYPT.equals(user.getPassword())) {
+                                    user.setPassword(passwordEncoder.encode(bootstrapAdminPassword));
+                                    userRepository.save(user);
+                                }
+                            },
+                            () -> {
+                                User user =
+                                        User.builder()
+                                                .username(bootstrapAdminUsername)
+                                                .email(bootstrapAdminEmail)
+                                                .password(passwordEncoder.encode(bootstrapAdminPassword))
+                                                .role(Role.ADMIN)
+                                                .build();
+                                userRepository.save(user);
+                            });
+        };
     }
 
     @Bean
