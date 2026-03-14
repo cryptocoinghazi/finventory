@@ -1,6 +1,12 @@
 export async function POST(req: Request) {
   const { username, password } = await req.json()
-  const api = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080"
+  const configured = process.env.NEXT_PUBLIC_API_URL
+  const api =
+    configured && configured.trim()
+      ? configured.trim()
+      : process.env.NODE_ENV === "production"
+        ? new URL(req.url).origin
+        : "http://localhost:8080"
   const res = await fetch(`${api}/api/v1/auth/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -12,4 +18,3 @@ export async function POST(req: Request) {
     headers: { "Content-Type": res.headers.get("Content-Type") ?? "application/json" },
   })
 }
-

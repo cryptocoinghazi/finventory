@@ -617,8 +617,7 @@ public class ItemService {
             return matches.get(0);
         }
 
-        Party created =
-                Party.builder().name("Unassigned").type(Party.PartyType.VENDOR).build();
+        Party created = Party.builder().name("Unassigned").type(Party.PartyType.VENDOR).build();
         try {
             return partyRepository.save(created);
         } catch (Exception ignored) {
@@ -627,10 +626,7 @@ public class ItemService {
                 return vendors.get(0);
             }
             Party fallback =
-                    Party.builder()
-                            .name("Unassigned")
-                            .type(Party.PartyType.VENDOR)
-                            .build();
+                    Party.builder().name("Unassigned").type(Party.PartyType.VENDOR).build();
             return partyRepository.save(fallback);
         }
     }

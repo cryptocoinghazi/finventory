@@ -1,0 +1,18 @@
+[Unit]
+Description=Finventory Backend
+After=network.target postgresql.service
+
+[Service]
+Type=simple
+User=finventory
+Group=finventory
+WorkingDirectory=/opt/finventory/backend
+EnvironmentFile=/etc/finventory/backend.env
+ExecStart=/usr/bin/java -jar /opt/finventory/backend/finventory-backend.jar
+Restart=always
+RestartSec=5
+TimeoutStopSec=20
+SuccessExitStatus=143
+
+[Install]
+WantedBy=multi-user.target

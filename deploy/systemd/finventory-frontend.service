@@ -1,0 +1,18 @@
+[Unit]
+Description=Finventory Frontend (Next.js)
+After=network.target
+
+[Service]
+Type=simple
+User=finventory
+Group=finventory
+WorkingDirectory=/opt/finventory/app/frontend
+EnvironmentFile=/etc/finventory/frontend.env
+ExecStart=/usr/bin/npm start
+Restart=always
+RestartSec=5
+TimeoutStopSec=20
+SuccessExitStatus=143
+
+[Install]
+WantedBy=multi-user.target

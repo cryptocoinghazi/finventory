@@ -1,5 +1,11 @@
-export const API_BASE =
-  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080"
+export const API_BASE = (() => {
+  const configured = process.env.NEXT_PUBLIC_API_URL
+  if (configured && configured.trim()) return configured.trim()
+  if (typeof window !== "undefined" && process.env.NODE_ENV === "production") {
+    return window.location.origin
+  }
+  return "http://localhost:8080"
+})()
 
 export async function apiFetch(
   path: string,
