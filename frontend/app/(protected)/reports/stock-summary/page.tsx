@@ -219,6 +219,16 @@ export default function StockSummaryPage() {
                 <Button variant="outline" onClick={loadSummary} disabled={loading}>
                   Refresh
                 </Button>
+                <StockAdjustmentDialog
+                  items={items}
+                  warehouses={warehouses}
+                  onSuccess={loadSummary}
+                  trigger={
+                    <Button disabled={loading || items.length === 0 || warehouses.length === 0}>
+                      Adjust Stock
+                    </Button>
+                  }
+                />
               </div>
             }
             actions={null}
@@ -287,6 +297,16 @@ export default function StockSummaryPage() {
                 <Button variant="outline" onClick={loadLow} disabled={loading}>
                   Refresh
                 </Button>
+                <StockAdjustmentDialog
+                  items={items}
+                  warehouses={warehouses}
+                  onSuccess={loadLow}
+                  trigger={
+                    <Button disabled={loading || items.length === 0 || warehouses.length === 0}>
+                      Adjust Stock
+                    </Button>
+                  }
+                />
               </div>
             }
             actions={null}
