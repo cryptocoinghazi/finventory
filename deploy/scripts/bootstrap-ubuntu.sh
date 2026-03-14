@@ -11,7 +11,7 @@ UPLOADS_DIR="${UPLOADS_DIR:-/var/lib/finventory/uploads}"
 
 DB_NAME="${FINVENTORY_DB_NAME:-finventory}"
 DB_USER="${FINVENTORY_DB_USER:-finventory}"
-DB_PASSWORD="${FINVENTORY_DB_PASSWORD:-}"
+DB_PASSWORD="${FINVENTORY_DB_PASSWORD:-StrongPassword}"
 
 DOMAIN_NAME="${FINVENTORY_DOMAIN_NAME:-}"
 SSL_EMAIL="${FINVENTORY_SSL_EMAIL:-}"
@@ -23,11 +23,6 @@ if [[ "$(id -u)" -ne 0 ]]; then
   exit 1
 fi
 
-if [[ -z "$DB_PASSWORD" ]]; then
-  echo "Set FINVENTORY_DB_PASSWORD before running."
-  exit 1
-fi
-
 export DEBIAN_FRONTEND=noninteractive
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -35,7 +30,12 @@ bash "$SCRIPT_DIR/check-env.sh"
 
 groupadd --force "$APP_GROUP"
 if ! id "$APP_USER" >/dev/null 2>&1; then
-  useradd --system --create-home --home-dir "$APP_HOME" --shell /usr/sbin/nologin --gid "$APP_GROUP" "$APP_USER"
+  useradd --system --create-home --home-dir "$APP_HOME" --shell /bin/bash --gid "$APP_GROUP" "$APP_USER"
+else
+  current_shell="$(getent passwd "$APP_USER" | cut -d: -f7 || true)"
+  if [[ "$current_shell" != "/bin/bash" ]]; then
+    usermod -s /bin/bash "$APP_USER"
+  fi
 fi
 
 mkdir -p "$APP_HOME" "$APP_REPO_DIR" "$BACKEND_DIR" "$ENV_DIR"

@@ -55,5 +55,46 @@ nginx -t && systemctl reload nginx || true
 systemctl restart finventory-backend
 systemctl restart finventory-frontend
 
+if ! command -v curl >/dev/null 2>&1; then
+  echo "curl is required for deploy health checks. Install it (apt-get install -y curl) and re-run."
+  exit 1
+fi
+
+backend_url="http://127.0.0.1:8080/health"
+frontend_url="http://127.0.0.1:3000/"
+
+backend_ok=0
+for _ in $(seq 1 30); do
+  code="$(curl -sS -o /dev/null -w "%{http_code}" --max-time 2 "$backend_url" || echo 000)"
+  if [[ "$code" == "200" ]]; then
+    backend_ok=1
+    break
+  fi
+  sleep 2
+done
+
+frontend_ok=0
+for _ in $(seq 1 30); do
+  code="$(curl -sS -o /dev/null -w "%{http_code}" --max-time 2 "$frontend_url" || echo 000)"
+  case "$code" in
+    2*|3*) frontend_ok=1; break ;;
+  esac
+  sleep 2
+done
+
+if [[ "$backend_ok" != "1" ]]; then
+  echo "Backend failed health check: $backend_url"
+  systemctl --no-pager --full status finventory-backend || true
+  journalctl -u finventory-backend -n 200 --no-pager || true
+  exit 1
+fi
+
+if [[ "$frontend_ok" != "1" ]]; then
+  echo "Frontend failed health check: $frontend_url"
+  systemctl --no-pager --full status finventory-frontend || true
+  journalctl -u finventory-frontend -n 200 --no-pager || true
+  exit 1
+fi
+
 systemctl --no-pager --full status finventory-backend || true
 systemctl --no-pager --full status finventory-frontend || true
