@@ -592,37 +592,45 @@ public class ReportsService {
 
     @Transactional(readOnly = true)
     public List<StockReportDto.Row> getStockReport() {
+        List<com.finventory.model.Item> items = itemRepository.findAll();
+        List<com.finventory.model.Warehouse> warehouses = warehouseRepository.findAll();
         List<StockSummaryDto> summary = stockLedgerRepository.findStockSummary();
-        Map<UUID, BigDecimal> unitPriceByItem = new HashMap<>();
-        itemRepository
-                .findAll()
-                .forEach(
-                        i ->
-                                unitPriceByItem.put(
-                                        i.getId(),
-                                        i.getUnitPrice() != null
-                                                ? i.getUnitPrice()
-                                                : BigDecimal.ZERO));
 
-        List<StockReportDto.Row> rows = new ArrayList<>();
+        Map<String, StockSummaryDto> summaryByKey = new HashMap<>();
         for (StockSummaryDto s : summary) {
-            BigDecimal unitPrice = unitPriceByItem.getOrDefault(s.getItemId(), BigDecimal.ZERO);
-            BigDecimal qty = safe(s.getCurrentStock());
-            rows.add(
-                    StockReportDto.Row.builder()
-                            .itemId(s.getItemId())
-                            .itemName(s.getItemName())
-                            .itemCode(s.getItemCode())
-                            .vendorId(s.getVendorId())
-                            .vendorName(s.getVendorName())
-                            .warehouseId(s.getWarehouseId())
-                            .warehouseName(s.getWarehouseName())
-                            .currentStock(qty)
-                            .uom(s.getUom())
-                            .unitPrice(scale(unitPrice))
-                            .valuation(scale(unitPrice.multiply(qty)))
-                            .build());
+            summaryByKey.put(s.getItemId() + ":" + s.getWarehouseId(), s);
         }
+
+        List<StockReportDto.Row> rows = new ArrayList<>(items.size() * Math.max(warehouses.size(), 1));
+        for (var item : items) {
+            BigDecimal unitPrice = item.getUnitPrice() != null ? item.getUnitPrice() : BigDecimal.ZERO;
+            var vendor = item.getVendor();
+            UUID vendorId = vendor != null ? vendor.getId() : null;
+            String vendorName = vendor != null ? vendor.getName() : null;
+
+            for (var wh : warehouses) {
+                StockSummaryDto s = summaryByKey.get(item.getId() + ":" + wh.getId());
+                BigDecimal qty = s != null ? safe(s.getCurrentStock()) : BigDecimal.ZERO;
+                rows.add(
+                        StockReportDto.Row.builder()
+                                .itemId(item.getId())
+                                .itemName(item.getName())
+                                .itemCode(item.getCode())
+                                .vendorId(vendorId)
+                                .vendorName(vendorName)
+                                .warehouseId(wh.getId())
+                                .warehouseName(wh.getName())
+                                .currentStock(qty)
+                                .uom(item.getUom())
+                                .unitPrice(scale(unitPrice))
+                                .valuation(scale(unitPrice.multiply(qty)))
+                                .build());
+            }
+        }
+
+        rows.sort(
+                java.util.Comparator.comparing(StockReportDto.Row::getItemName, java.util.Comparator.nullsLast(String::compareToIgnoreCase))
+                        .thenComparing(StockReportDto.Row::getWarehouseName, java.util.Comparator.nullsLast(String::compareToIgnoreCase)));
         return rows;
     }
 

@@ -136,8 +136,23 @@ if [[ -f "$APP_REPO_DIR/deploy/nginx/finventory.conf" ]]; then
   fi
 
   nginx_needs_reload=0
-  if grep -qE "location \\^~ /api/v1/" /etc/nginx/sites-available/finventory; then
-    sed -i "s#location \\^~ /api/v1/#location ^~ /api/#" /etc/nginx/sites-available/finventory
+  if grep -qE "location \\^~ /api/\\s*\\{" /etc/nginx/sites-available/finventory; then
+    sed -i "s#location \\^~ /api/#location ^~ /api/v1/#" /etc/nginx/sites-available/finventory
+    nginx_needs_reload=1
+  fi
+
+  if ! grep -qE "location \\^~ /api/reports/" /etc/nginx/sites-available/finventory; then
+    sed -i '/^}$/i\
+\
+  location ^~ /api/reports/ {\
+    proxy_pass http://127.0.0.1:8080;\
+    proxy_http_version 1.1;\
+    proxy_set_header Host $host;\
+    proxy_set_header X-Real-IP $remote_addr;\
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;\
+    proxy_set_header X-Forwarded-Proto $scheme;\
+  }\
+' /etc/nginx/sites-available/finventory
     nginx_needs_reload=1
   fi
 
